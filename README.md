@@ -1731,3 +1731,4 @@ La evaluación no debería limitarse a "funciona". La célula debe poder **expli
 
 Este starter puede ser adaptado libremente como material de formación. Las credenciales de proveedores externos y los límites de sus planes son responsabilidad de cada equipo.
 # SkillBridge-AI-JAVA-Angular
+# SkillBridge-AI-JAVA-Angular
