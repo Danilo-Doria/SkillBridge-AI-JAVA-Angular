@@ -1,0 +1,12 @@
+flowchart TD
+    U[Usuario] --> FE[Angular]
+    FE --> NX[Nginx / Vercel Edge]
+    NX --> API[Spring Boot API]
+    API --> PG[(PostgreSQL)]
+    API --> RD[(Redis)]
+    API --> MQ[RabbitMQ]
+    API --> AI[Gemini API]
+    MQ --> C[Async Consumer]
+    API --> ACT[Actuator / Micrometer]
+    ACT --> PR[Prometheus]
+    PR --> GF[Grafana]
