@@ -17,3 +17,16 @@ frontend/dist/
 
 # OS
 .DS_Store
+
+# Angular
+frontend/.angular/
+frontend/node_modules/
+frontend/dist/
+
+# Backend
+backend/target/
+
+# Environment / secrets
+.env
+backend/.env
+frontend/.env
