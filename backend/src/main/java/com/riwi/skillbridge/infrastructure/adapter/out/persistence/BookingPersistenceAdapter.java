@@ -6,6 +6,8 @@ import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.Bookin
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingRepository;
 import org.springframework.stereotype.Component;
 import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 @Component
 public class BookingPersistenceAdapter implements BookingRepositoryPort {
@@ -19,5 +21,19 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
                 booking.id(), booking.offeringId(), booking.customerId(), booking.scheduledAt(), booking.status(), Instant.now());
         BookingEntity saved = repository.save(entity);
         return new Booking(saved.getId(), saved.getOfferingId(), saved.getCustomerId(), saved.getScheduledAt(), saved.getStatus());
+    }
+
+    @Override
+    public List<Booking> findByCustomerId(UUID customerId) {
+        return repository.findByCustomerIdOrderByScheduledAtDesc(customerId)
+            .stream()
+            .map(entity -> new Booking(
+                entity.getId(),
+                entity.getOfferingId(),
+                entity.getCustomerId(),
+                entity.getScheduledAt(),
+                entity.getStatus()
+            ))
+            .toList();
     }
 }
