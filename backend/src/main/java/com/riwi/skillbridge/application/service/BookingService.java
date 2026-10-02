@@ -53,9 +53,9 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         return saved;
     }
 
-    // nuevo servicio
+    // nuevo servicio buscar reservacion por email usuario
     @Override
-    public List<Booking> bookingsList(UUID customerId) {
-        return bookingRepository.findByCustomerId(customerId);
+    public List<Booking> bookingsList(String email) {
+        return bookingRepository.findByCustomerEmail(email);
     }
 }

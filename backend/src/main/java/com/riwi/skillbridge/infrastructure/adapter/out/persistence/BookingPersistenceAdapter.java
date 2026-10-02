@@ -1,19 +1,25 @@
 package com.riwi.skillbridge.infrastructure.adapter.out.persistence;
 
 import com.riwi.skillbridge.application.port.out.BookingRepositoryPort;
+import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.BookingEntity;
+import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.UserEntity;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingRepository;
+import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaUserRepository;
 import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 
 @Component
 public class BookingPersistenceAdapter implements BookingRepositoryPort {
     private final JpaBookingRepository repository;
+    private final JpaUserRepository userRepository;
 
-    public BookingPersistenceAdapter(JpaBookingRepository repository) { this.repository = repository; }
+    public BookingPersistenceAdapter(JpaBookingRepository repository, JpaUserRepository userRepository) {
+        this.repository = repository;
+        this.userRepository = userRepository;
+    }
 
     @Override
     public Booking save(Booking booking) {
@@ -24,8 +30,11 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
     }
 
     @Override
-    public List<Booking> findByCustomerId(UUID customerId) {
-        return repository.findByCustomerIdOrderByScheduledAtDesc(customerId)
+    public List<Booking> findByCustomerEmail(String email) {
+        UserEntity user = userRepository.findByEmailIgnoreCase(email)
+            .orElseThrow(() -> new DomainNotFoundException("Usuario no encontrado con el email: " + email));
+
+        return repository.findByCustomerIdOrderByScheduledAtDesc(user.getId())
             .stream()
             .map(entity -> new Booking(
                 entity.getId(),
