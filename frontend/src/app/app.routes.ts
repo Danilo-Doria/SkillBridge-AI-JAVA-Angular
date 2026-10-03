@@ -4,6 +4,7 @@ import { LoginComponent } from './features/login.component';
 import { AiComponent } from './features/ai.component';
 import { BookingComponent } from './features/booking.component';
 import { authGuard } from './guards/auth-guard';
+import { MyBookingsComponent } from './features/my-bookings.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -12,6 +13,7 @@ export const routes: Routes = [
   // Vistas protegidas:
   { path: 'ai', component: AiComponent, canActivate: [authGuard] },
   { path: 'book', component: BookingComponent, canActivate: [authGuard] },
+  { path: 'bookings/me', component: MyBookingsComponent, canActivate: [authGuard]},
   
   { path: '**', redirectTo: '' }
 ];
