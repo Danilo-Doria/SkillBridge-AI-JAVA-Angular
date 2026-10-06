@@ -8,8 +8,11 @@ import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.UserEn
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingRepository;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaUserRepository;
 import org.springframework.stereotype.Component;
+
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class BookingPersistenceAdapter implements BookingRepositoryPort {
@@ -19,6 +22,13 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
     public BookingPersistenceAdapter(JpaBookingRepository repository, JpaUserRepository userRepository) {
         this.repository = repository;
         this.userRepository = userRepository;
+    }
+
+    @Override
+    public Optional<Booking> findById(UUID id) {
+        return repository.findById(id).map(entity -> new Booking(
+            entity.getId(), entity.getOfferingId(), entity.getCustomerId(), entity.getScheduledAt(), entity.getStatus()
+        ));
     }
 
     @Override

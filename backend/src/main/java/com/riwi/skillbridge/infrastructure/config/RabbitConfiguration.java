@@ -16,6 +16,7 @@ public class RabbitConfiguration {
     public static final String DLQ_KEY = "booking.created.failed";
 
     @Bean TopicExchange bookingExchange() { return new TopicExchange(BOOKING_EXCHANGE, true, false); }
+    @Bean TopicExchange paymentExchange() { return new TopicExchange("payment.events", true, false); }
     @Bean DirectExchange deadLetterExchange() { return new DirectExchange(DLX, true, false); }
 
     @Bean
@@ -40,3 +41,4 @@ public class RabbitConfiguration {
 
     @Bean MessageConverter jacksonMessageConverter() { return new Jackson2JsonMessageConverter(); }
 }
+
