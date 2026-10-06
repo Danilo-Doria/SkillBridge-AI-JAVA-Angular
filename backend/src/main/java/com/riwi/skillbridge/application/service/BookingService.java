@@ -19,13 +19,13 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
     private final BookingRepositoryPort bookingRepository;
     private final OfferingRepositoryPort offeringRepository;
     private final UserAccountPort userAccountPort;
-    private final BookingEventPublisherPort eventPublisher;
+    private final NotificationPublisherPort eventPublisher;
 
     public BookingService(
         BookingRepositoryPort bookingRepository,
         OfferingRepositoryPort offeringRepository,
         UserAccountPort userAccountPort,
-        BookingEventPublisherPort eventPublisher) {
+        NotificationPublisherPort eventPublisher) {
         this.bookingRepository = bookingRepository;
         this.offeringRepository = offeringRepository;
         this.userAccountPort = userAccountPort;
