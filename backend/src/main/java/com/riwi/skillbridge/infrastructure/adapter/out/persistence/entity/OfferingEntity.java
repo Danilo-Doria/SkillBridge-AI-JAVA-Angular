@@ -11,6 +11,7 @@ public class OfferingEntity {
     @Id
     private UUID id;
     @Column(name = "provider_id", nullable = false, updatable = false)
+    private UUID providerId;
     private String title;
     private String description;
     private String category;
@@ -44,7 +45,7 @@ public class OfferingEntity {
         this.title = title;
         this.description = description;
         this. category = category;
-        this.price = price,
+        this.price = price;
         this.active = active;
     }
 }
