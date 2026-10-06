@@ -165,13 +165,17 @@ La auditoría persistirá un único registro para la transición real. Se crear�
 
 ## Comandos y resultados de pruebas
 
-No se ejecutaron pruebas en esta tarea documental. Las pruebas se ejecutarán al implementar cada cambio de comportamiento.
+Tarea 0: no se ejecutaron pruebas porque no modificó comportamiento ejecutable.
+
+Tarea 1: `mvn test -Dtest=CancelBookingCommandTest` ejecutado correctamente: 4 pruebas, 0 fallos, 0 errores y 0 omitidas.
 
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
 |---|---|---|---|---|---|---|
-| Tarea 0 | `docs/cancelacion-reserva-propia-backend.md` | Análisis, decisiones, contrato y matriz inicial. | Trazabilidad previa a implementación. | QA-01 a QA-08 | No aplica aún. | Pendiente de aprobación. |
+| Tarea 0 | `docs/cancelacion-reserva-propia-backend.md` | Análisis, decisiones, contrato y matriz inicial. | Trazabilidad previa a implementación. | QA-01 a QA-08 | No aplica aún. | `ac7e56f` |
+| Tarea 1 | `application/port/in/CancelBookingCommand.java` | Comando inmutable con id de reserva y email autenticado. | Evitar acoplamiento de la aplicación con Spring Security y HTTP. | QA-01, QA-02, QA-03, QA-06 | `CancelBookingCommandTest` | Pendiente de aprobación. |
+| Tarea 1 | `application/port/in/CancelBookingUseCase.java` | Puerto de entrada de cancelación. | Establecer el contrato del caso de uso antes de su implementación. | QA-01 a QA-06 | Compilación y `CancelBookingCommandTest`. | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 
