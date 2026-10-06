@@ -45,7 +45,7 @@ import { AuthService } from './core/auth.service';
           <a
             routerLink="/book"
             routerLinkActive="bg-slate-100 text-slate-900"
-            class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600
+            class="cursor-pointer rounded-lg px-3 py-2 text-sm font-medium text-slate-600
                    transition hover:bg-slate-50 hover:text-slate-900"
           >
             Reservar
@@ -87,7 +87,7 @@ import { AuthService } from './core/auth.service';
             <button
               type="button"
               (click)="auth.logout()"
-              class="ml-2 rounded-xl border border-slate-200 bg-white px-4 py-2
+              class="cursor-pointer ml-2 rounded-xl border border-slate-200 bg-white px-4 py-2
                      text-sm font-semibold text-slate-700 transition
                      hover:border-slate-300 hover:bg-slate-50"
             >
