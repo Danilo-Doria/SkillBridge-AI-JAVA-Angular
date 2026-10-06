@@ -1,6 +1,6 @@
 package com.riwi.skillbridge.application.service;
 
-import com.riwi.skillbridge.application.port.out.BookingEventPublisherPort;
+import com.riwi.skillbridge.application.port.out.NotificationPublisherPort;
 import com.riwi.skillbridge.application.port.out.BookingRepositoryPort;
 import com.riwi.skillbridge.application.port.out.OfferingRepositoryPort;
 import com.riwi.skillbridge.application.port.out.UserAccountPort;
@@ -23,7 +23,7 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        BookingEventPublisherPort publisher = mock(BookingEventPublisherPort.class);
+        NotificationPublisherPort publisher = mock(NotificationPublisherPort.class);
 
         UUID offeringId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();

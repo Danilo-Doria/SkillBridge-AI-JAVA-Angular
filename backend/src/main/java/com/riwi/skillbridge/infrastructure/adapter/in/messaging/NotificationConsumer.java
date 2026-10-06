@@ -8,8 +8,8 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 @Component
-public class BookingNotificationConsumer {
-    private static final Logger log = LoggerFactory.getLogger(BookingNotificationConsumer.class);
+public class NotificationConsumer {
+    private static final Logger log = LoggerFactory.getLogger(NotificationConsumer.class);
 
     @RabbitListener(queues = RabbitConfiguration.BOOKING_CREATED_QUEUE)
     public void onBookingCreated(BookingCreatedEvent event) {
