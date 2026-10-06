@@ -144,7 +144,7 @@ import { AuthService } from '../core/auth.service';
             <button
               type="button"
               (click)="submit()"
-              class="w-full rounded-xl bg-slate-950 px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-900/20"
+              class="cursor-pointer w-full rounded-xl bg-slate-950 px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-900/20"
             >
               {{ mode === 'login' ? 'Ingresar' : 'Crear cuenta' }}
             </button>
@@ -166,7 +166,7 @@ import { AuthService } from '../core/auth.service';
             <button
               type="button"
               (click)="toggle()"
-              class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-sm font-semibold text-slate-700 transition duration-200 hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-200"
+              class="cursor-pointer w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-sm font-semibold text-slate-700 transition duration-200 hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-200"
             >
               {{
                 mode === 'login'

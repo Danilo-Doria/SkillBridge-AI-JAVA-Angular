@@ -197,7 +197,7 @@ import { Offering, OfferingService } from "../core/offering.service";
                 <!-- Botón visual -->
                 <button
                   type="button"
-                  class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-900/20"
+                  class="cursor-pointer rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-900/20"
                 >
                   Reservar
                 </button>
