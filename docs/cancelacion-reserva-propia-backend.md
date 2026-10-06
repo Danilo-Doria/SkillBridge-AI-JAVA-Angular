@@ -141,12 +141,12 @@ La auditoría persistirá un único registro para la transición real. Se crear�
 
 | ID | Prueba automatizada | Estado | Evidencia | Observaciones |
 |---|---|---|---|---|
-| QA-01 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
+| QA-01 | `BookingTest` | Parcial | Transición de dominio ejecutada correctamente. | Faltan caso de uso, persistencia, auditoría, evento e integración. |
 | QA-02 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 | QA-03 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 | QA-04 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 | QA-05 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
-| QA-06 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
+| QA-06 | `BookingTest` | Parcial | Repetición de cancelación no crea una transición de dominio adicional. | Faltan persistencia, auditoría, evento e integración. |
 | QA-07 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 | QA-08 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 
@@ -169,13 +169,17 @@ Tarea 0: no se ejecutaron pruebas porque no modificó comportamiento ejecutable.
 
 Tarea 1: `mvn test -Dtest=CancelBookingCommandTest` ejecutado correctamente: 4 pruebas, 0 fallos, 0 errores y 0 omitidas.
 
+Tarea 2: `mvn test -Dtest=BookingTest` ejecutado correctamente: 4 pruebas, 0 fallos, 0 errores y 0 omitidas.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
 |---|---|---|---|---|---|---|
 | Tarea 0 | `docs/cancelacion-reserva-propia-backend.md` | Análisis, decisiones, contrato y matriz inicial. | Trazabilidad previa a implementación. | QA-01 a QA-08 | No aplica aún. | `ac7e56f` |
-| Tarea 1 | `application/port/in/CancelBookingCommand.java` | Comando inmutable con id de reserva y email autenticado. | Evitar acoplamiento de la aplicación con Spring Security y HTTP. | QA-01, QA-02, QA-03, QA-06 | `CancelBookingCommandTest` | Pendiente de aprobación. |
-| Tarea 1 | `application/port/in/CancelBookingUseCase.java` | Puerto de entrada de cancelación. | Establecer el contrato del caso de uso antes de su implementación. | QA-01 a QA-06 | Compilación y `CancelBookingCommandTest`. | Pendiente de aprobación. |
+| Tarea 1 | `application/port/in/CancelBookingCommand.java` | Comando inmutable con id de reserva y email autenticado. | Evitar acoplamiento de la aplicación con Spring Security y HTTP. | QA-01, QA-02, QA-03, QA-06 | `CancelBookingCommandTest` | `d8ca969` |
+| Tarea 1 | `application/port/in/CancelBookingUseCase.java` | Puerto de entrada de cancelación. | Establecer el contrato del caso de uso antes de su implementación. | QA-01 a QA-06 | Compilación y `CancelBookingCommandTest`. | `d8ca969` |
+| Tarea 2 | `domain/model/Booking.java` | Transición inmutable de `CREATED` a `CANCELLED` e idempotencia de `CANCELLED`. | Mantener las reglas de estado dentro del dominio. | QA-01, QA-06 | `BookingTest` | Pendiente de aprobación. |
+| Tarea 2 | `domain/model/BookingTest.java` | Pruebas de transición válida, repetida y estados inválidos. | Evitar regresiones de la máquina de estados. | QA-01, QA-06 | `BookingTest` | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 
