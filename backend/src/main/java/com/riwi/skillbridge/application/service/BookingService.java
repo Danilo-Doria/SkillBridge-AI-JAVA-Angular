@@ -1,5 +1,7 @@
 package com.riwi.skillbridge.application.service;
 
+import com.riwi.skillbridge.application.port.in.CancelBookingCommand;
+import com.riwi.skillbridge.application.port.in.CancelBookingUseCase;
 import com.riwi.skillbridge.application.port.in.CreateBookingUseCase;
 import com.riwi.skillbridge.application.port.in.ListCustomerBookingsUseCase;
 import com.riwi.skillbridge.application.port.out.*;
@@ -8,29 +10,23 @@ import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.domain.model.Offering;
+import com.riwi.skillbridge.domain.service.BookingCancellationPolicy;
 import org.springframework.stereotype.Service;
-
+import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 @Service
-public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase {
+@RequiredArgsConstructor
+public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, CancelBookingUseCase {
     private final BookingRepositoryPort bookingRepository;
     private final OfferingRepositoryPort offeringRepository;
     private final UserAccountPort userAccountPort;
-    private final NotificationPublisherPort notificationPublisher;
 
-    public BookingService(
-        BookingRepositoryPort bookingRepository,
-        OfferingRepositoryPort offeringRepository,
-        UserAccountPort userAccountPort,
-        NotificationPublisherPort notificationPublisher) {
-        this.bookingRepository = bookingRepository;
-        this.offeringRepository = offeringRepository;
-        this.userAccountPort = userAccountPort;
-        this.notificationPublisher = notificationPublisher;
-    }
+    private final BookingCancellationPolicy cancellationPolicy;
+    private final NotificationPublisherPort notificationPublisher;
 
     @Override
     public Booking create(UUID offeringId, Instant scheduledAt, String customerEmail) {
@@ -57,5 +53,26 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
     @Override
     public List<Booking> bookingsList(String email) {
         return bookingRepository.findByCustomerEmail(email);
+    }
+
+    @Override
+    @Transactional
+    public Booking cancel(CancelBookingCommand command) {
+        Booking booking = bookingRepository.findById(command.bookingId())
+                .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
+
+        UUID customerId = userAccountPort.findIdByEmail(command.customerEmail())
+                .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
+        if (!booking.customerId().equals(customerId)) {
+            throw new DomainNotFoundException("Reserva no encontrada");
+        }
+
+        Booking cancelled = booking.cancel();
+        if (cancelled == booking) {
+            return booking;
+        }
+
+        cancellationPolicy.validate(booking);
+        return bookingRepository.save(cancelled);
     }
 }

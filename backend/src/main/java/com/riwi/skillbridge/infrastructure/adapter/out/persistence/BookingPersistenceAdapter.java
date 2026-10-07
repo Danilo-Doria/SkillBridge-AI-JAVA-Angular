@@ -10,6 +10,8 @@ import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.Jp
 import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class BookingPersistenceAdapter implements BookingRepositoryPort {
@@ -27,6 +29,17 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
                 booking.id(), booking.offeringId(), booking.customerId(), booking.scheduledAt(), booking.status(), Instant.now());
         BookingEntity saved = repository.save(entity);
         return new Booking(saved.getId(), saved.getOfferingId(), saved.getCustomerId(), saved.getScheduledAt(), saved.getStatus());
+    }
+
+    @Override
+    public Optional<Booking> findById(UUID bookingId) {
+        return repository.findById(bookingId)
+                .map(entity -> new Booking(
+                        entity.getId(),
+                        entity.getOfferingId(),
+                        entity.getCustomerId(),
+                        entity.getScheduledAt(),
+                        entity.getStatus()));
     }
 
     @Override
