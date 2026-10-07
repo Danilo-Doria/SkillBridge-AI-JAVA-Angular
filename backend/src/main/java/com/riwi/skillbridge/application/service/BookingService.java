@@ -13,32 +13,28 @@ import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.domain.service.BookingCancellationPolicy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import lombok.RequiredArgsConstructor;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, CancelBookingUseCase {
     private final BookingRepositoryPort bookingRepository;
     private final OfferingRepositoryPort offeringRepository;
     private final UserAccountPort userAccountPort;
-    private final NotificationPublisherPort notificationPublisher;
+    private final BookingEventPublisherPort eventPublisher;
     private final BookingCancellationPolicy cancellationPolicy;
-
-    public BookingService(
-        BookingRepositoryPort bookingRepository,
-        OfferingRepositoryPort offeringRepository,
-        UserAccountPort userAccountPort,
-        BookingEventPublisherPort eventPublisher,
-        BookingCancellationPolicy cancellationPolicy) {
-        this.bookingRepository = bookingRepository;
-        this.offeringRepository = offeringRepository;
-        this.userAccountPort = userAccountPort;
-        this.notificationPublisher = notificationPublisher;
-        this.cancellationPolicy = cancellationPolicy;
-    }
-
+    private final NotificationPublisherPort notificationPublisher;
+@RequiredArgsConstructor
+public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, CancelBookingUseCase {
+    private final BookingRepositoryPort bookingRepository;
+    private final OfferingRepositoryPort offeringRepository;
+    private final UserAccountPort userAccountPort;
+    private final BookingEventPublisherPort eventPublisher;
+    private final BookingCancellationPolicy cancellationPolicy;
+    private final NotificationPublisherPort notificationPublisher;
     @Override
     public Booking create(UUID offeringId, Instant scheduledAt, String customerEmail) {
         if (scheduledAt.isBefore(Instant.now())) {
