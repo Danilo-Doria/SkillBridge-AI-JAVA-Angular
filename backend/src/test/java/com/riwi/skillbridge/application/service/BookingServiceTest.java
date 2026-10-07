@@ -27,7 +27,7 @@ class BookingServiceTest {
 
         UUID offeringId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        Offering offering = new Offering(offeringId, "Java", "Mentoría", "BACKEND", BigDecimal.TEN, true);
+        Offering offering = new Offering(UUID.randomUUID(), UUID.randomUUID(), "Java", "desc", "BACKEND", BigDecimal.TEN, true);
         when(offerings.findById(offeringId)).thenReturn(Optional.of(offering));
         when(users.findIdByEmail("user@example.com")).thenReturn(Optional.of(userId));
         when(bookings.save(any(Booking.class))).thenAnswer(i -> i.getArgument(0));
