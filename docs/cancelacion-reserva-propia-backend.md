@@ -141,12 +141,12 @@ La auditoría persistirá un único registro para la transición real. Se crear�
 
 | ID | Prueba automatizada | Estado | Evidencia | Observaciones |
 |---|---|---|---|---|
-| QA-01 | `BookingTest` | Parcial | Transición de dominio ejecutada correctamente. | Faltan caso de uso, persistencia, auditoría, evento e integración. |
-| QA-02 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
-| QA-03 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
-| QA-04 | `BookingCancellationPolicyTest` | Parcial | Fechas pasada y actual rechazadas por la política temporal. | Falta integración en el caso de uso y endpoint. |
-| QA-05 | `BookingCancellationPolicyTest` | Parcial | Límite exacto de 24h permitido y 23:59:59 rechazado. | Falta integración en el caso de uso y endpoint. |
-| QA-06 | `BookingTest` | Parcial | Repetición de cancelación no crea una transición de dominio adicional. | Faltan persistencia, auditoría, evento e integración. |
+| QA-01 | `BookingTest`, `BookingServiceTest` | Parcial | Transición propia válida, guardada a través del puerto simulado. | Faltan adaptador JPA, auditoría, evento e integración. |
+| QA-02 | `BookingServiceTest` | Parcial | Reserva ajena devuelve error de no encontrada; no llama a `save` ni al publicador. | Falta integración HTTP. |
+| QA-03 | `BookingServiceTest` | Parcial | UUID inexistente devuelve error de no encontrada sin llamar a usuario, `save` ni publicador. | Falta integración HTTP. |
+| QA-04 | `BookingCancellationPolicyTest` | Parcial | Fechas pasada y actual rechazadas por la política temporal. | Falta integración HTTP. |
+| QA-05 | `BookingCancellationPolicyTest`, `BookingServiceTest` | Parcial | Límite exacto de 24h permitido y 23:59:59 rechazado sin guardar ni publicar. | Falta integración HTTP. |
+| QA-06 | `BookingTest`, `BookingServiceTest` | Parcial | Repetición retorna la reserva cancelada sin guardar ni publicar. | Faltan persistencia, auditoría, evento e integración. |
 | QA-07 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 | QA-08 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 
@@ -173,6 +173,8 @@ Tarea 2: `mvn test -Dtest=BookingTest` ejecutado correctamente: 4 pruebas, 0 fal
 
 Tarea 3: `mvn test -Dtest=BookingCancellationPolicyTest` ejecutado correctamente: 5 pruebas, 0 fallos, 0 errores y 0 omitidas.
 
+Tarea 4: `mvn test -Dtest=BookingServiceTest` ejecutado correctamente: 6 pruebas, 0 fallos, 0 errores y 0 omitidas. La ejecución requiere una JVM con permiso para adjuntar el agente de Mockito.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
@@ -182,8 +184,12 @@ Tarea 3: `mvn test -Dtest=BookingCancellationPolicyTest` ejecutado correctamente
 | Tarea 1 | `application/port/in/CancelBookingUseCase.java` | Puerto de entrada de cancelación. | Establecer el contrato del caso de uso antes de su implementación. | QA-01 a QA-06 | Compilación y `CancelBookingCommandTest`. | `d8ca969` |
 | Tarea 2 | `domain/model/Booking.java` | Transición inmutable de `CREATED` a `CANCELLED` e idempotencia de `CANCELLED`. | Mantener las reglas de estado dentro del dominio. | QA-01, QA-06 | `BookingTest` | `ec3192b` |
 | Tarea 2 | `domain/model/BookingTest.java` | Pruebas de transición válida, repetida y estados inválidos. | Evitar regresiones de la máquina de estados. | QA-01, QA-06 | `BookingTest` | `ec3192b` |
-| Tarea 3 | `domain/service/BookingCancellationPolicy.java` | Política temporal con reloj inyectable y anticipación mínima configurable. | Mantener las reglas temporales fuera del controlador y probarlas de forma determinista. | QA-04, QA-05 | `BookingCancellationPolicyTest` | Pendiente de aprobación. |
-| Tarea 3 | `infrastructure/config/BookingCancellationConfiguration.java` | Configura reloj UTC y política de 24 horas. | Centralizar parámetros de aplicación sin acoplar el dominio a Spring. | QA-04, QA-05 | Prueba de política con `Clock.fixed`. | Pendiente de aprobación. |
+| Tarea 3 | `domain/service/BookingCancellationPolicy.java` | Política temporal con reloj inyectable y anticipación mínima configurable. | Mantener las reglas temporales fuera del controlador y probarlas de forma determinista. | QA-04, QA-05 | `BookingCancellationPolicyTest` | `b06d1db` |
+| Tarea 3 | `infrastructure/config/BookingCancellationConfiguration.java` | Configura reloj UTC y política de 24 horas. | Centralizar parámetros de aplicación sin acoplar el dominio a Spring. | QA-04, QA-05 | Prueba de política con `Clock.fixed`. | `b06d1db` |
+| Tarea 4 | `application/port/out/BookingRepositoryPort.java` | Consulta de reserva por UUID. | Permitir que el caso de uso identifique la reserva objetivo. | QA-01, QA-02, QA-03, QA-06 | `BookingServiceTest` | Pendiente de aprobación. |
+| Tarea 4 | `infrastructure/adapter/out/persistence/BookingPersistenceAdapter.java` | Adaptador de consulta por UUID. | Implementar el nuevo puerto sobre JPA. | QA-01, QA-02, QA-03, QA-06 | Compilación; prueba de integración pendiente. | Pendiente de aprobación. |
+| Tarea 4 | `application/service/BookingService.java` | Caso de uso transaccional con ownership, política temporal e idempotencia. | Coordinar el flujo de cancelación sin acoplarlo a HTTP o Spring Security. | QA-01 a QA-06 | `BookingServiceTest` | Pendiente de aprobación. |
+| Tarea 4 | `application/service/BookingServiceTest.java` | Casos de uso válidos, ajenos, inexistentes, temporales e idempotentes. | Verificar resultado y ausencia de persistencia o eventos en rechazos. | QA-01 a QA-06 | `BookingServiceTest` | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 
