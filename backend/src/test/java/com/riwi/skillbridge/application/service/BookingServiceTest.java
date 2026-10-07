@@ -1,7 +1,7 @@
 package com.riwi.skillbridge.application.service;
 
 import com.riwi.skillbridge.application.port.in.CancelBookingCommand;
-import com.riwi.skillbridge.application.port.out.BookingEventPublisherPort;
+
 import com.riwi.skillbridge.application.port.out.BookingRepositoryPort;
 import com.riwi.skillbridge.application.port.out.NotificationMessage;
 import com.riwi.skillbridge.application.port.out.NotificationPublisherPort;
@@ -43,7 +43,7 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
 
         UUID offeringId = UUID.randomUUID();
@@ -66,7 +66,7 @@ class BookingServiceTest {
                 bookings,
                 offerings,
                 users,
-                eventPublisher,
+                
                 notificationPublisher,
                 Instant.parse("2030-10-10T12:00:00Z")
         );
@@ -80,14 +80,10 @@ class BookingServiceTest {
         assertEquals(offeringId, result.offeringId());
         assertEquals(userId, result.customerId());
         verify(bookings).save(any(Booking.class));
-
-        ArgumentCaptor<NotificationMessage> captor =
-                ArgumentCaptor.forClass(NotificationMessage.class);
-
+        ArgumentCaptor<NotificationMessage> captor = ArgumentCaptor.forClass(NotificationMessage.class);
         verify(notificationPublisher).publish(captor.capture());
 
         NotificationMessage message = captor.getValue();
-
         assertEquals(result.id(), message.bookingId());
         assertEquals(userId, message.userId());
         assertEquals(NotificationType.BOOKING_CREATED, message.notificationType());
@@ -100,14 +96,14 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
 
         BookingService service = service(
                 bookings,
                 offerings,
                 users,
-                eventPublisher,
+                
                 notificationPublisher,
                 Instant.parse("2030-10-10T12:00:00Z")
         );
@@ -130,7 +126,7 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
 
         UUID offeringId = UUID.randomUUID();
@@ -150,7 +146,7 @@ class BookingServiceTest {
                 bookings,
                 offerings,
                 users,
-                eventPublisher,
+                
                 notificationPublisher,
                 Instant.parse("2030-10-10T12:00:00Z")
         );
@@ -173,7 +169,7 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
 
         UUID offeringId = UUID.randomUUID();
@@ -196,7 +192,7 @@ class BookingServiceTest {
                 bookings,
                 offerings,
                 users,
-                eventPublisher,
+                
                 notificationPublisher,
                 Instant.parse("2030-10-10T12:00:00Z")
         );
@@ -219,7 +215,7 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
@@ -241,7 +237,7 @@ class BookingServiceTest {
                 bookings,
                 offerings,
                 users,
-                eventPublisher,
+                
                 notificationPublisher,
                 now
         ).cancel(new CancelBookingCommand(
@@ -251,7 +247,7 @@ class BookingServiceTest {
 
         assertEquals(BookingStatus.CANCELLED, result.status());
         verify(bookings).save(result);
-        verifyNoInteractions(eventPublisher);
+        
     }
 
     @Test
@@ -259,7 +255,7 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
@@ -280,7 +276,7 @@ class BookingServiceTest {
                         bookings,
                         offerings,
                         users,
-                        eventPublisher,
+                        
                         notificationPublisher,
                         now
                 ).cancel(new CancelBookingCommand(
@@ -290,7 +286,7 @@ class BookingServiceTest {
         );
 
         verify(bookings, never()).save(any());
-        verifyNoInteractions(eventPublisher);
+        
     }
 
     @Test
@@ -298,7 +294,7 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
 
         UUID bookingId = UUID.randomUUID();
@@ -311,7 +307,7 @@ class BookingServiceTest {
                         bookings,
                         offerings,
                         users,
-                        eventPublisher,
+                        
                         notificationPublisher,
                         Instant.parse("2030-10-10T12:00:00Z")
                 ).cancel(new CancelBookingCommand(
@@ -321,7 +317,7 @@ class BookingServiceTest {
         );
 
         verify(bookings, never()).save(any());
-        verifyNoInteractions(users, eventPublisher);
+        verifyNoInteractions(users);
     }
 
     @Test
@@ -329,7 +325,7 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
@@ -351,7 +347,7 @@ class BookingServiceTest {
                         bookings,
                         offerings,
                         users,
-                        eventPublisher,
+                        
                         notificationPublisher,
                         now
                 ).cancel(new CancelBookingCommand(
@@ -361,7 +357,7 @@ class BookingServiceTest {
         );
 
         verify(bookings, never()).save(any());
-        verifyNoInteractions(eventPublisher);
+        
     }
 
     @Test
@@ -369,7 +365,7 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
@@ -389,7 +385,7 @@ class BookingServiceTest {
                 bookings,
                 offerings,
                 users,
-                eventPublisher,
+                
                 notificationPublisher,
                 now
         ).cancel(new CancelBookingCommand(
@@ -399,14 +395,14 @@ class BookingServiceTest {
 
         assertSame(booking, result);
         verify(bookings, never()).save(any());
-        verifyNoInteractions(eventPublisher);
+        
     }
 
     private BookingService service(
             BookingRepositoryPort bookings,
             OfferingRepositoryPort offerings,
             UserAccountPort users,
-            BookingEventPublisherPort eventPublisher,
+            
             NotificationPublisherPort notificationPublisher,
             Instant now) {
 
@@ -414,7 +410,7 @@ class BookingServiceTest {
                 bookings,
                 offerings,
                 users,
-                eventPublisher,
+                
                 cancellationPolicyAt(now),
                 notificationPublisher
         );

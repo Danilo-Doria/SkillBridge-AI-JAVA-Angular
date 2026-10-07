@@ -24,17 +24,10 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
     private final BookingRepositoryPort bookingRepository;
     private final OfferingRepositoryPort offeringRepository;
     private final UserAccountPort userAccountPort;
-    private final BookingEventPublisherPort eventPublisher;
+
     private final BookingCancellationPolicy cancellationPolicy;
     private final NotificationPublisherPort notificationPublisher;
-@RequiredArgsConstructor
-public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, CancelBookingUseCase {
-    private final BookingRepositoryPort bookingRepository;
-    private final OfferingRepositoryPort offeringRepository;
-    private final UserAccountPort userAccountPort;
-    private final BookingEventPublisherPort eventPublisher;
-    private final BookingCancellationPolicy cancellationPolicy;
-    private final NotificationPublisherPort notificationPublisher;
+
     @Override
     public Booking create(UUID offeringId, Instant scheduledAt, String customerEmail) {
         if (scheduledAt.isBefore(Instant.now())) {
