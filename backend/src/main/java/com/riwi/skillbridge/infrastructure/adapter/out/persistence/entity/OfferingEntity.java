@@ -29,9 +29,11 @@ public class OfferingEntity {
         this.title = title;
         this.description = description;
         this.category = category;
+        this.price = price;
         this.active = active;
         this.createdAt = Instant.now();
     }
+
     public UUID getId() { return id; }
     public UUID getProviderId() { return providerId; }
     public String getTitle() { return title; }
