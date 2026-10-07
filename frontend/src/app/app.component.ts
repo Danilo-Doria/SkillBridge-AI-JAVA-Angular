@@ -69,6 +69,17 @@ import { AuthService } from './core/auth.service';
             Mis reservas
           </a>
 
+          @if (auth.hasRole('PROVIDER', 'ADMIN')) {
+            <a
+              routerLink="/provider/offerings"
+              routerLinkActive="bg-slate-100 text-slate-900"
+              class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600
+                     transition hover:bg-slate-50 hover:text-slate-900"
+            >
+              {{ auth.hasRole('ADMIN') ? 'Gestionar servicios' : 'Mis servicios' }}
+            </a>
+          }
+
           <!-- Usuario no autenticado -->
           @if (!auth.isAuthenticated()) {
 
@@ -214,6 +225,17 @@ import { AuthService } from './core/auth.service';
           >
             Mis reservas
           </a>
+
+          @if (auth.hasRole('PROVIDER', 'ADMIN')) {
+            <a
+              routerLink="/provider/offerings"
+              routerLinkActive="bg-slate-100 text-slate-900 font-semibold"
+              (click)="closeMenu()"
+              class="rounded-xl px-4 py-3 text-base font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+            >
+              {{ auth.hasRole('ADMIN') ? 'Gestionar servicios' : 'Mis servicios' }}
+            </a>
+          }
         </nav>
       </div>
 
