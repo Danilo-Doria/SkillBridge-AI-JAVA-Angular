@@ -37,12 +37,19 @@ spring:
       timeout: 2s
   rabbitmq:
     addresses: ${RABBITMQ_URL:amqp://guest:guest@localhost:5672}
+    connection-timeout: 3s
+    publisher-confirm-type: correlated
+    publisher-returns: true
     listener:
       simple:
+        acknowledge-mode: auto
         default-requeue-rejected: false
+        prefetch: 10
         retry:
           enabled: true
           initial-interval: 2s
+          multiplier: 2.0
+          max-interval: 10s
           max-attempts: 3
 
 management:
@@ -78,3 +85,6 @@ app:
       enabled: ${AI_PROVIDER:gemini}
     openai:
       enabled: false
+  booking:
+    cancellation:
+      minimum-notice-hours: ${BOOKING_CANCELLATION_MINIMUM_NOTICE_HOURS:24}
