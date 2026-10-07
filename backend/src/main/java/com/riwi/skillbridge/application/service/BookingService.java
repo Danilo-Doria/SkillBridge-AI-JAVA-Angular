@@ -1,5 +1,7 @@
 package com.riwi.skillbridge.application.service;
 
+import com.riwi.skillbridge.application.port.in.CancelBookingCommand;
+import com.riwi.skillbridge.application.port.in.CancelBookingUseCase;
 import com.riwi.skillbridge.application.port.in.CreateBookingUseCase;
 import com.riwi.skillbridge.application.port.in.ListCustomerBookingsUseCase;
 import com.riwi.skillbridge.application.port.in.PaymentResultUseCase;
@@ -9,29 +11,22 @@ import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.domain.model.Offering;
+import com.riwi.skillbridge.domain.service.BookingCancellationPolicy;
 import org.springframework.stereotype.Service;
-
+import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 @Service
-public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, PaymentResultUseCase {
+@RequiredArgsConstructor
+public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, CancelBookingUseCase, PaymentResultUseCase {
     private final BookingRepositoryPort bookingRepository;
     private final OfferingRepositoryPort offeringRepository;
     private final UserAccountPort userAccountPort;
-    private final BookingEventPublisherPort eventPublisher;
-
-    public BookingService(
-        BookingRepositoryPort bookingRepository,
-        OfferingRepositoryPort offeringRepository,
-        UserAccountPort userAccountPort,
-        BookingEventPublisherPort eventPublisher) {
-        this.bookingRepository = bookingRepository;
-        this.offeringRepository = offeringRepository;
-        this.userAccountPort = userAccountPort;
-        this.eventPublisher = eventPublisher;
-    }
+    private final BookingCancellationPolicy cancellationPolicy;
+    private final NotificationPublisherPort notificationPublisher;
 
     @Override
     public Booking create(UUID offeringId, Instant scheduledAt, String customerEmail) {
@@ -42,7 +37,7 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         Offering offering = offeringRepository.findById(offeringId)
             .orElseThrow(() -> new DomainNotFoundException("Servicio no encontrado"));
         if (!offering.active()) {
-            throw new BusinessRuleException("El servicio no esta activo");
+            throw new BusinessRuleException("El servicio no estÃ¡ activo");
         }
 
         UUID customerId = userAccountPort.findIdByEmail(customerEmail)
@@ -50,32 +45,55 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
 
         Booking booking = new Booking(UUID.randomUUID(), offeringId, customerId, scheduledAt, BookingStatus.CREATED);
         Booking saved = bookingRepository.save(booking);
-        eventPublisher.bookingCreated(saved);
+        notificationPublisher.publish(NotificationMessage.bookingCreated(saved.id(), saved.customerId()));
         return saved;
     }
 
+    // nuevo servicio buscar reservacion por email usuario
     @Override
     public List<Booking> bookingsList(String email) {
         return bookingRepository.findByCustomerEmail(email);
     }
 
     @Override
+    @Transactional
+    public Booking cancel(CancelBookingCommand command) {
+        Booking booking = bookingRepository.findById(command.bookingId())
+                .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
+
+        UUID customerId = userAccountPort.findIdByEmail(command.customerEmail())
+                .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
+        if (!booking.customerId().equals(customerId)) {
+            throw new DomainNotFoundException("Reserva no encontrada");
+        }
+
+        Booking cancelled = booking.cancel();
+        if (cancelled == booking) {
+            return booking;
+        }
+
+        cancellationPolicy.validate(booking);
+        return bookingRepository.save(cancelled);
+    }
+
+
+    @Override
     public void processPaymentApproved(UUID bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
             .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
-            
+
         if (booking.status() != BookingStatus.CREATED) {
             throw new BusinessRuleException("La reserva no esta en estado CREATED");
         }
-        
+
         Booking confirmedBooking = new Booking(
-            booking.id(), 
-            booking.offeringId(), 
-            booking.customerId(), 
-            booking.scheduledAt(), 
+            booking.id(),
+            booking.offeringId(),
+            booking.customerId(),
+            booking.scheduledAt(),
             BookingStatus.CONFIRMED
         );
-        
+
         bookingRepository.save(confirmedBooking);
     }
 
@@ -83,20 +101,15 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
     public void processPaymentRejected(UUID bookingId, String reason) {
         Booking booking = bookingRepository.findById(bookingId)
             .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
-            
-        // Si el pago es rechazado, podriamos cancelar la reserva o simplemente dejarla pendiente/fallida.
-        // Por ahora, aplicamos la regla: "evita confirmar el flujo". La pasamos a CANCELLED o mantenemos en CREATED.
-        // Lo estandar en este flujo sería CANCELLED o dejarla esperando otro intento.
-        
+
         Booking cancelledBooking = new Booking(
-            booking.id(), 
-            booking.offeringId(), 
-            booking.customerId(), 
-            booking.scheduledAt(), 
+            booking.id(),
+            booking.offeringId(),
+            booking.customerId(),
+            booking.scheduledAt(),
             BookingStatus.CANCELLED
         );
-        
+
         bookingRepository.save(cancelledBooking);
     }
 }
-

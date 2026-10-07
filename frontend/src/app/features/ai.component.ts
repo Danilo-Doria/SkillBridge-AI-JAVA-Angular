@@ -91,7 +91,7 @@ import { apiBase } from '../core/api';
               type="button"
               [disabled]="loading"
               (click)="ask()"
-              class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-900/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              class="cursor-pointer inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-900/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               @if (loading) {
                 <!-- Indicador visual de carga -->
