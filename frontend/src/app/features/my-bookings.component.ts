@@ -207,22 +207,6 @@ import { BookingService, Booking } from '../core/booking.service';
                       {{ booking.scheduledAt | date:'medium' }}
                     </p>
                   </div>
-
-                  <!-- Separador -->
-                  <div class="border-t border-slate-100 pt-4">
-
-                    <p class="text-xs text-slate-400">
-                      ID de reserva
-                    </p>
-
-                    <p
-                      class="mt-1 truncate font-mono text-xs text-slate-500"
-                      [title]="booking.id"
-                    >
-                      {{ booking.id }}
-                    </p>
-
-                  </div>
                 </article>
               }
 
