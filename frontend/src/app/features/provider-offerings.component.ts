@@ -9,7 +9,7 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
   standalone: true,
   imports: [FormsModule, CurrencyPipe],
   template: `
-    <section class="mx-auto max-w-5xl px-4 py-10">
+    <section class="mx-auto max-w-3xl px-4 py-10">
       <h1 class="text-2xl font-bold text-slate-900">
         {{ isAdmin ? 'Todos los servicios (Admin)' : 'Mis servicios' }}
       </h1>
@@ -19,19 +19,19 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
       }
 
       <!-- Formulario crear / editar -->
-      <form class="mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2" (ngSubmit)="save()">
-        <h2 class="text-lg font-semibold sm:col-span-2">{{ editingId ? 'Editar servicio' : 'Nuevo servicio' }}</h2>
+      <form class="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" (ngSubmit)="save()">
+        <h2 class="text-lg font-semibold">{{ editingId ? 'Editar servicio' : 'Nuevo servicio' }}</h2>
 
         @if (isAdmin && !editingId) {
-          <input class="rounded-lg border border-slate-300 px-3 py-2 sm:col-span-2" name="providerId"
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="providerId"
                  [(ngModel)]="form.providerId" placeholder="providerId (UUID del Provider dueño)" required>
         }
-        <input class="rounded-lg border border-slate-300 px-3 py-2" name="title" [(ngModel)]="form.title" placeholder="Título" required>
-        <input class="rounded-lg border border-slate-300 px-3 py-2" name="category" [(ngModel)]="form.category" placeholder="Categoría" required>
-        <input class="rounded-lg border border-slate-300 px-3 py-2 sm:col-span-2" name="description" [(ngModel)]="form.description" placeholder="Descripción" required>
-        <input class="rounded-lg border border-slate-300 px-3 py-2" type="number" min="0" name="price" [(ngModel)]="form.price" placeholder="Precio" required>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="title" [(ngModel)]="form.title" placeholder="Título" required>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="category" [(ngModel)]="form.category" placeholder="Categoría" required>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="description" [(ngModel)]="form.description" placeholder="Descripción" required>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" type="number" min="0" name="price" [(ngModel)]="form.price" placeholder="Precio" required>
 
-        <div class="flex gap-2 sm:col-span-2">
+        <div class="flex gap-2">
           <button type="submit" [disabled]="loading"
                   class="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-900">
             {{ editingId ? 'Guardar cambios' : 'Crear' }}
@@ -44,12 +44,12 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
       </form>
 
       <!-- Listado -->
-      <div class="mt-8 grid gap-4">
+      <div class="mt-8 flex flex-col gap-4">
         @for (o of offerings; track o.id) {
           <article class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"
                    [class.opacity-60]="!o.active">
-            <div>
-              <div class="flex items-center gap-2">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
                 <h3 class="font-bold text-slate-900">{{ o.title }}</h3>
                 <span class="rounded bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-800">{{ o.category }}</span>
                 @if (!o.active) { <span class="rounded bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-600">Inactivo</span> }
@@ -57,7 +57,7 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
               <p class="mt-1 text-sm text-slate-500">{{ o.description }}</p>
               <p class="mt-1 text-sm font-semibold">{{ o.price | currency:'COP':'symbol-narrow':'1.0-0' }}</p>
             </div>
-            <div class="flex gap-2">
+            <div class="flex shrink-0 gap-2">
               <button type="button" (click)="edit(o)"
                       class="cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold">Editar</button>
               @if (o.active) {
