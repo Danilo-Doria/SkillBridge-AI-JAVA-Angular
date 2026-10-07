@@ -1,18 +1,17 @@
 package com.riwi.skillbridge.application.service;
 
-import com.riwi.skillbridge.application.port.out.NotificationPublisherPort;
-import com.riwi.skillbridge.application.port.out.BookingRepositoryPort;
-import com.riwi.skillbridge.application.port.out.OfferingRepositoryPort;
-import com.riwi.skillbridge.application.port.out.UserAccountPort;
+import com.riwi.skillbridge.application.port.out.*;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.Offering;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -38,6 +37,15 @@ class BookingServiceTest {
         assertEquals(offeringId, result.offeringId());
         assertEquals(userId, result.customerId());
         verify(bookings).save(any(Booking.class));
-        verify(publisher).bookingCreated(result);
+
+        ArgumentCaptor<NotificationMessage> captor = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(publisher).publish(captor.capture());
+
+        NotificationMessage message = captor.getValue();
+        assertEquals(result.id(), message.bookingId());
+        assertEquals(userId, message.userId());
+        assertEquals(NotificationType.BOOKING_CREATED, message.notificationType());
+        assertNotNull(message.eventId());
+        assertNotNull(message.occurredAt());
     }
 }

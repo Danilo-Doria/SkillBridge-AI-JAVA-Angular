@@ -19,17 +19,17 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
     private final BookingRepositoryPort bookingRepository;
     private final OfferingRepositoryPort offeringRepository;
     private final UserAccountPort userAccountPort;
-    private final NotificationPublisherPort eventPublisher;
+    private final NotificationPublisherPort notificationPublisher;
 
     public BookingService(
         BookingRepositoryPort bookingRepository,
         OfferingRepositoryPort offeringRepository,
         UserAccountPort userAccountPort,
-        NotificationPublisherPort eventPublisher) {
+        NotificationPublisherPort notificationPublisher) {
         this.bookingRepository = bookingRepository;
         this.offeringRepository = offeringRepository;
         this.userAccountPort = userAccountPort;
-        this.eventPublisher = eventPublisher;
+        this.notificationPublisher = notificationPublisher;
     }
 
     @Override
@@ -49,7 +49,7 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
 
         Booking booking = new Booking(UUID.randomUUID(), offeringId, customerId, scheduledAt, BookingStatus.CREATED);
         Booking saved = bookingRepository.save(booking);
-        eventPublisher.bookingCreated(saved);
+        notificationPublisher.publish(NotificationMessage.bookingCreated(saved.id(), saved.customerId()));
         return saved;
     }
 
