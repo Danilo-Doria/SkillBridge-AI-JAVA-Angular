@@ -31,12 +31,13 @@ public class        SecurityConfiguration {
                 .cors(cors -> {})
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/actuator/health", "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/offerings/**").permitAll()
-                        .requestMatchers("/actuator/prometheus").permitAll()
-                        .anyRequest().authenticated())
-              .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                .build();
+                    .requestMatchers("/api/auth/**", "/actuator/health", "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/offerings").permitAll()
+                    .requestMatchers("/actuator/prometheus").permitAll()
+                    .anyRequest().authenticated())
+            .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+            .build();
     }
 
     @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
