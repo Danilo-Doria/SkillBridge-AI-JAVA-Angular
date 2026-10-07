@@ -10,6 +10,7 @@ import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.domain.policy.OfferingAccessPolicy;
 import com.riwi.skillbridge.infrastructure.config.SecurityConfiguration;
 import com.riwi.skillbridge.infrastructure.security.CurrentActorResolver;
+import com.riwi.skillbridge.infrastructure.security.RestAccessDeniedHandler;
 import com.riwi.skillbridge.infrastructure.security.DatabaseUserDetailsService;
 import com.riwi.skillbridge.infrastructure.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -43,8 +45,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(
     controllers = {OfferingController.class, AdminOfferingController.class},
     properties = "app.cors.allowed-origins=http://localhost:4200")
-@Import({SecurityConfiguration.class, OfferingCommandService.class, OfferingQueryService.class,
-    OfferingService.class, OfferingAccessPolicy.class, CurrentActorResolver.class})
+@Import({SecurityConfiguration.class, RestAccessDeniedHandler.class, OfferingCommandService.class,
+    OfferingQueryService.class, OfferingService.class, OfferingAccessPolicy.class,
+    CurrentActorResolver.class})
 class OfferingSecurityTest {
 
     private static final UUID PROVIDER_ID = UUID.randomUUID();
