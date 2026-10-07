@@ -1,5 +1,6 @@
 package com.riwi.skillbridge.infrastructure.config;
 
+import com.riwi.skillbridge.infrastructure.security.RestAccessDeniedHandler;
 import com.riwi.skillbridge.infrastructure.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -25,7 +27,7 @@ import java.util.List;
 @EnableMethodSecurity
 public class        SecurityConfiguration {
     @Bean
-    SecurityFilterChain security(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
+    SecurityFilterChain security(HttpSecurity http, JwtAuthenticationFilter jwtFilter, RestAccessDeniedHandler accessDeniedHandler) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> {})
@@ -35,7 +37,9 @@ public class        SecurityConfiguration {
                     .requestMatchers(HttpMethod.GET, "/api/offerings").permitAll()
                     .requestMatchers("/actuator/prometheus").permitAll()
                     .anyRequest().authenticated())
-            .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+            .exceptionHandling(e -> e
+                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                .accessDeniedHandler(accessDeniedHandler))
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }
