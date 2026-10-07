@@ -102,14 +102,7 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         Booking booking = bookingRepository.findById(bookingId)
             .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
 
-        Booking cancelledBooking = new Booking(
-            booking.id(),
-            booking.offeringId(),
-            booking.customerId(),
-            booking.scheduledAt(),
-            BookingStatus.CANCELLED
-        );
-
-        bookingRepository.save(cancelledBooking);
+        // No alteramos el estado de la reserva, la mantenemos en CREATED
+        // para permitir que el usuario pueda intentar realizar el pago nuevamente.
     }
 }
