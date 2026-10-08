@@ -201,6 +201,8 @@ Corrección posterior: `BookingCancellationIT` excluye la autoconfiguración de 
 
 Corrección posterior: `BookingCancellationIT` simula `BookingEventPublisherPort` y desactiva el listener Kafka únicamente para esta prueba. La integración conserva PostgreSQL y RabbitMQ reales con Testcontainers, mientras verifica que el evento de negocio se publica una sola vez en las cancelaciones válidas e idempotentes. Así no intenta conectarse a `localhost:9092` ni depende del topic `booking-events`. `mvn test -Dtest=BookingCancellationIT` volvió a detenerse antes del contexto por falta de acceso local a Docker; no hubo fallos de aserción.
 
+Corrección posterior: al integrar la seguridad por cookies de `develop`, `BookingControllerSecurityTest` simula `AuthCookieService` y agrega el token CSRF a los `PATCH` que deben atravesar la protección CSRF. Con ello, la prueba sigue cubriendo el controlador de cancelación bajo la cadena de seguridad actual sin depender de una cookie real. `mvn -q -Dtest=BookingControllerSecurityTest test` terminó correctamente: 6 pruebas, 0 fallos y 0 errores.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
@@ -230,6 +232,7 @@ Corrección posterior: `BookingCancellationIT` simula `BookingEventPublisherPort
 | Tarea 10 | `docs/cancelacion-reserva-propia-backend.md` | Revisión final de criterios, QA, pruebas, alcance y riesgos. | Entregar evidencia verificable al equipo. | QA-01 a QA-08 | Suite completa intentada; pruebas con Testcontainers bloqueadas por Docker local. | Pendiente de aprobación. |
 | Corrección posterior | `BookingCancellationIT.java` | Excluye Google GenAI y simula el puerto de recomendaciones. | Evitar dependencia de credenciales Gemini en la prueba de integración. | QA-01 a QA-08 | Compila; Testcontainers bloquea el arranque antes del contexto Spring. | Pendiente de aprobación. |
 | Corrección posterior | `BookingCancellationIT.java` | Simula el puerto de eventos Kafka y desactiva su listener para la prueba; verifica una sola publicación o ausencia de ella según el caso. | Evitar la dependencia de Kafka externo y conservar la evidencia de eventos del flujo de cancelación. | QA-01 a QA-08 | Ejecución intentada; Testcontainers no puede acceder a Docker local. | Pendiente de aprobación. |
+| Corrección posterior | `BookingControllerSecurityTest.java` | Simula `AuthCookieService` y adjunta CSRF a los `PATCH` que lo requieren. | Mantener las pruebas HTTP de cancelación compatibles con la autenticación por cookies integrada desde `develop`. | QA-01 a QA-07 | `BookingControllerSecurityTest`: 6 pruebas aprobadas. | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 

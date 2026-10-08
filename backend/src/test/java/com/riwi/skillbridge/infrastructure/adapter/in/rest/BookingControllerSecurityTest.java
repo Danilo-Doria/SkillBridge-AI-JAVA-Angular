@@ -9,6 +9,7 @@ import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.infrastructure.config.SecurityConfiguration;
+import com.riwi.skillbridge.infrastructure.security.AuthCookieService;
 import com.riwi.skillbridge.infrastructure.security.DatabaseUserDetailsService;
 import com.riwi.skillbridge.infrastructure.security.JwtService;
 import com.riwi.skillbridge.infrastructure.security.RestAccessDeniedHandler;
@@ -30,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -56,13 +58,15 @@ class BookingControllerSecurityTest {
     private JwtService jwtService;
     @MockitoBean
     private DatabaseUserDetailsService userDetailsService;
+    @MockitoBean
+    private AuthCookieService authCookieService;
 
     @Test
     @WithMockUser(username = CUSTOMER_EMAIL, roles = "CUSTOMER")
     void cancela_con_el_email_del_usuario_autenticado() throws Exception {
         when(cancelBookingUseCase.cancel(any())).thenReturn(cancelledBooking());
 
-        mvc.perform(patch(cancelUrl()))
+        mvc.perform(patch(cancelUrl()).with(csrf()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(BOOKING_ID.toString()))
             .andExpect(jsonPath("$.status").value("CANCELLED"));
@@ -78,7 +82,7 @@ class BookingControllerSecurityTest {
     void segunda_cancelacion_retorna_ok_con_el_estado_cancelled() throws Exception {
         when(cancelBookingUseCase.cancel(any())).thenReturn(cancelledBooking());
 
-        mvc.perform(patch(cancelUrl()))
+        mvc.perform(patch(cancelUrl()).with(csrf()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("CANCELLED"));
     }
@@ -89,7 +93,7 @@ class BookingControllerSecurityTest {
         when(cancelBookingUseCase.cancel(any()))
             .thenThrow(new DomainNotFoundException("Reserva no encontrada"));
 
-        mvc.perform(patch(cancelUrl()))
+        mvc.perform(patch(cancelUrl()).with(csrf()))
             .andExpect(status().isNotFound());
     }
 
@@ -99,13 +103,13 @@ class BookingControllerSecurityTest {
         when(cancelBookingUseCase.cancel(any()))
             .thenThrow(new BusinessRuleException("La reserva debe cancelarse con una anticipación mínima de 24 horas"));
 
-        mvc.perform(patch(cancelUrl()))
+        mvc.perform(patch(cancelUrl()).with(csrf()))
             .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
     void sin_jwt_responde_401_y_no_ejecuta_el_caso_de_uso() throws Exception {
-        mvc.perform(patch(cancelUrl()))
+        mvc.perform(patch(cancelUrl()).with(csrf()))
             .andExpect(status().isUnauthorized());
 
         verify(cancelBookingUseCase, never()).cancel(any());
