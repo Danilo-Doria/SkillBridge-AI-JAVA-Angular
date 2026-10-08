@@ -197,6 +197,8 @@ Tarea 9: `mvn test -Dtest=BookingServiceTest` ejecutado correctamente: 9 pruebas
 
 Tarea 10: `mvn test` ejecutó 74 pruebas: 72 finalizaron correctamente, 0 fallaron por aserciones y 2 quedaron bloqueadas antes de iniciar por Testcontainers (`JpaOfferingRepositoryTest` y `BookingPersistenceAdapterTest`). La causa es la negociación de API Docker 1.32 frente al mínimo 1.40 de Docker Desktop. No hay herramientas de análisis estático o formateo configuradas en `pom.xml`. `git diff --check` terminó sin errores.
 
+Corrección posterior: `BookingCancellationIT` excluye la autoconfiguración de Google GenAI y simula `AiRecommendationPort`, evitando que la prueba de cancelación dependa de credenciales Gemini. `mvn test -Dtest=BookingCancellationIT` compiló correctamente, pero Testcontainers volvió a bloquear la ejecución antes de crear el contexto Spring.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
@@ -224,6 +226,7 @@ Tarea 10: `mvn test` ejecutó 74 pruebas: 72 finalizaron correctamente, 0 fallar
 | Tarea 9 | `BookingRepositoryPort.java`, `BookingPersistenceAdapter.java` y `JpaBookingRepository.java` | Lectura bloqueada con `PESSIMISTIC_WRITE` para la cancelación. | Serializar cancelaciones de una misma reserva y mantener el segundo resultado idempotente. | QA-08 | `BookingServiceTest` aprobado; integración pendiente por Docker. | `4109cff` |
 | Tarea 9 | `BookingService.java`, `BookingServiceTest.java` y `BookingCancellationIT.java` | El caso de uso usa la lectura bloqueada, se ajustan sus stubs y la prueba sincroniza dos `PATCH`. | Comprobar una sola transición, historial y notificación sin `Thread.sleep`. | QA-08 | 9 pruebas unitarias aprobadas; integración pendiente por Docker. | `4109cff` |
 | Tarea 10 | `docs/cancelacion-reserva-propia-backend.md` | Revisión final de criterios, QA, pruebas, alcance y riesgos. | Entregar evidencia verificable al equipo. | QA-01 a QA-08 | Suite completa intentada; pruebas con Testcontainers bloqueadas por Docker local. | Pendiente de aprobación. |
+| Corrección posterior | `BookingCancellationIT.java` | Excluye Google GenAI y simula el puerto de recomendaciones. | Evitar dependencia de credenciales Gemini en la prueba de integración. | QA-01 a QA-08 | Compila; Testcontainers bloquea el arranque antes del contexto Spring. | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 

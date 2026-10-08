@@ -1,5 +1,6 @@
 package com.riwi.skillbridge.infrastructure.adapter.in.rest;
 
+import com.riwi.skillbridge.application.port.out.AiRecommendationPort;
 import com.riwi.skillbridge.application.port.out.NotificationSenderPort;
 import com.riwi.skillbridge.application.port.out.NotificationType;
 import com.riwi.skillbridge.domain.model.BookingStatus;
@@ -68,7 +69,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "app.jwt.secret=" + BookingCancellationIT.JWT_SECRET,
     "app.jwt.expiration-minutes=30",
     "app.cors.allowed-origins=http://localhost:4200",
-    "spring.rabbitmq.listener.simple.retry.initial-interval=100ms"
+    "spring.rabbitmq.listener.simple.retry.initial-interval=100ms",
+    "spring.autoconfigure.exclude=org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration"
 })
 @AutoConfigureMockMvc
 @Testcontainers
@@ -119,6 +121,9 @@ class BookingCancellationIT {
 
     @MockitoBean
     private NotificationSenderPort notificationSender;
+
+    @MockitoBean
+    private AiRecommendationPort aiRecommendationPort;
 
     @BeforeEach
     void setUp() {
