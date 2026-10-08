@@ -62,7 +62,7 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
     @Override
     @Transactional
     public Booking cancel(CancelBookingCommand command) {
-        Booking booking = bookingRepository.findById(command.bookingId())
+        Booking booking = bookingRepository.findByIdForCancellation(command.bookingId())
                 .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
 
         UUID customerId = userAccountPort.findIdByEmail(command.customerEmail())

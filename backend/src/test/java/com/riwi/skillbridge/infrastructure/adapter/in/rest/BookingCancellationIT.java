@@ -40,7 +40,14 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -234,6 +241,35 @@ class BookingCancellationIT {
 
         assertUnchanged(bookingId);
         verify(notificationSender, never()).send(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void qa08_dos_cancelaciones_simultaneas_producen_una_sola_transicion() throws Exception {
+        UUID bookingId = persistBooking(OWNER_ID, NOW.plusSeconds(48 * 60 * 60));
+        String authorization = bearer(ownerToken());
+        CyclicBarrier startGate = new CyclicBarrier(2);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Callable<Integer> cancel = () -> {
+                startGate.await();
+                return mvc.perform(patch(cancelUrl(bookingId)).header("Authorization", authorization))
+                    .andReturn()
+                    .getResponse()
+                    .getStatus();
+            };
+            List<Future<Integer>> responses = executor.invokeAll(List.of(cancel, cancel));
+
+            assertThat(responses.get(0).get(10, TimeUnit.SECONDS)).isEqualTo(200);
+            assertThat(responses.get(1).get(10, TimeUnit.SECONDS)).isEqualTo(200);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertThat(bookingRepository.findById(bookingId).orElseThrow().getStatus()).isEqualTo(BookingStatus.CANCELLED);
+        assertThat(historyRepository.count()).isEqualTo(1);
+        verify(notificationSender, timeout(5000).times(1)).send(argThat(message ->
+            message.bookingId().equals(bookingId) && message.notificationType() == NotificationType.BOOKING_CANCELLED));
     }
 
     private UUID persistBooking(UUID customerId, Instant scheduledAt) {

@@ -232,7 +232,7 @@ class BookingServiceTest {
                 BookingStatus.CREATED
         );
 
-        when(bookings.findById(booking.id())).thenReturn(Optional.of(booking));
+        when(bookings.findByIdForCancellation(booking.id())).thenReturn(Optional.of(booking));
         when(users.findIdByEmail("customer@example.com"))
                 .thenReturn(Optional.of(customerId));
         when(bookings.save(any(Booking.class)))
@@ -282,7 +282,7 @@ class BookingServiceTest {
                 BookingStatus.CREATED
         );
 
-        when(bookings.findById(booking.id())).thenReturn(Optional.of(booking));
+        when(bookings.findByIdForCancellation(booking.id())).thenReturn(Optional.of(booking));
         when(users.findIdByEmail("other@example.com"))
                 .thenReturn(Optional.of(UUID.randomUUID()));
 
@@ -316,7 +316,7 @@ class BookingServiceTest {
 
         UUID bookingId = UUID.randomUUID();
 
-        when(bookings.findById(bookingId)).thenReturn(Optional.empty());
+        when(bookings.findByIdForCancellation(bookingId)).thenReturn(Optional.empty());
 
         assertThrows(
                 DomainNotFoundException.class,
@@ -355,7 +355,7 @@ class BookingServiceTest {
                 BookingStatus.CREATED
         );
 
-        when(bookings.findById(booking.id())).thenReturn(Optional.of(booking));
+        when(bookings.findByIdForCancellation(booking.id())).thenReturn(Optional.of(booking));
         when(users.findIdByEmail("customer@example.com"))
                 .thenReturn(Optional.of(customerId));
 
@@ -396,7 +396,7 @@ class BookingServiceTest {
                 BookingStatus.CANCELLED
         );
 
-        when(bookings.findById(booking.id())).thenReturn(Optional.of(booking));
+        when(bookings.findByIdForCancellation(booking.id())).thenReturn(Optional.of(booking));
         when(users.findIdByEmail("customer@example.com"))
                 .thenReturn(Optional.of(customerId));
 

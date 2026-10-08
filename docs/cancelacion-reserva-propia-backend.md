@@ -120,7 +120,7 @@ Las solicitudes sin JWT válido deben detenerse antes de ejecutar el caso de uso
 
 ## Concurrencia, auditoría y eventos
 
-Se propone bloqueo optimista con una versión en la entidad de persistencia. Dos solicitudes concurrentes podrán leer inicialmente `CREATED`, pero solo una debe completar la transición y producir historial y evento. La otra recibirá la respuesta idempotente controlada tras recargar el estado, o el mecanismo equivalente que se valide durante la implementación.
+La entidad conserva versión optimista como protección adicional. Para la cancelación se usa un bloqueo pesimista de escritura al leer la reserva dentro de la transacción: la primera solicitud realiza la transición y la segunda espera, vuelve a leer `CANCELLED` y retorna la respuesta idempotente sin guardar historial ni publicar otro evento. La prueba de concurrencia usa dos solicitudes sincronizadas con `CyclicBarrier`, sin depender de `Thread.sleep`.
 
 La auditoría persistirá un único registro para la transición real. Se creará un evento de dominio o aplicación `BookingCancelled` y se publicará una vez por transición efectiva. No se implementará outbox; el riesgo de fallo entre commit y RabbitMQ se mantiene documentado.
 
@@ -145,7 +145,7 @@ La implementación usa `NotificationMessage` con tipo `BOOKING_CANCELLED` y rout
 | QA-05 | Integración HTTP y BD | `BookingCancellationIT` | Reserva futura en los límites de 24h | Cancelar | Regla temporal, límite y ausencia de efectos. |
 | QA-06 | Integración HTTP, BD y RabbitMQ | `BookingCancellationIT` | Reserva cancelada por primera llamada | Cancelar de nuevo | `200`, un historial y un evento. |
 | QA-07 | Integración de seguridad | `BookingCancellationIT` | JWT ausente, expirado, alterado y encabezado inválido | Llamar endpoint | `401` y caso de uso no ejecutado. |
-| QA-08 | Persistencia y concurrencia | Pendiente | Dos ejecuciones sincronizadas | Cancelar simultáneamente | Una transición, historial y evento; datos íntegros. |
+| QA-08 | Integración HTTP, persistencia y concurrencia | `BookingCancellationIT` | Dos solicitudes sincronizadas con `CyclicBarrier` | Cancelar simultáneamente | Dos respuestas controladas, una transición, un historial y un evento. |
 
 ## Resultado de casos QA
 
@@ -158,7 +158,7 @@ La implementación usa `NotificationMessage` con tipo `BOOKING_CANCELLED` y rout
 | QA-05 | `BookingCancellationPolicyTest`, `BookingServiceTest`, `BookingCancellationIT` | Parcial | Límite exacto de 24h permitido y 23:59:59 rechazado sin guardar ni publicar. | Integración pendiente de ejecutar en Docker compatible. |
 | QA-06 | `BookingTest`, `BookingServiceTest`, `BookingCancellationIT` | Parcial | Repetición retorna la reserva cancelada sin guardar, auditar ni publicar una segunda notificación. | Integración pendiente de ejecutar en Docker compatible. |
 | QA-07 | `BookingControllerSecurityTest`, `BookingCancellationIT` | Parcial | JWT ausente o alterado retorna `401` y no invoca el caso de uso. | La prueba integral incorpora JWT real expirado y encabezado malformado, pendiente de Docker compatible. |
-| QA-08 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
+| QA-08 | `BookingCancellationIT` | Parcial | Dos solicitudes MockMvc sincronizadas; se verifica `200`, estado final, un historial y una notificación. | Compila; ejecución pendiente en Docker compatible. |
 
 ## Plan de tareas
 
@@ -193,6 +193,8 @@ Tarea 7: `mvn test -Dtest=BookingControllerSecurityTest` ejecutado correctamente
 
 Tarea 8: `mvn test -Dtest=BookingCancellationIT` compiló las 19 clases de prueba correctamente, pero no ejecutó los casos QA porque Testcontainers no pudo iniciar Ryuk. Docker Desktop exige un cliente mínimo API 1.40 y la configuración local de Testcontainers negocia API 1.32. Resultado: 1 error de infraestructura, 0 fallos de aserción. No se modificó la configuración global del equipo.
 
+Tarea 9: `mvn test -Dtest=BookingServiceTest` ejecutado correctamente: 9 pruebas, 0 fallos, 0 errores y 0 omitidas. `mvn test -Dtest=BookingCancellationIT` compiló correctamente las 90 clases de producción y las 19 clases de prueba tras incorporar el bloqueo pesimista y QA-08; Testcontainers volvió a fallar antes de ejecutar aserciones por la misma negociación de API Docker 1.32 frente al mínimo 1.40. Resultado: 1 error de infraestructura, 0 fallos de aserción.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
@@ -216,7 +218,9 @@ Tarea 8: `mvn test -Dtest=BookingCancellationIT` compiló las 19 clases de prueb
 | Tarea 6 | `BookingService.java` y `BookingServiceTest.java` | Publica una sola notificación tras la transición y auditoría efectivas. | Evitar publicaciones en rechazos o llamadas repetidas. | QA-01, QA-02, QA-03, QA-05, QA-06 | `BookingServiceTest`. | `47588e0` |
 | Tarea 7 | `BookingController.java` | Endpoint `PATCH /api/bookings/{bookingId}/cancel` que toma el email de `Authentication`. | Exponer la cancelación sin recibir identidad del cliente. | QA-01, QA-02, QA-03, QA-05, QA-06 | `BookingControllerSecurityTest`. | `48a231e` |
 | Tarea 7 | `BookingControllerSecurityTest.java` y `docs/API.md` | Pruebas MockMvc de contrato y seguridad; endpoint publicado en la referencia de API. | Validar respuestas HTTP y facilitar la integración del frontend. | QA-01, QA-02, QA-03, QA-05, QA-06, QA-07 | `BookingControllerSecurityTest`. | `48a231e` |
-| Tarea 8 | `BookingCancellationIT.java` | Prueba integral con MockMvc, JWT real, reloj fijo, PostgreSQL y RabbitMQ mediante Testcontainers. | Cubrir QA-01 a QA-07 contra adaptadores reales. | QA-01 a QA-07 | Compila; ejecución bloqueada por incompatibilidad local Docker/Testcontainers. | Pendiente de aprobación. |
+| Tarea 8 | `BookingCancellationIT.java` | Prueba integral con MockMvc, JWT real, reloj fijo, PostgreSQL y RabbitMQ mediante Testcontainers. | Cubrir QA-01 a QA-07 contra adaptadores reales. | QA-01 a QA-07 | Compila; ejecución bloqueada por incompatibilidad local Docker/Testcontainers. | `7f64a83` |
+| Tarea 9 | `BookingRepositoryPort.java`, `BookingPersistenceAdapter.java` y `JpaBookingRepository.java` | Lectura bloqueada con `PESSIMISTIC_WRITE` para la cancelación. | Serializar cancelaciones de una misma reserva y mantener el segundo resultado idempotente. | QA-08 | `BookingServiceTest` aprobado; integración pendiente por Docker. | Pendiente de aprobación. |
+| Tarea 9 | `BookingService.java`, `BookingServiceTest.java` y `BookingCancellationIT.java` | El caso de uso usa la lectura bloqueada, se ajustan sus stubs y la prueba sincroniza dos `PATCH`. | Comprobar una sola transición, historial y notificación sin `Thread.sleep`. | QA-08 | 9 pruebas unitarias aprobadas; integración pendiente por Docker. | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 
@@ -224,4 +228,4 @@ Cuando el endpoint esté implementado, el frontend deberá enviar `PATCH` a `/ap
 
 ## Decisiones pendientes
 
-No hay decisiones funcionales pendientes. Queda validar técnicamente la forma exacta de resolver el conflicto de bloqueo optimista para que la segunda solicitud concurrente conserve el contrato idempotente.
+No hay decisiones funcionales pendientes. Falta ejecutar las pruebas de integración y concurrencia en un entorno Docker compatible con Testcontainers.

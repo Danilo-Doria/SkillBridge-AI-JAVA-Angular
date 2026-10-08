@@ -47,6 +47,11 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
     }
 
     @Override
+    public Optional<Booking> findByIdForCancellation(UUID bookingId) {
+        return repository.findByIdForUpdate(bookingId).map(this::toDomain);
+    }
+
+    @Override
     public List<Booking> findByCustomerEmail(String email) {
         UserEntity user = userRepository.findByEmailIgnoreCase(email)
             .orElseThrow(() -> new DomainNotFoundException("Usuario no encontrado con el email: " + email));
