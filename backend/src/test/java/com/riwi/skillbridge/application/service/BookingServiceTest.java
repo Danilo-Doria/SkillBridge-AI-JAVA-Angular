@@ -50,14 +50,14 @@ class BookingServiceTest {
         UUID userId = UUID.randomUUID();
 
         Offering offering = new Offering(
-                offeringId,
-                "Java",
-                "Mentoría",
-                "BACKEND",
-                BigDecimal.TEN,
-                true
+            offeringId,
+            UUID.randomUUID(),
+            "Java",
+            "Mentoría",
+            "BACKEND",
+            BigDecimal.TEN,
+            true
         );
-
         when(offerings.findById(offeringId)).thenReturn(Optional.of(offering));
         when(users.findIdByEmail("user@example.com")).thenReturn(Optional.of(userId));
         when(bookings.save(any(Booking.class))).thenAnswer(i -> i.getArgument(0));
@@ -134,6 +134,7 @@ class BookingServiceTest {
         when(offerings.findById(offeringId)).thenReturn(Optional.of(
                 new Offering(
                         offeringId,
+                        UUID.randomUUID(),
                         "Java",
                         "Mentoría",
                         "BACKEND",
@@ -177,6 +178,7 @@ class BookingServiceTest {
         when(offerings.findById(offeringId)).thenReturn(Optional.of(
                 new Offering(
                         offeringId,
+                        UUID.randomUUID(),
                         "Java",
                         "Mentoría",
                         "BACKEND",
