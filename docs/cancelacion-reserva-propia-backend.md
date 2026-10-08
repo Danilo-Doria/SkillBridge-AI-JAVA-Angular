@@ -138,13 +138,13 @@ La implementación usa `NotificationMessage` con tipo `BOOKING_CANCELLED` y rout
 
 | ID | Nivel de prueba | Clase de prueba | Preparación | Acción | Verificaciones |
 |---|---|---|---|---|---|
-| QA-01 | Dominio, caso de uso e integración | Pendiente | Propia, `CREATED`, futura y con >=24h | Cancelar | Estado, persistencia, historial, evento y consulta posterior. |
-| QA-02 | Caso de uso e integración | Pendiente | JWT válido de otro usuario | Cancelar | 404; reserva, historial y evento intactos. |
-| QA-03 | Caso de uso e integración | Pendiente | UUID inexistente | Cancelar | 404 y ausencia de efectos. |
-| QA-04 | Dominio y caso de uso | Pendiente | Reserva propia con sesión pasada | Cancelar | 422 y ausencia de efectos. |
-| QA-05 | Dominio y caso de uso | Pendiente | Reserva futura en los límites de 24h | Cancelar | Regla temporal, límites y ausencia de efectos. |
-| QA-06 | Caso de uso e integración | Pendiente | Reserva cancelada por primera llamada | Cancelar de nuevo | 200, un historial y un evento. |
-| QA-07 | Seguridad HTTP | Pendiente | JWT ausente, expirado, alterado o malformado | Llamar endpoint | 401 y caso de uso no ejecutado. |
+| QA-01 | Dominio, caso de uso e integración HTTP | `BookingControllerSecurityTest` | Propia, `CREATED`, futura y con >=24h | Cancelar | `200`, estado `CANCELLED`, persistencia, historial, evento y consulta posterior. |
+| QA-02 | Caso de uso e integración HTTP | `BookingServiceTest`, `BookingControllerSecurityTest` | JWT válido de otro usuario | Cancelar | `404`; reserva, historial y evento intactos. |
+| QA-03 | Caso de uso e integración HTTP | `BookingServiceTest`, `BookingControllerSecurityTest` | UUID inexistente | Cancelar | `404` y ausencia de efectos. |
+| QA-04 | Dominio y caso de uso | `BookingCancellationPolicyTest` | Reserva propia con sesión pasada | Cancelar | `422` y ausencia de efectos. |
+| QA-05 | Dominio y caso de uso | `BookingCancellationPolicyTest`, `BookingControllerSecurityTest` | Reserva futura en los límites de 24h | Cancelar | Regla temporal, límites y ausencia de efectos. |
+| QA-06 | Caso de uso e integración HTTP | `BookingServiceTest`, `BookingControllerSecurityTest` | Reserva cancelada por primera llamada | Cancelar de nuevo | `200`, un historial y un evento. |
+| QA-07 | Seguridad HTTP | `BookingControllerSecurityTest` | JWT ausente o alterado | Llamar endpoint | `401` y caso de uso no ejecutado. |
 | QA-08 | Persistencia y concurrencia | Pendiente | Dos ejecuciones sincronizadas | Cancelar simultáneamente | Una transición, historial y evento; datos íntegros. |
 
 ## Resultado de casos QA
@@ -157,7 +157,7 @@ La implementación usa `NotificationMessage` con tipo `BOOKING_CANCELLED` y rout
 | QA-04 | `BookingCancellationPolicyTest` | Parcial | Fechas pasada y actual rechazadas por la política temporal. | Falta integración HTTP. |
 | QA-05 | `BookingCancellationPolicyTest`, `BookingServiceTest` | Parcial | Límite exacto de 24h permitido y 23:59:59 rechazado sin guardar ni publicar. | Falta integración HTTP. |
 | QA-06 | `BookingTest`, `BookingServiceTest` | Parcial | Repetición retorna la reserva cancelada sin guardar, auditar ni publicar una segunda notificación. | Falta integración HTTP. |
-| QA-07 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
+| QA-07 | `BookingControllerSecurityTest` | Parcial | JWT ausente o alterado retorna `401` y no invoca el caso de uso. | Faltan pruebas con JWT real expirado y encabezado malformado en integración. |
 | QA-08 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 
 ## Plan de tareas
@@ -189,6 +189,8 @@ Tarea 5: `mvn test -Dtest=BookingServiceTest,BookingTest,BookingCancellationPoli
 
 Tarea 6: `mvn test -Dtest=BookingServiceTest,NotificationMessageTest,RabbitNotificationPublisherTest` ejecutado correctamente: 16 pruebas, 0 fallos, 0 errores y 0 omitidas. La prueba de fallo de RabbitMQ registra el error esperado sin propagarlo.
 
+Tarea 7: `mvn test -Dtest=BookingControllerSecurityTest` ejecutado correctamente: 6 pruebas, 0 fallos, 0 errores y 0 omitidas. Cubre el contrato `PATCH`, la identidad tomada del contexto de seguridad, las respuestas `404` y `422`, la repetición idempotente y JWT ausente o alterado.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
@@ -208,8 +210,10 @@ Tarea 6: `mvn test -Dtest=BookingServiceTest,NotificationMessageTest,RabbitNotif
 | Tarea 5 | `domain/model/Booking.java` y `BookingStatusHistory.java` | Versión del agregado y registro inmutable de cambio de estado. | Propagar control de concurrencia y representar la auditoría en el dominio. | QA-01, QA-06, QA-08 | Pruebas unitarias de dominio y servicio. | `284ae46` |
 | Tarea 5 | `application/port/out/BookingStatusHistoryPort.java` y adaptador JPA | Puerto y persistencia del historial. | Mantener la aplicación independiente de JPA. | QA-01, QA-06, QA-08 | `BookingServiceTest`; integración pendiente por entorno Docker. | `284ae46` |
 | Tarea 5 | `application/service/BookingService.java` y `BookingServiceTest.java` | Guarda una auditoría única tras una transición efectiva y verifica ausencia de efectos en rechazos. | Mantener reserva e historial dentro de la transacción. | QA-01 a QA-06 | 18 pruebas unitarias seleccionadas. | `284ae46` |
-| Tarea 6 | `NotificationType`, `NotificationMessage`, `RabbitConfiguration` y `RabbitNotificationPublisher` | Tipo, mensaje y routing key de cancelación. | Publicar la cancelación mediante la infraestructura de notificaciones corregida. | QA-01, QA-06, QA-08 | Pruebas de mensaje y publicador Rabbit. | Pendiente de aprobación. |
-| Tarea 6 | `BookingService.java` y `BookingServiceTest.java` | Publica una sola notificación tras la transición y auditoría efectivas. | Evitar publicaciones en rechazos o llamadas repetidas. | QA-01, QA-02, QA-03, QA-05, QA-06 | `BookingServiceTest`. | Pendiente de aprobación. |
+| Tarea 6 | `NotificationType`, `NotificationMessage`, `RabbitConfiguration` y `RabbitNotificationPublisher` | Tipo, mensaje y routing key de cancelación. | Publicar la cancelación mediante la infraestructura de notificaciones corregida. | QA-01, QA-06, QA-08 | Pruebas de mensaje y publicador Rabbit. | `47588e0` |
+| Tarea 6 | `BookingService.java` y `BookingServiceTest.java` | Publica una sola notificación tras la transición y auditoría efectivas. | Evitar publicaciones en rechazos o llamadas repetidas. | QA-01, QA-02, QA-03, QA-05, QA-06 | `BookingServiceTest`. | `47588e0` |
+| Tarea 7 | `BookingController.java` | Endpoint `PATCH /api/bookings/{bookingId}/cancel` que toma el email de `Authentication`. | Exponer la cancelación sin recibir identidad del cliente. | QA-01, QA-02, QA-03, QA-05, QA-06 | `BookingControllerSecurityTest`. | Pendiente de aprobación. |
+| Tarea 7 | `BookingControllerSecurityTest.java` y `docs/API.md` | Pruebas MockMvc de contrato y seguridad; endpoint publicado en la referencia de API. | Validar respuestas HTTP y facilitar la integración del frontend. | QA-01, QA-02, QA-03, QA-05, QA-06, QA-07 | `BookingControllerSecurityTest`. | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 

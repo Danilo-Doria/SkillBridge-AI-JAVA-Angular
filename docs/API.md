@@ -8,6 +8,7 @@ Base path: `/api`
 | POST | `/auth/login` | Public | Login and return JWT |
 | GET | `/offerings` | Public | Active catalog; Redis-backed |
 | POST | `/bookings` | Bearer JWT | Persist booking and publish event |
+| PATCH | `/bookings/{bookingId}/cancel` | Bearer JWT | Cancel own booking when allowed |
 | POST | `/ai/recommendations` | Bearer JWT | Generate catalog-grounded recommendation |
 
 
