@@ -10,7 +10,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  return next(req).pipe(
+  // Asegurar que las cookies viajen en peticiones cross-origin
+  const clonedReq = req.clone({
+    withCredentials: true
+  });
+
+  return next(clonedReq).pipe(
     catchError((err: HttpErrorResponse) => {
       const isAuthCall = AUTH_PATHS.some(p => req.url.includes(p));
       if (err.status === 401 && !isAuthCall && auth.isAuthenticated()) {
