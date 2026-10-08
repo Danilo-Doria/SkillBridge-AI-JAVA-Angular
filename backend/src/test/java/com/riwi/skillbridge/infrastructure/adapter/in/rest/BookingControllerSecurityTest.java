@@ -109,7 +109,7 @@ class BookingControllerSecurityTest {
 
     @Test
     void sin_jwt_responde_401_y_no_ejecuta_el_caso_de_uso() throws Exception {
-        mvc.perform(patch(cancelUrl()).with(csrf()))
+        mvc.perform(patch(cancelUrl()))
             .andExpect(status().isUnauthorized());
 
         verify(cancelBookingUseCase, never()).cancel(any());

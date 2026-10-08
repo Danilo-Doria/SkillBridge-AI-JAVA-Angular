@@ -203,6 +203,8 @@ Corrección posterior: `BookingCancellationIT` simula `BookingEventPublisherPort
 
 Corrección posterior: al integrar la seguridad por cookies de `develop`, `BookingControllerSecurityTest` simula `AuthCookieService` y agrega el token CSRF a los `PATCH` que deben atravesar la protección CSRF. Con ello, la prueba sigue cubriendo el controlador de cancelación bajo la cadena de seguridad actual sin depender de una cookie real. `mvn -q -Dtest=BookingControllerSecurityTest test` terminó correctamente: 6 pruebas, 0 fallos y 0 errores.
 
+Corrección posterior: CSRF se exige únicamente en solicitudes mutables que ya fueron autenticadas mediante cookie. `JwtAuthenticationFilter` se ejecuta antes de CSRF para distinguir esa autenticación; Bearer, JWT ausente, expirado o alterado no requieren CSRF y llegan al manejador `401`. `mvn -q -Dtest=BookingControllerSecurityTest,OfferingSecurityTest test` terminó correctamente: 23 pruebas, 0 fallos y 0 errores. La ejecución de `BookingCancellationIT` sigue pendiente por la API Docker local 1.32, inferior al mínimo 1.40 del daemon.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
@@ -233,6 +235,7 @@ Corrección posterior: al integrar la seguridad por cookies de `develop`, `Booki
 | Corrección posterior | `BookingCancellationIT.java` | Excluye Google GenAI y simula el puerto de recomendaciones. | Evitar dependencia de credenciales Gemini en la prueba de integración. | QA-01 a QA-08 | Compila; Testcontainers bloquea el arranque antes del contexto Spring. | Pendiente de aprobación. |
 | Corrección posterior | `BookingCancellationIT.java` | Simula el puerto de eventos Kafka y desactiva su listener para la prueba; verifica una sola publicación o ausencia de ella según el caso. | Evitar la dependencia de Kafka externo y conservar la evidencia de eventos del flujo de cancelación. | QA-01 a QA-08 | Ejecución intentada; Testcontainers no puede acceder a Docker local. | Pendiente de aprobación. |
 | Corrección posterior | `BookingControllerSecurityTest.java` | Simula `AuthCookieService` y adjunta CSRF a los `PATCH` que lo requieren. | Mantener las pruebas HTTP de cancelación compatibles con la autenticación por cookies integrada desde `develop`. | QA-01 a QA-07 | `BookingControllerSecurityTest`: 6 pruebas aprobadas. | Pendiente de aprobación. |
+| Corrección posterior | `SecurityConfiguration.java` y `BookingControllerSecurityTest.java` | Exige CSRF solo con sesión por cookie autenticada y conserva `401` ante JWT ausente o inválido. | Evitar que CSRF reemplace indebidamente las respuestas de autenticación de la API. | QA-07 | `BookingControllerSecurityTest` y `OfferingSecurityTest`: 23 pruebas aprobadas. | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 
