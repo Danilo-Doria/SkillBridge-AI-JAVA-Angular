@@ -199,6 +199,8 @@ Tarea 10: `mvn test` ejecutó 74 pruebas: 72 finalizaron correctamente, 0 fallar
 
 Corrección posterior: `BookingCancellationIT` excluye la autoconfiguración de Google GenAI y simula `AiRecommendationPort`, evitando que la prueba de cancelación dependa de credenciales Gemini. `mvn test -Dtest=BookingCancellationIT` compiló correctamente, pero Testcontainers volvió a bloquear la ejecución antes de crear el contexto Spring.
 
+Corrección posterior: `BookingCancellationIT` simula `BookingEventPublisherPort` y desactiva el listener Kafka únicamente para esta prueba. La integración conserva PostgreSQL y RabbitMQ reales con Testcontainers, mientras verifica que el evento de negocio se publica una sola vez en las cancelaciones válidas e idempotentes. Así no intenta conectarse a `localhost:9092` ni depende del topic `booking-events`. `mvn test -Dtest=BookingCancellationIT` volvió a detenerse antes del contexto por falta de acceso local a Docker; no hubo fallos de aserción.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
@@ -227,6 +229,7 @@ Corrección posterior: `BookingCancellationIT` excluye la autoconfiguración de 
 | Tarea 9 | `BookingService.java`, `BookingServiceTest.java` y `BookingCancellationIT.java` | El caso de uso usa la lectura bloqueada, se ajustan sus stubs y la prueba sincroniza dos `PATCH`. | Comprobar una sola transición, historial y notificación sin `Thread.sleep`. | QA-08 | 9 pruebas unitarias aprobadas; integración pendiente por Docker. | `4109cff` |
 | Tarea 10 | `docs/cancelacion-reserva-propia-backend.md` | Revisión final de criterios, QA, pruebas, alcance y riesgos. | Entregar evidencia verificable al equipo. | QA-01 a QA-08 | Suite completa intentada; pruebas con Testcontainers bloqueadas por Docker local. | Pendiente de aprobación. |
 | Corrección posterior | `BookingCancellationIT.java` | Excluye Google GenAI y simula el puerto de recomendaciones. | Evitar dependencia de credenciales Gemini en la prueba de integración. | QA-01 a QA-08 | Compila; Testcontainers bloquea el arranque antes del contexto Spring. | Pendiente de aprobación. |
+| Corrección posterior | `BookingCancellationIT.java` | Simula el puerto de eventos Kafka y desactiva su listener para la prueba; verifica una sola publicación o ausencia de ella según el caso. | Evitar la dependencia de Kafka externo y conservar la evidencia de eventos del flujo de cancelación. | QA-01 a QA-08 | Ejecución intentada; Testcontainers no puede acceder a Docker local. | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 

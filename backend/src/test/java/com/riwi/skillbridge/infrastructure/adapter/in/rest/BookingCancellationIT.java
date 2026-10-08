@@ -1,6 +1,7 @@
 package com.riwi.skillbridge.infrastructure.adapter.in.rest;
 
 import com.riwi.skillbridge.application.port.out.AiRecommendationPort;
+import com.riwi.skillbridge.application.port.out.BookingEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.NotificationSenderPort;
 import com.riwi.skillbridge.application.port.out.NotificationType;
 import com.riwi.skillbridge.domain.model.BookingStatus;
@@ -70,6 +71,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "app.jwt.expiration-minutes=30",
     "app.cors.allowed-origins=http://localhost:4200",
     "spring.rabbitmq.listener.simple.retry.initial-interval=100ms",
+    "spring.kafka.listener.auto-startup=false",
     "spring.autoconfigure.exclude=org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration"
 })
 @AutoConfigureMockMvc
@@ -123,6 +125,9 @@ class BookingCancellationIT {
     private NotificationSenderPort notificationSender;
 
     @MockitoBean
+    private BookingEventPublisherPort bookingEventPublisher;
+
+    @MockitoBean
     private AiRecommendationPort aiRecommendationPort;
 
     @BeforeEach
@@ -135,6 +140,7 @@ class BookingCancellationIT {
         amqpAdmin.purgeQueue(RabbitConfiguration.NOTIFICATION_QUEUE);
         amqpAdmin.purgeQueue(RabbitConfiguration.NOTIFICATION_DLQ);
         reset(notificationSender);
+        reset(bookingEventPublisher);
     }
 
     @AfterEach
@@ -164,6 +170,7 @@ class BookingCancellationIT {
             message.bookingId().equals(bookingId)
                 && message.userId().equals(OWNER_ID)
                 && message.notificationType() == NotificationType.BOOKING_CANCELLED));
+        verify(bookingEventPublisher, times(1)).publish(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -175,6 +182,7 @@ class BookingCancellationIT {
 
         assertUnchanged(bookingId);
         verify(notificationSender, never()).send(org.mockito.ArgumentMatchers.any());
+        verify(bookingEventPublisher, never()).publish(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -184,6 +192,7 @@ class BookingCancellationIT {
 
         assertThat(historyRepository.count()).isZero();
         verify(notificationSender, never()).send(org.mockito.ArgumentMatchers.any());
+        verify(bookingEventPublisher, never()).publish(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -195,6 +204,7 @@ class BookingCancellationIT {
 
         assertUnchanged(bookingId);
         verify(notificationSender, never()).send(org.mockito.ArgumentMatchers.any());
+        verify(bookingEventPublisher, never()).publish(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -214,6 +224,7 @@ class BookingCancellationIT {
             assertThat(history.getBookingId()).isEqualTo(exactLimit));
         verify(notificationSender, timeout(5000).times(1)).send(argThat(message ->
             message.bookingId().equals(exactLimit) && message.notificationType() == NotificationType.BOOKING_CANCELLED));
+        verify(bookingEventPublisher, times(1)).publish(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -230,6 +241,7 @@ class BookingCancellationIT {
         assertThat(historyRepository.count()).isEqualTo(1);
         verify(notificationSender, timeout(5000).times(1)).send(argThat(message ->
             message.bookingId().equals(bookingId) && message.notificationType() == NotificationType.BOOKING_CANCELLED));
+        verify(bookingEventPublisher, times(1)).publish(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -246,6 +258,7 @@ class BookingCancellationIT {
 
         assertUnchanged(bookingId);
         verify(notificationSender, never()).send(org.mockito.ArgumentMatchers.any());
+        verify(bookingEventPublisher, never()).publish(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -275,6 +288,7 @@ class BookingCancellationIT {
         assertThat(historyRepository.count()).isEqualTo(1);
         verify(notificationSender, timeout(5000).times(1)).send(argThat(message ->
             message.bookingId().equals(bookingId) && message.notificationType() == NotificationType.BOOKING_CANCELLED));
+        verify(bookingEventPublisher, times(1)).publish(org.mockito.ArgumentMatchers.any());
     }
 
     private UUID persistBooking(UUID customerId, Instant scheduledAt) {
