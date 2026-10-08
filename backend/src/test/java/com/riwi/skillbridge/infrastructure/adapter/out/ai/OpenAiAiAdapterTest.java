@@ -32,9 +32,11 @@ class OpenAiAiAdapterTest {
     private OpenAiAiAdapter adapter;
 
     private static final String GOAL = "Quiero aprender arquitectura hexagonal con Java y Spring Boot";
+    private static final UUID PROVIDER_ID = UUID.randomUUID();
     private static final List<Offering> TEST_OFFERINGS = List.of(
         new Offering(
             UUID.randomUUID(),
+            PROVIDER_ID,
             "Java Backend Mentoring",
             "One-on-one mentoring for Java developers",
             "BACKEND",
@@ -43,6 +45,7 @@ class OpenAiAiAdapterTest {
         ),
         new Offering(
             UUID.randomUUID(),
+            PROVIDER_ID,
             "Spring Boot Workshop",
             "Comprehensive Spring Boot workshop",
             "BACKEND",
@@ -51,6 +54,7 @@ class OpenAiAiAdapterTest {
         ),
         new Offering(
             UUID.randomUUID(),
+            PROVIDER_ID,
             "Software Architecture Course",
             "Learn architectural patterns and best practices",
             "ARCHITECTURE",

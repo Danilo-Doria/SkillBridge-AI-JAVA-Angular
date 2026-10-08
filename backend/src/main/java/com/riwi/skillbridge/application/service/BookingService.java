@@ -10,8 +10,15 @@ import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.domain.model.Offering;
+import com.riwi.skillbridge.domain.model.UserAccount;
 import com.riwi.skillbridge.domain.service.BookingCancellationPolicy;
 import org.springframework.stereotype.Service;
+
+import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
+import com.riwi.skillbridge.application.port.out.event.BookingCreatedPayload;
+import com.riwi.skillbridge.application.port.out.event.BookingCancelledPayload;
+import com.riwi.skillbridge.application.common.CorrelationIdHolder;
+
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import java.time.Instant;
@@ -23,10 +30,11 @@ import java.util.UUID;
 public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, CancelBookingUseCase {
     private final BookingRepositoryPort bookingRepository;
     private final OfferingRepositoryPort offeringRepository;
-    private final UserAccountPort userAccountPort;
+    private final UserRepositoryPort userRepositoryPort;
 
     private final BookingCancellationPolicy cancellationPolicy;
     private final NotificationPublisherPort notificationPublisher;
+    private final BookingEventPublisherPort eventPublisher;
 
     @Override
     public Booking create(UUID offeringId, Instant scheduledAt, String customerEmail) {
@@ -40,16 +48,23 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
             throw new BusinessRuleException("El servicio no está activo");
         }
 
-        UUID customerId = userAccountPort.findIdByEmail(customerEmail)
+        UserAccount customer = userRepositoryPort.findByEmail(customerEmail)
             .orElseThrow(() -> new DomainNotFoundException("Usuario no encontrado"));
 
-        Booking booking = new Booking(UUID.randomUUID(), offeringId, customerId, scheduledAt, BookingStatus.CREATED);
+        Booking booking = new Booking(UUID.randomUUID(), offeringId, customer.id(), scheduledAt, BookingStatus.CREATED);
         Booking saved = bookingRepository.save(booking);
         notificationPublisher.publish(NotificationMessage.bookingCreated(saved.id(), saved.customerId()));
+        
+        String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
+        BookingCreatedPayload payload = new BookingCreatedPayload(saved.id(), saved.offeringId(), saved.customerId(), saved.scheduledAt(), saved.status().name());
+        BusinessEvent<BookingCreatedPayload> event = new BusinessEvent<>(
+            UUID.randomUUID(), "BookingCreated", saved.id().toString(), "Booking", Instant.now(), correlationId, 1, payload,
+            customer.id().toString(), customer.email(), customer.role().name(), "CREATE", "BOOKING", saved.id().toString()
+        );
+        eventPublisher.publish(event);
         return saved;
     }
 
-    // nuevo servicio buscar reservacion por email usuario
     @Override
     public List<Booking> bookingsList(String email) {
         return bookingRepository.findByCustomerEmail(email);
@@ -61,18 +76,29 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         Booking booking = bookingRepository.findById(command.bookingId())
                 .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
 
-        UUID customerId = userAccountPort.findIdByEmail(command.customerEmail())
+        UserAccount customer = userRepositoryPort.findByEmail(command.customerEmail())
                 .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
-        if (!booking.customerId().equals(customerId)) {
+        if (!booking.customerId().equals(customer.id())) {
             throw new DomainNotFoundException("Reserva no encontrada");
         }
 
         Booking cancelled = booking.cancel();
+        Booking finalBooking;
         if (cancelled == booking) {
-            return booking;
+            finalBooking = booking;
+        } else {
+            cancellationPolicy.validate(booking);
+            finalBooking = bookingRepository.save(cancelled);
         }
-
-        cancellationPolicy.validate(booking);
-        return bookingRepository.save(cancelled);
+        
+        String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
+        BookingCancelledPayload payload = new BookingCancelledPayload(finalBooking.id(), finalBooking.customerId(), finalBooking.status().name());
+        BusinessEvent<BookingCancelledPayload> event = new BusinessEvent<>(
+            UUID.randomUUID(), "BookingCancelled", finalBooking.id().toString(), "Booking", Instant.now(), correlationId, 1, payload,
+            customer.id().toString(), customer.email(), customer.role().name(), "CANCEL", "BOOKING", finalBooking.id().toString()
+        );
+        eventPublisher.publish(event);
+        
+        return finalBooking;
     }
 }

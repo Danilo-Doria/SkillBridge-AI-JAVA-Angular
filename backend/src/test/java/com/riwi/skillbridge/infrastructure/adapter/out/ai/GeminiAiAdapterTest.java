@@ -32,9 +32,11 @@ class GeminiAiAdapterTest {
     private GeminiAiAdapter adapter;
 
     private static final String GOAL = "Quiero aprender Java Backend con arquitectura hexagonal";
+    private static final UUID PROVIDER_ID = UUID.randomUUID();
     private static final List<Offering> TEST_OFFERINGS = List.of(
         new Offering(
             UUID.randomUUID(),
+            PROVIDER_ID,
             "Java Backend Mentoring",
             "One-on-one mentoring for Java developers",
             "BACKEND",
@@ -43,6 +45,7 @@ class GeminiAiAdapterTest {
         ),
         new Offering(
             UUID.randomUUID(),
+            PROVIDER_ID,
             "Spring Boot Workshop",
             "Comprehensive Spring Boot workshop",
             "BACKEND",
