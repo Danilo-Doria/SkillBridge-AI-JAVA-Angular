@@ -21,6 +21,7 @@ Este repositorio sirve como punto de partida para trabajar:
 - Migraciones con Flyway.
 - Cache-Aside con Redis.
 - Eventos asíncronos con RabbitMQ.
+- Eventos de negocio persistentes (Auditoría/Analytics) con Apache Kafka (ver [Documentación Kafka](docs/kafka.md)).
 - Retry + Dead Letter Queue.
 - Integración de IA desde Java sin exponer API keys en Angular.
 - Angular standalone.
