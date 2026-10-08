@@ -59,7 +59,7 @@ un error de inyección de beans en `BookingService`. Las siguientes tareas usar�
 `NotificationMessage` y `NotificationType`; no se reintroducirá el puerto
 anterior.
 
-## Contrato del endpoint propuesto
+## Contrato del endpoint implementado
 
 | Elemento | Contrato |
 |---|---|
@@ -128,10 +128,10 @@ La implementación usa `NotificationMessage` con tipo `BOOKING_CANCELLED` y rout
 
 ## Archivos y migraciones
 
-| Tipo | Estado inicial |
+| Tipo | Estado final |
 |---|---|
-| Archivos creados | Este documento. |
-| Archivos modificados | Ninguno todavía. |
+| Archivos creados | `CancelBookingCommand`, `CancelBookingUseCase`, `BookingStatusHistory`, adaptador de historial, migración V4, pruebas de dominio, servicio, HTTP e integración. |
+| Archivos modificados | Dominio `Booking`, caso de uso, puertos, adaptadores JPA/RabbitMQ, controlador, seguridad de prueba y documentación API. |
 | Migraciones | `V4__booking_cancellation_audit.sql`: versión optimista e historial de estados de reserva. |
 
 ## Matriz de pruebas QA
@@ -195,6 +195,8 @@ Tarea 8: `mvn test -Dtest=BookingCancellationIT` compiló las 19 clases de prueb
 
 Tarea 9: `mvn test -Dtest=BookingServiceTest` ejecutado correctamente: 9 pruebas, 0 fallos, 0 errores y 0 omitidas. `mvn test -Dtest=BookingCancellationIT` compiló correctamente las 90 clases de producción y las 19 clases de prueba tras incorporar el bloqueo pesimista y QA-08; Testcontainers volvió a fallar antes de ejecutar aserciones por la misma negociación de API Docker 1.32 frente al mínimo 1.40. Resultado: 1 error de infraestructura, 0 fallos de aserción.
 
+Tarea 10: `mvn test` ejecutó 74 pruebas: 72 finalizaron correctamente, 0 fallaron por aserciones y 2 quedaron bloqueadas antes de iniciar por Testcontainers (`JpaOfferingRepositoryTest` y `BookingPersistenceAdapterTest`). La causa es la negociación de API Docker 1.32 frente al mínimo 1.40 de Docker Desktop. No hay herramientas de análisis estático o formateo configuradas en `pom.xml`. `git diff --check` terminó sin errores.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
@@ -219,8 +221,9 @@ Tarea 9: `mvn test -Dtest=BookingServiceTest` ejecutado correctamente: 9 pruebas
 | Tarea 7 | `BookingController.java` | Endpoint `PATCH /api/bookings/{bookingId}/cancel` que toma el email de `Authentication`. | Exponer la cancelación sin recibir identidad del cliente. | QA-01, QA-02, QA-03, QA-05, QA-06 | `BookingControllerSecurityTest`. | `48a231e` |
 | Tarea 7 | `BookingControllerSecurityTest.java` y `docs/API.md` | Pruebas MockMvc de contrato y seguridad; endpoint publicado en la referencia de API. | Validar respuestas HTTP y facilitar la integración del frontend. | QA-01, QA-02, QA-03, QA-05, QA-06, QA-07 | `BookingControllerSecurityTest`. | `48a231e` |
 | Tarea 8 | `BookingCancellationIT.java` | Prueba integral con MockMvc, JWT real, reloj fijo, PostgreSQL y RabbitMQ mediante Testcontainers. | Cubrir QA-01 a QA-07 contra adaptadores reales. | QA-01 a QA-07 | Compila; ejecución bloqueada por incompatibilidad local Docker/Testcontainers. | `7f64a83` |
-| Tarea 9 | `BookingRepositoryPort.java`, `BookingPersistenceAdapter.java` y `JpaBookingRepository.java` | Lectura bloqueada con `PESSIMISTIC_WRITE` para la cancelación. | Serializar cancelaciones de una misma reserva y mantener el segundo resultado idempotente. | QA-08 | `BookingServiceTest` aprobado; integración pendiente por Docker. | Pendiente de aprobación. |
-| Tarea 9 | `BookingService.java`, `BookingServiceTest.java` y `BookingCancellationIT.java` | El caso de uso usa la lectura bloqueada, se ajustan sus stubs y la prueba sincroniza dos `PATCH`. | Comprobar una sola transición, historial y notificación sin `Thread.sleep`. | QA-08 | 9 pruebas unitarias aprobadas; integración pendiente por Docker. | Pendiente de aprobación. |
+| Tarea 9 | `BookingRepositoryPort.java`, `BookingPersistenceAdapter.java` y `JpaBookingRepository.java` | Lectura bloqueada con `PESSIMISTIC_WRITE` para la cancelación. | Serializar cancelaciones de una misma reserva y mantener el segundo resultado idempotente. | QA-08 | `BookingServiceTest` aprobado; integración pendiente por Docker. | `4109cff` |
+| Tarea 9 | `BookingService.java`, `BookingServiceTest.java` y `BookingCancellationIT.java` | El caso de uso usa la lectura bloqueada, se ajustan sus stubs y la prueba sincroniza dos `PATCH`. | Comprobar una sola transición, historial y notificación sin `Thread.sleep`. | QA-08 | 9 pruebas unitarias aprobadas; integración pendiente por Docker. | `4109cff` |
+| Tarea 10 | `docs/cancelacion-reserva-propia-backend.md` | Revisión final de criterios, QA, pruebas, alcance y riesgos. | Entregar evidencia verificable al equipo. | QA-01 a QA-08 | Suite completa intentada; pruebas con Testcontainers bloqueadas por Docker local. | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 
@@ -229,3 +232,21 @@ Cuando el endpoint esté implementado, el frontend deberá enviar `PATCH` a `/ap
 ## Decisiones pendientes
 
 No hay decisiones funcionales pendientes. Falta ejecutar las pruebas de integración y concurrencia en un entorno Docker compatible con Testcontainers.
+
+## Revisión final
+
+| Criterio de aceptación | Estado | Evidencia |
+|---|---|---|
+| Endpoint protegido y usuario desde JWT | Parcial | `BookingControllerSecurityTest` aprobado; JWT real queda en `BookingCancellationIT`, pendiente de Docker. |
+| Ownership y ocultación de reserva ajena | Parcial | `BookingServiceTest` y prueba HTTP de controlador aprobados; integración pendiente. |
+| Estado, fecha futura y anticipación de 24 horas | Parcial | `BookingTest` y `BookingCancellationPolicyTest` aprobados; integración pendiente. |
+| Cancelación cambia a `CANCELLED` y conserva historial | Parcial | Servicio y adaptadores implementados; validación JPA pendiente de Testcontainers. |
+| Idempotencia sin efectos duplicados | Parcial | Pruebas unitarias aprobadas; integración pendiente. |
+| Una notificación por transición efectiva | Parcial | Pruebas unitarias de publicador y servicio aprobadas; flujo RabbitMQ integral pendiente. |
+| Transacción y concurrencia | Parcial | `@Transactional`, versión optimista y `PESSIMISTIC_WRITE` implementados; QA-08 pendiente de Testcontainers. |
+| Alcance exclusivo de backend | Aprobado | No hay archivos de frontend en los commits de esta historia. |
+
+### Riesgos pendientes
+
+1. Testcontainers no puede crear contenedores con la negociación local de API Docker; deben ejecutarse `mvn test` y `mvn verify` en un entorno compatible para cerrar QA-01 a QA-08.
+2. Por decisión aprobada, no existe outbox: un fallo de RabbitMQ después de persistir puede dejar una cancelación sin notificación.
