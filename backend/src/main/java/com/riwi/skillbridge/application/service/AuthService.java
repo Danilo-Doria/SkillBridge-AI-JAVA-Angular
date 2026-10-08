@@ -4,12 +4,16 @@ import com.riwi.skillbridge.application.port.in.AuthUseCase;
 import com.riwi.skillbridge.application.port.out.PasswordHasherPort;
 import com.riwi.skillbridge.application.port.out.TokenPort;
 import com.riwi.skillbridge.application.port.out.UserRepositoryPort;
+import com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort;
+import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
+import com.riwi.skillbridge.application.common.CorrelationIdHolder;
 import com.riwi.skillbridge.domain.exception.BusinessRuleException;
 import com.riwi.skillbridge.domain.exception.InvalidCredentialsException;
 import com.riwi.skillbridge.domain.model.Role;
 import com.riwi.skillbridge.domain.model.UserAccount;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -17,11 +21,13 @@ public class AuthService implements AuthUseCase {
     private final UserRepositoryPort users;
     private final PasswordHasherPort passwords;
     private final TokenPort tokens;
+    private final AuditEventPublisherPort auditPublisher;
 
-    public AuthService(UserRepositoryPort users, PasswordHasherPort passwords, TokenPort tokens) {
+    public AuthService(UserRepositoryPort users, PasswordHasherPort passwords, TokenPort tokens, AuditEventPublisherPort auditPublisher) {
         this.users = users;
         this.passwords = passwords;
         this.tokens = tokens;
+        this.auditPublisher = auditPublisher;
     }
 
     @Override
@@ -32,6 +38,14 @@ public class AuthService implements AuthUseCase {
         }
         UserAccount saved = users.save(new UserAccount(
                 UUID.randomUUID(), name.trim(), normalizedEmail, passwords.encode(rawPassword), Role.CUSTOMER));
+        
+        String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
+        BusinessEvent<String> event = new BusinessEvent<>(
+            UUID.randomUUID(), "UserRegistered", saved.id().toString(), "User", Instant.now(), correlationId, 1, "User registered",
+            saved.id().toString(), saved.email(), saved.role().name(), "REGISTER", "USER", saved.id().toString()
+        );
+        auditPublisher.publish(event);
+
         return tokens.generate(saved.email(), saved.role().name());
     }
 
@@ -42,6 +56,14 @@ public class AuthService implements AuthUseCase {
         if (!passwords.matches(rawPassword, user.passwordHash())) {
             throw new InvalidCredentialsException("Credenciales inválidas");
         }
+        
+        String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
+        BusinessEvent<String> event = new BusinessEvent<>(
+            UUID.randomUUID(), "UserLoggedIn", user.id().toString(), "User", Instant.now(), correlationId, 1, "User logged in",
+            user.id().toString(), user.email(), user.role().name(), "LOGIN", "USER", user.id().toString()
+        );
+        auditPublisher.publish(event);
+
         return tokens.generate(user.email(), user.role().name());
     }
 }

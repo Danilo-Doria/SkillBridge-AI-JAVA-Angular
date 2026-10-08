@@ -19,7 +19,8 @@ public class CurrentActorResolver {
     public CurrentActorResolver(UserAccountPort users) { this.users = users; }
 
     public Actor from(Authentication authentication) {
-        UUID id = users.findIdByEmail(authentication.getName())
+        String email = authentication.getName();
+        UUID id = users.findIdByEmail(email)
             .orElseThrow(() -> new DomainNotFoundException("Usuario no encontrado"));
         Role role = authentication.getAuthorities().stream()
             .map(GrantedAuthority::getAuthority)
@@ -27,6 +28,6 @@ public class CurrentActorResolver {
             .map(a -> Role.valueOf(a.substring(PREFIX.length())))
             .findFirst()
             .orElseThrow(() -> new ForbiddenOperationException("Usuario sin rol"));
-        return new Actor(id, role);
+        return new Actor(id, email, role);
     }
 }
