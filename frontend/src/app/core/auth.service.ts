@@ -4,12 +4,15 @@ import { Router } from '@angular/router';
 import { Observable, catchError, finalize, map, of, tap } from 'rxjs';
 import { apiBase } from './api';
 
-interface AuthResponse { email: string; role: string; }
+export type Role = 'CUSTOMER' | 'PROVIDER' | 'ADMIN';
+
+interface AuthResponse { email: string; role: Role; }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   readonly user = signal<AuthResponse | null>(null);
   readonly authenticated = computed(() => this.user() !== null);
+  readonly role = computed<Role | null>(() => this.user()?.role ?? null);
 
   constructor(private http: HttpClient, private router: Router) {}
 
@@ -36,6 +39,12 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean { return this.authenticated(); }
+
+  // Solo para mostrar/ocultar UI. La autorización real la hace SIEMPRE el backend.
+  hasRole(...roles: Role[]): boolean {
+    const r = this.role();
+    return !!r && roles.includes(r);
+  }
 
   logout(): void {
     this.http.post<void>(`${apiBase()}/auth/logout`, {})

@@ -2,6 +2,7 @@ package com.riwi.skillbridge.infrastructure.config;
 
 import com.riwi.skillbridge.infrastructure.security.CsrfCookieFilter;
 import com.riwi.skillbridge.infrastructure.security.JwtAuthenticationFilter;
+import com.riwi.skillbridge.infrastructure.security.RestAccessDeniedHandler;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,7 +33,9 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfiguration {
     @Bean
-    SecurityFilterChain security(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
+    SecurityFilterChain security(HttpSecurity http,
+                                 JwtAuthenticationFilter jwtFilter,
+                                 RestAccessDeniedHandler accessDeniedHandler) throws Exception {
         CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
         csrfHandler.setCsrfRequestAttributeName("_csrf");
 
@@ -51,12 +54,14 @@ public class SecurityConfiguration {
                 .ignoringRequestMatchers(bearerRequests))
             .cors(cors -> {})
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+            .exceptionHandling(e -> e
+                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                .accessDeniedHandler(accessDeniedHandler))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/logout",
                     "/actuator/health", "/actuator/health/**", "/v3/api-docs/**",
                     "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/offerings/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/offerings").permitAll()
                 .requestMatchers("/actuator/prometheus").permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
