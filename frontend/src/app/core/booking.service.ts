@@ -13,11 +13,6 @@ export interface Booking {
   status: BookingStatus;
 }
 
-export interface CancelBookingCommand {
-  bookingId: string;
-  customerEmail: string;
-}
-
 @Injectable({ providedIn: 'root' })
 export class BookingService {
   constructor(private http: HttpClient) {}
@@ -26,9 +21,8 @@ export class BookingService {
     return this.http.get<Booking[]>(apiBase() + '/bookings/me');
   }
 
-  // Envía la petición al backend para cancelar una reserva
-  cancelBooking(command: CancelBookingCommand): Observable<Booking> {
-    return this.http.post<Booking>(apiBase() + '/bookings/cancel', command);
+  // Envía la petición al backend para cancelar una reserva usando PUT según el último estándar de develop
+  cancelBooking(bookingId: string): Observable<Booking> {
+    return this.http.put<Booking>(apiBase() + '/bookings/' + bookingId + '/cancel', {});
   }
 }
-

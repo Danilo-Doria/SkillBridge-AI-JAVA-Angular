@@ -49,7 +49,7 @@ export class MyBookingsComponent implements OnInit {
     });
   }
 
-  // Verifica si faltan más de 24 horas para la sesión para permitir la cancelación
+  // Verifica si faltan mǭs de 24 horas para la sesin para permitir la cancelacin
   canCancel(scheduledAt: string): boolean {
     const bookingDate = new Date(scheduledAt);
     const now = new Date();
@@ -59,7 +59,7 @@ export class MyBookingsComponent implements OnInit {
 
   // Llama al servicio para cancelar la reserva y actualiza la lista localmente
   cancelBooking(bookingId: string): void {
-    if (!confirm('¿Estás seguro de que deseas cancelar esta reserva?')) {
+    if (!confirm('Estǭs seguro de que deseas cancelar esta reserva?')) {
       return;
     }
 
@@ -67,24 +67,10 @@ export class MyBookingsComponent implements OnInit {
     this.cancelSuccessMessage = '';
     this.cancelErrorMessage = '';
 
-    let email = 'usuario@ejemplo.com';
-    const token = this.authService.token();
-    if (token) {
-      try {
-        const payloadBase64 = token.split('.')[1];
-        const payloadDecoded = JSON.parse(atob(payloadBase64));
-        if (payloadDecoded && payloadDecoded.sub) {
-          email = payloadDecoded.sub;
-        }
-      } catch (e) {
-        console.warn('No se pudo extraer email del token, usando por defecto');
-      }
-    }
-
-    this.bookingService.cancelBooking({ bookingId, customerEmail: email }).subscribe({
+    this.bookingService.cancelBooking(bookingId).subscribe({
       next: (updatedBooking) => {
         this.isCancelingId = null;
-        this.cancelSuccessMessage = 'Reserva cancelada exitosamente. Se ha procesado el reembolso del 100% a tu método de pago.';
+        this.cancelSuccessMessage = 'Reserva cancelada exitosamente. Se ha procesado el reembolso del 100% a tu mǸtodo de pago.';
         const index = this.bookings.findIndex(b => b.id === bookingId);
         if (index !== -1) {
           this.bookings[index] = updatedBooking;
@@ -92,7 +78,7 @@ export class MyBookingsComponent implements OnInit {
       },
       error: (err) => {
         this.isCancelingId = null;
-        this.cancelErrorMessage = 'No se pudo cancelar la reserva. Tal vez expiró el tiempo de cancelación.';
+        this.cancelErrorMessage = 'No se pudo cancelar la reserva. Tal vez expir el tiempo de cancelacin.';
         console.error(err);
       }
     });
@@ -112,7 +98,7 @@ export class MyBookingsComponent implements OnInit {
     this.selectedBookingForPayment = null;
   }
 
-  // Se ejecuta al aprobarse el pago, marcando la reserva como confirmada sin recargar la página
+  // Se ejecuta al aprobarse el pago, marcando la reserva como confirmada sin recargar la pǭgina
   onPaymentSuccess(): void {
     if (this.selectedBookingForPayment) {
       this.selectedBookingForPayment.status = 'CONFIRMED';
@@ -120,6 +106,3 @@ export class MyBookingsComponent implements OnInit {
     this.selectedBookingForPayment = null;
   }
 }
-
-
-
