@@ -124,6 +124,8 @@ Se propone bloqueo optimista con una versión en la entidad de persistencia. Dos
 
 La auditoría persistirá un único registro para la transición real. Se creará un evento de dominio o aplicación `BookingCancelled` y se publicará una vez por transición efectiva. No se implementará outbox; el riesgo de fallo entre commit y RabbitMQ se mantiene documentado.
 
+La implementación usa `NotificationMessage` con tipo `BOOKING_CANCELLED` y routing key `notification.booking.cancelled`, siguiendo la corrección integrada desde el PR. La misma cola de notificaciones consume creaciones y cancelaciones según su tipo.
+
 ## Archivos y migraciones
 
 | Tipo | Estado inicial |
@@ -149,12 +151,12 @@ La auditoría persistirá un único registro para la transición real. Se crear�
 
 | ID | Prueba automatizada | Estado | Evidencia | Observaciones |
 |---|---|---|---|---|
-| QA-01 | `BookingTest`, `BookingServiceTest` | Parcial | Transición propia válida, persistencia y un historial verificados mediante puertos simulados. | La prueba JPA existe, pero no pudo ejecutarse por Docker/Testcontainers local. |
+| QA-01 | `BookingTest`, `BookingServiceTest`, pruebas de notificación | Parcial | Transición propia válida, historial y una notificación `BOOKING_CANCELLED` verificados mediante puertos simulados. | La prueba JPA existe, pero no pudo ejecutarse por Docker/Testcontainers local. |
 | QA-02 | `BookingServiceTest` | Parcial | Reserva ajena devuelve no encontrada; no guarda, audita ni publica notificación. | Falta integración HTTP. |
 | QA-03 | `BookingServiceTest` | Parcial | UUID inexistente no accede a usuario, no guarda, audita ni publica notificación. | Falta integración HTTP. |
 | QA-04 | `BookingCancellationPolicyTest` | Parcial | Fechas pasada y actual rechazadas por la política temporal. | Falta integración HTTP. |
 | QA-05 | `BookingCancellationPolicyTest`, `BookingServiceTest` | Parcial | Límite exacto de 24h permitido y 23:59:59 rechazado sin guardar ni publicar. | Falta integración HTTP. |
-| QA-06 | `BookingTest`, `BookingServiceTest` | Parcial | Repetición retorna la reserva cancelada sin guardar, auditar ni publicar notificación. | Falta integración HTTP y evento de cancelación. |
+| QA-06 | `BookingTest`, `BookingServiceTest` | Parcial | Repetición retorna la reserva cancelada sin guardar, auditar ni publicar una segunda notificación. | Falta integración HTTP. |
 | QA-07 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 | QA-08 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 
@@ -185,6 +187,8 @@ Tarea 4: `mvn test -Dtest=BookingServiceTest` ejecutado correctamente: 6 pruebas
 
 Tarea 5: `mvn test -Dtest=BookingServiceTest,BookingTest,BookingCancellationPolicyTest` ejecutado correctamente: 18 pruebas, 0 fallos, 0 errores y 0 omitidas. `BookingPersistenceAdapterTest` no pudo ejecutarse porque la configuración local de Testcontainers negocia una API Docker 1.32, inferior a la mínima 1.40 de Docker Desktop; la prueba quedó creada y pendiente de ejecutarse en un entorno compatible.
 
+Tarea 6: `mvn test -Dtest=BookingServiceTest,NotificationMessageTest,RabbitNotificationPublisherTest` ejecutado correctamente: 16 pruebas, 0 fallos, 0 errores y 0 omitidas. La prueba de fallo de RabbitMQ registra el error esperado sin propagarlo.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
@@ -200,10 +204,12 @@ Tarea 5: `mvn test -Dtest=BookingServiceTest,BookingTest,BookingCancellationPoli
 | Tarea 4 | `infrastructure/adapter/out/persistence/BookingPersistenceAdapter.java` | Adaptador de consulta por UUID. | Implementar el nuevo puerto sobre JPA. | QA-01, QA-02, QA-03, QA-06 | Compilación; prueba de integración pendiente. | `fbb5ad0` |
 | Tarea 4 | `application/service/BookingService.java` | Caso de uso transaccional con ownership, política temporal e idempotencia. | Coordinar el flujo de cancelación sin acoplarlo a HTTP o Spring Security. | QA-01 a QA-06 | `BookingServiceTest` | `fbb5ad0` |
 | Tarea 4 | `application/service/BookingServiceTest.java` | Casos de uso válidos, ajenos, inexistentes, temporales e idempotentes. | Verificar resultado y ausencia de persistencia o eventos en rechazos. | QA-01 a QA-06 | `BookingServiceTest` | `fbb5ad0` |
-| Tarea 5 | `db/migration/V4__booking_cancellation_audit.sql` | Versión optimista e historial de transiciones. | Evitar actualizaciones concurrentes silenciosas y conservar auditoría. | QA-01, QA-06, QA-08 | `BookingPersistenceAdapterTest` pendiente por entorno Docker. | Pendiente de aprobación. |
-| Tarea 5 | `domain/model/Booking.java` y `BookingStatusHistory.java` | Versión del agregado y registro inmutable de cambio de estado. | Propagar control de concurrencia y representar la auditoría en el dominio. | QA-01, QA-06, QA-08 | Pruebas unitarias de dominio y servicio. | Pendiente de aprobación. |
-| Tarea 5 | `application/port/out/BookingStatusHistoryPort.java` y adaptador JPA | Puerto y persistencia del historial. | Mantener la aplicación independiente de JPA. | QA-01, QA-06, QA-08 | `BookingServiceTest`; integración pendiente por entorno Docker. | Pendiente de aprobación. |
-| Tarea 5 | `application/service/BookingService.java` y `BookingServiceTest.java` | Guarda una auditoría única tras una transición efectiva y verifica ausencia de efectos en rechazos. | Mantener reserva e historial dentro de la transacción. | QA-01 a QA-06 | 18 pruebas unitarias seleccionadas. | Pendiente de aprobación. |
+| Tarea 5 | `db/migration/V4__booking_cancellation_audit.sql` | Versión optimista e historial de transiciones. | Evitar actualizaciones concurrentes silenciosas y conservar auditoría. | QA-01, QA-06, QA-08 | `BookingPersistenceAdapterTest` pendiente por entorno Docker. | `284ae46` |
+| Tarea 5 | `domain/model/Booking.java` y `BookingStatusHistory.java` | Versión del agregado y registro inmutable de cambio de estado. | Propagar control de concurrencia y representar la auditoría en el dominio. | QA-01, QA-06, QA-08 | Pruebas unitarias de dominio y servicio. | `284ae46` |
+| Tarea 5 | `application/port/out/BookingStatusHistoryPort.java` y adaptador JPA | Puerto y persistencia del historial. | Mantener la aplicación independiente de JPA. | QA-01, QA-06, QA-08 | `BookingServiceTest`; integración pendiente por entorno Docker. | `284ae46` |
+| Tarea 5 | `application/service/BookingService.java` y `BookingServiceTest.java` | Guarda una auditoría única tras una transición efectiva y verifica ausencia de efectos en rechazos. | Mantener reserva e historial dentro de la transacción. | QA-01 a QA-06 | 18 pruebas unitarias seleccionadas. | `284ae46` |
+| Tarea 6 | `NotificationType`, `NotificationMessage`, `RabbitConfiguration` y `RabbitNotificationPublisher` | Tipo, mensaje y routing key de cancelación. | Publicar la cancelación mediante la infraestructura de notificaciones corregida. | QA-01, QA-06, QA-08 | Pruebas de mensaje y publicador Rabbit. | Pendiente de aprobación. |
+| Tarea 6 | `BookingService.java` y `BookingServiceTest.java` | Publica una sola notificación tras la transición y auditoría efectivas. | Evitar publicaciones en rechazos o llamadas repetidas. | QA-01, QA-02, QA-03, QA-05, QA-06 | `BookingServiceTest`. | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 

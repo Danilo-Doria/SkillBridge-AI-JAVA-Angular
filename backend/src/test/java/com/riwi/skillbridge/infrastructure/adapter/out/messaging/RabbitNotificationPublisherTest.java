@@ -39,6 +39,21 @@ class RabbitNotificationPublisherTest {
     }
 
     @Test
+    void shouldPublishCancellationToCancellationRoutingKey() {
+        RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
+        RabbitNotificationPublisher publisher = new RabbitNotificationPublisher(rabbitTemplate);
+        NotificationMessage message = NotificationMessage.bookingCancelled(UUID.randomUUID(), UUID.randomUUID());
+
+        publisher.publish(message);
+
+        verify(rabbitTemplate).convertAndSend(
+            eq(RabbitConfiguration.NOTIFICATION_EXCHANGE),
+            eq(RabbitConfiguration.NOTIFICATION_BOOKING_CANCELLED_KEY),
+            eq(message),
+            any(CorrelationData.class));
+    }
+
+    @Test
     void shouldNotPropagateBrokerFailure() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         RabbitNotificationPublisher publisher = new RabbitNotificationPublisher(rabbitTemplate);

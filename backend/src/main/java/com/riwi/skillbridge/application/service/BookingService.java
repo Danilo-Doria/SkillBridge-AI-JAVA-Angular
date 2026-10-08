@@ -83,6 +83,7 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
                 saved.status(),
                 customerId,
                 clock.instant()));
+        notificationPublisher.publish(NotificationMessage.bookingCancelled(saved.id(), saved.customerId()));
         return saved;
     }
 }

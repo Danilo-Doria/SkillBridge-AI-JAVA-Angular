@@ -24,4 +24,10 @@ public record NotificationMessage(
             UUID.randomUUID(), bookingId, userId,
             NotificationType.BOOKING_CREATED, Instant.now());
     }
+
+    public static NotificationMessage bookingCancelled(UUID bookingId, UUID userId) {
+        return new NotificationMessage(
+            UUID.randomUUID(), bookingId, userId,
+            NotificationType.BOOKING_CANCELLED, Instant.now());
+    }
 }

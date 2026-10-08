@@ -258,7 +258,11 @@ class BookingServiceTest {
         assertEquals(BookingStatus.CREATED, historyCaptor.getValue().previousStatus());
         assertEquals(BookingStatus.CANCELLED, historyCaptor.getValue().newStatus());
         assertEquals(customerId, historyCaptor.getValue().changedBy());
-        verifyNoInteractions(notificationPublisher);
+        ArgumentCaptor<NotificationMessage> notificationCaptor = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(notificationPublisher).publish(notificationCaptor.capture());
+        assertEquals(booking.id(), notificationCaptor.getValue().bookingId());
+        assertEquals(customerId, notificationCaptor.getValue().userId());
+        assertEquals(NotificationType.BOOKING_CANCELLED, notificationCaptor.getValue().notificationType());
     }
 
     @Test
