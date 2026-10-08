@@ -98,3 +98,4 @@ app:
   kafka:
     topic:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
+      audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}

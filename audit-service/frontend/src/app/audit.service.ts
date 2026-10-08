@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, interval, switchMap, startWith } from 'rxjs';
 
 export interface BusinessEvent {
   eventId: string;
@@ -11,6 +11,14 @@ export interface BusinessEvent {
   correlationId: string;
   version: number;
   payload: any;
+  
+  // Extra fields that might be inside payload or flattened
+  actorUserId?: string;
+  actorUsername?: string;
+  actorRole?: string;
+  action?: string;
+  resource?: string;
+  resourceId?: string;
 }
 
 export interface AuditStats {
@@ -18,6 +26,8 @@ export interface AuditStats {
   bookingCreated: number;
   bookingCancelled: number;
   otherEvents: number;
+  // If the API adds more in the future, we capture them
+  [key: string]: any;
 }
 
 @Injectable({
@@ -25,11 +35,14 @@ export interface AuditStats {
 })
 export class AuditService {
   private http = inject(HttpClient);
-  // URL of the backend service (assuming CORS is configured, or we are on same host but port 8081)
   private apiUrl = '/api/audit';
 
   getEvents(): Observable<BusinessEvent[]> {
     return this.http.get<BusinessEvent[]>(`${this.apiUrl}/events`);
+  }
+
+  getEvent(eventId: string): Observable<BusinessEvent> {
+    return this.http.get<BusinessEvent>(`${this.apiUrl}/events/${eventId}`);
   }
 
   getStats(): Observable<AuditStats> {

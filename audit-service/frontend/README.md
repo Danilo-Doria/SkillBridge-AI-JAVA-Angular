@@ -1,59 +1,40 @@
-# Frontend
+# SkillBridge Audit Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.39.
+The frontend for the **SkillBridge Audit Service**. It provides a professional, responsive, and real-time dashboard for administrators to monitor domain events.
 
-## Development server
+## Features
 
-To start a local development server, run:
+- **Modern UI**: Styled with **Tailwind CSS** for a clean, admin dashboard aesthetic.
+- **Angular 20 & Signals**: Utilizes the latest Angular features for performant reactive state.
+- **Real-Time Polling**: Auto-updates metrics and events every 10 seconds.
+- **Filtering & Search**: Client-side filtering by Event Type, Action, Role, Resource, and deep search capabilities.
+- **Event Inspection**: Modal viewer to analyze the raw JSON payload and event metadata.
+- **Security**: Respects the existing SkillBridge JWT authentication via an HTTP interceptor.
 
-```bash
-ng serve
-```
+## Technical Details
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- **Tailwind Config**: We use Tailwind v4 out of the box natively integrated into the Angular 19+ builder. The configuration relies entirely on `@import "tailwindcss";` in `styles.css`.
+- **Components**: The UI logic and structure are encapsulated within the main standalone `DashboardComponent`.
+- **API Consumed**:
+  - `GET /api/audit/events`
+  - `GET /api/audit/events/{eventId}`
+  - `GET /api/audit/stats`
+- **Authentication**: JWT is securely intercepted from `localStorage.getItem('skillbridge_token')` and injected as a Bearer token in backend requests.
 
-## Code scaffolding
+## Setup & Running Locally
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-```bash
-ng generate component component-name
-```
+2. Start the development server:
+   ```bash
+   npm start
+   ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+3. Navigate to `http://localhost:4200`.
 
-```bash
-ng generate --help
-```
+## Building for Production
 
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Run `npm run build` to compile the project. The build artifacts will be stored in the `dist/` directory, fully optimized and bundled.

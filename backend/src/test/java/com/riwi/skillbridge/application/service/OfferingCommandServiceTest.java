@@ -25,7 +25,7 @@ class OfferingCommandServiceTest {
     private final OfferingRepositoryPort repository = mock(OfferingRepositoryPort.class);
     private final OfferingCachePort cache = mock(OfferingCachePort.class);
     private final OfferingCommandService service =
-        new OfferingCommandService(repository, cache, new OfferingAccessPolicy());
+        new OfferingCommandService(repository, cache, new OfferingAccessPolicy(), org.mockito.Mockito.mock(com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort.class));
 
     private final UUID ownerId = UUID.randomUUID();
     private final Offering offering =
