@@ -9,11 +9,13 @@ import com.riwi.skillbridge.domain.exception.BusinessRuleException;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
+import com.riwi.skillbridge.domain.model.BookingStatusHistory;
 import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.domain.service.BookingCancellationPolicy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +29,8 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
 
     private final BookingCancellationPolicy cancellationPolicy;
     private final NotificationPublisherPort notificationPublisher;
+    private final BookingStatusHistoryPort bookingStatusHistoryPort;
+    private final Clock clock;
 
     @Override
     public Booking create(UUID offeringId, Instant scheduledAt, String customerEmail) {
@@ -43,7 +47,7 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         UUID customerId = userAccountPort.findIdByEmail(customerEmail)
             .orElseThrow(() -> new DomainNotFoundException("Usuario no encontrado"));
 
-        Booking booking = new Booking(UUID.randomUUID(), offeringId, customerId, scheduledAt, BookingStatus.CREATED);
+        Booking booking = new Booking(UUID.randomUUID(), offeringId, customerId, scheduledAt, BookingStatus.CREATED, 0);
         Booking saved = bookingRepository.save(booking);
         notificationPublisher.publish(NotificationMessage.bookingCreated(saved.id(), saved.customerId()));
         return saved;
@@ -73,6 +77,12 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         }
 
         cancellationPolicy.validate(booking);
-        return bookingRepository.save(cancelled);
+        Booking saved = bookingRepository.save(cancelled);
+        bookingStatusHistoryPort.save(BookingStatusHistory.forTransition(
+                booking,
+                saved.status(),
+                customerId,
+                clock.instant()));
+        return saved;
     }
 }

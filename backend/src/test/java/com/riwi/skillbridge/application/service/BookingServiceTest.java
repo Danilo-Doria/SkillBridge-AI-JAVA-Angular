@@ -3,6 +3,7 @@ package com.riwi.skillbridge.application.service;
 import com.riwi.skillbridge.application.port.in.CancelBookingCommand;
 
 import com.riwi.skillbridge.application.port.out.BookingRepositoryPort;
+import com.riwi.skillbridge.application.port.out.BookingStatusHistoryPort;
 import com.riwi.skillbridge.application.port.out.NotificationMessage;
 import com.riwi.skillbridge.application.port.out.NotificationPublisherPort;
 import com.riwi.skillbridge.application.port.out.NotificationType;
@@ -11,6 +12,7 @@ import com.riwi.skillbridge.application.port.out.UserAccountPort;
 import com.riwi.skillbridge.domain.exception.BusinessRuleException;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
+import com.riwi.skillbridge.domain.model.BookingStatusHistory;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.domain.service.BookingCancellationPolicy;
@@ -98,6 +100,7 @@ class BookingServiceTest {
         UserAccountPort users = mock(UserAccountPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         BookingService service = service(
                 bookings,
@@ -217,8 +220,8 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserAccountPort users = mock(UserAccountPort.class);
-        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
         UUID customerId = UUID.randomUUID();
@@ -239,8 +242,8 @@ class BookingServiceTest {
                 bookings,
                 offerings,
                 users,
-                
                 notificationPublisher,
+                historyPort,
                 now
         ).cancel(new CancelBookingCommand(
                 booking.id(),
@@ -249,7 +252,13 @@ class BookingServiceTest {
 
         assertEquals(BookingStatus.CANCELLED, result.status());
         verify(bookings).save(result);
-        
+        ArgumentCaptor<BookingStatusHistory> historyCaptor = ArgumentCaptor.forClass(BookingStatusHistory.class);
+        verify(historyPort).save(historyCaptor.capture());
+        assertEquals(booking.id(), historyCaptor.getValue().bookingId());
+        assertEquals(BookingStatus.CREATED, historyCaptor.getValue().previousStatus());
+        assertEquals(BookingStatus.CANCELLED, historyCaptor.getValue().newStatus());
+        assertEquals(customerId, historyCaptor.getValue().changedBy());
+        verifyNoInteractions(notificationPublisher);
     }
 
     @Test
@@ -259,6 +268,7 @@ class BookingServiceTest {
         UserAccountPort users = mock(UserAccountPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
 
@@ -278,8 +288,8 @@ class BookingServiceTest {
                         bookings,
                         offerings,
                         users,
-                        
                         notificationPublisher,
+                        historyPort,
                         now
                 ).cancel(new CancelBookingCommand(
                         booking.id(),
@@ -288,7 +298,7 @@ class BookingServiceTest {
         );
 
         verify(bookings, never()).save(any());
-        
+        verifyNoInteractions(notificationPublisher, historyPort);
     }
 
     @Test
@@ -298,6 +308,7 @@ class BookingServiceTest {
         UserAccountPort users = mock(UserAccountPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         UUID bookingId = UUID.randomUUID();
 
@@ -309,8 +320,8 @@ class BookingServiceTest {
                         bookings,
                         offerings,
                         users,
-                        
                         notificationPublisher,
+                        historyPort,
                         Instant.parse("2030-10-10T12:00:00Z")
                 ).cancel(new CancelBookingCommand(
                         bookingId,
@@ -319,7 +330,7 @@ class BookingServiceTest {
         );
 
         verify(bookings, never()).save(any());
-        verifyNoInteractions(users);
+        verifyNoInteractions(users, notificationPublisher, historyPort);
     }
 
     @Test
@@ -329,6 +340,7 @@ class BookingServiceTest {
         UserAccountPort users = mock(UserAccountPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
         UUID customerId = UUID.randomUUID();
@@ -349,8 +361,8 @@ class BookingServiceTest {
                         bookings,
                         offerings,
                         users,
-                        
                         notificationPublisher,
+                        historyPort,
                         now
                 ).cancel(new CancelBookingCommand(
                         booking.id(),
@@ -359,7 +371,7 @@ class BookingServiceTest {
         );
 
         verify(bookings, never()).save(any());
-        
+        verifyNoInteractions(notificationPublisher, historyPort);
     }
 
     @Test
@@ -369,6 +381,7 @@ class BookingServiceTest {
         UserAccountPort users = mock(UserAccountPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
         UUID customerId = UUID.randomUUID();
@@ -387,8 +400,8 @@ class BookingServiceTest {
                 bookings,
                 offerings,
                 users,
-                
                 notificationPublisher,
+                historyPort,
                 now
         ).cancel(new CancelBookingCommand(
                 booking.id(),
@@ -397,24 +410,39 @@ class BookingServiceTest {
 
         assertSame(booking, result);
         verify(bookings, never()).save(any());
-        
+        verifyNoInteractions(notificationPublisher, historyPort);
     }
 
     private BookingService service(
             BookingRepositoryPort bookings,
             OfferingRepositoryPort offerings,
             UserAccountPort users,
-            
             NotificationPublisherPort notificationPublisher,
             Instant now) {
+        return service(
+                bookings,
+                offerings,
+                users,
+                notificationPublisher,
+                mock(BookingStatusHistoryPort.class),
+                now);
+    }
 
+    private BookingService service(
+            BookingRepositoryPort bookings,
+            OfferingRepositoryPort offerings,
+            UserAccountPort users,
+            NotificationPublisherPort notificationPublisher,
+            BookingStatusHistoryPort historyPort,
+            Instant now) {
         return new BookingService(
                 bookings,
                 offerings,
                 users,
-                
                 cancellationPolicyAt(now),
-                notificationPublisher
+                notificationPublisher,
+                historyPort,
+                Clock.fixed(now, ZoneOffset.UTC)
         );
     }
 
@@ -435,7 +463,8 @@ class BookingServiceTest {
                 UUID.randomUUID(),
                 customerId,
                 scheduledAt,
-                status
+                status,
+                0
         );
     }
 }
