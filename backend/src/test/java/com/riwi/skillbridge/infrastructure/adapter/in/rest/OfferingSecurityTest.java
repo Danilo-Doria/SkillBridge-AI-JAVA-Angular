@@ -63,6 +63,7 @@ class OfferingSecurityTest {
     @MockitoBean OfferingRepositoryPort repository;
     @MockitoBean OfferingCachePort cache;
     @MockitoBean UserAccountPort users;
+    @MockitoBean com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort auditPublisher;
     // Dependencias del filtro JWT (aquí la autenticación la simula @WithMockUser)
     @MockitoBean JwtService jwtService;
     @MockitoBean DatabaseUserDetailsService userDetailsService;
