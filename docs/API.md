@@ -8,7 +8,9 @@ Base path: `/api`
 | POST | `/auth/login` | Public | Login and return JWT |
 | GET | `/offerings` | Public | Active catalog; Redis-backed |
 | POST | `/bookings` | Bearer JWT | Persist booking and publish event |
+| PATCH | `/bookings/{bookingId}/cancel` | Bearer JWT | Cancel own booking when allowed |
 | POST | `/ai/recommendations` | Bearer JWT | Generate catalog-grounded recommendation |
+
 
 OpenAPI UI locally:
 
@@ -19,12 +21,13 @@ http://localhost:8080/swagger-ui.html
 ## Suggested next endpoints
 
 ```text
-POST   /api/provider/offerings
-PUT    /api/provider/offerings/{id}
-PATCH  /api/provider/offerings/{id}/status
-GET    /api/bookings/me
-PATCH  /api/bookings/{id}/cancel
-GET    /api/admin/metrics/business
+GET    /api/offerings                     público, catálogo activo
+GET    /api/offerings/me                  PROVIDER
+POST   /api/offerings                     PROVIDER, ADMIN
+PUT    /api/offerings/{id}                PROVIDER (dueño), ADMIN
+POST   /api/offerings/{id}/deactivate     PROVIDER (dueño), ADMIN
+POST   /api/offerings/{id}/activate       PROVIDER (dueño), ADMIN
+GET    /api/admin/offerings               ADMIN
 ```
 
 The provider write endpoints should invalidate the public offerings cache through `OfferingCachePort`.
