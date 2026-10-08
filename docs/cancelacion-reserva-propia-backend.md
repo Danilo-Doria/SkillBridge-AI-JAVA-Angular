@@ -138,26 +138,26 @@ La implementación usa `NotificationMessage` con tipo `BOOKING_CANCELLED` y rout
 
 | ID | Nivel de prueba | Clase de prueba | Preparación | Acción | Verificaciones |
 |---|---|---|---|---|---|
-| QA-01 | Dominio, caso de uso e integración HTTP | `BookingControllerSecurityTest` | Propia, `CREATED`, futura y con >=24h | Cancelar | `200`, estado `CANCELLED`, persistencia, historial, evento y consulta posterior. |
-| QA-02 | Caso de uso e integración HTTP | `BookingServiceTest`, `BookingControllerSecurityTest` | JWT válido de otro usuario | Cancelar | `404`; reserva, historial y evento intactos. |
-| QA-03 | Caso de uso e integración HTTP | `BookingServiceTest`, `BookingControllerSecurityTest` | UUID inexistente | Cancelar | `404` y ausencia de efectos. |
-| QA-04 | Dominio y caso de uso | `BookingCancellationPolicyTest` | Reserva propia con sesión pasada | Cancelar | `422` y ausencia de efectos. |
-| QA-05 | Dominio y caso de uso | `BookingCancellationPolicyTest`, `BookingControllerSecurityTest` | Reserva futura en los límites de 24h | Cancelar | Regla temporal, límites y ausencia de efectos. |
-| QA-06 | Caso de uso e integración HTTP | `BookingServiceTest`, `BookingControllerSecurityTest` | Reserva cancelada por primera llamada | Cancelar de nuevo | `200`, un historial y un evento. |
-| QA-07 | Seguridad HTTP | `BookingControllerSecurityTest` | JWT ausente o alterado | Llamar endpoint | `401` y caso de uso no ejecutado. |
+| QA-01 | Integración HTTP, BD y RabbitMQ | `BookingCancellationIT` | Propia, `CREATED`, futura y con >=24h | Cancelar | `200`, estado, historial y una notificación. |
+| QA-02 | Integración HTTP, BD y RabbitMQ | `BookingCancellationIT` | JWT válido de otro usuario | Cancelar | `404`; reserva, historial y evento intactos. |
+| QA-03 | Integración HTTP | `BookingCancellationIT` | UUID inexistente | Cancelar | `404` y ausencia de efectos. |
+| QA-04 | Integración HTTP y BD | `BookingCancellationIT` | Reserva propia con sesión pasada | Cancelar | `422` y ausencia de efectos. |
+| QA-05 | Integración HTTP y BD | `BookingCancellationIT` | Reserva futura en los límites de 24h | Cancelar | Regla temporal, límite y ausencia de efectos. |
+| QA-06 | Integración HTTP, BD y RabbitMQ | `BookingCancellationIT` | Reserva cancelada por primera llamada | Cancelar de nuevo | `200`, un historial y un evento. |
+| QA-07 | Integración de seguridad | `BookingCancellationIT` | JWT ausente, expirado, alterado y encabezado inválido | Llamar endpoint | `401` y caso de uso no ejecutado. |
 | QA-08 | Persistencia y concurrencia | Pendiente | Dos ejecuciones sincronizadas | Cancelar simultáneamente | Una transición, historial y evento; datos íntegros. |
 
 ## Resultado de casos QA
 
 | ID | Prueba automatizada | Estado | Evidencia | Observaciones |
 |---|---|---|---|---|
-| QA-01 | `BookingTest`, `BookingServiceTest`, pruebas de notificación | Parcial | Transición propia válida, historial y una notificación `BOOKING_CANCELLED` verificados mediante puertos simulados. | La prueba JPA existe, pero no pudo ejecutarse por Docker/Testcontainers local. |
-| QA-02 | `BookingServiceTest` | Parcial | Reserva ajena devuelve no encontrada; no guarda, audita ni publica notificación. | Falta integración HTTP. |
-| QA-03 | `BookingServiceTest` | Parcial | UUID inexistente no accede a usuario, no guarda, audita ni publica notificación. | Falta integración HTTP. |
-| QA-04 | `BookingCancellationPolicyTest` | Parcial | Fechas pasada y actual rechazadas por la política temporal. | Falta integración HTTP. |
-| QA-05 | `BookingCancellationPolicyTest`, `BookingServiceTest` | Parcial | Límite exacto de 24h permitido y 23:59:59 rechazado sin guardar ni publicar. | Falta integración HTTP. |
-| QA-06 | `BookingTest`, `BookingServiceTest` | Parcial | Repetición retorna la reserva cancelada sin guardar, auditar ni publicar una segunda notificación. | Falta integración HTTP. |
-| QA-07 | `BookingControllerSecurityTest` | Parcial | JWT ausente o alterado retorna `401` y no invoca el caso de uso. | Faltan pruebas con JWT real expirado y encabezado malformado en integración. |
+| QA-01 | `BookingTest`, `BookingServiceTest`, `BookingCancellationIT` | Parcial | Transición propia válida, historial y una notificación `BOOKING_CANCELLED` verificados mediante puertos simulados. | La prueba integral compila, pero Testcontainers no pudo iniciar por incompatibilidad local de API Docker. |
+| QA-02 | `BookingServiceTest`, `BookingCancellationIT` | Parcial | Reserva ajena devuelve no encontrada; no guarda, audita ni publica notificación. | Integración pendiente de ejecutar en Docker compatible. |
+| QA-03 | `BookingServiceTest`, `BookingCancellationIT` | Parcial | UUID inexistente no accede a usuario, no guarda, audita ni publica notificación. | Integración pendiente de ejecutar en Docker compatible. |
+| QA-04 | `BookingCancellationPolicyTest`, `BookingCancellationIT` | Parcial | Fechas pasada y actual rechazadas por la política temporal. | Integración pendiente de ejecutar en Docker compatible. |
+| QA-05 | `BookingCancellationPolicyTest`, `BookingServiceTest`, `BookingCancellationIT` | Parcial | Límite exacto de 24h permitido y 23:59:59 rechazado sin guardar ni publicar. | Integración pendiente de ejecutar en Docker compatible. |
+| QA-06 | `BookingTest`, `BookingServiceTest`, `BookingCancellationIT` | Parcial | Repetición retorna la reserva cancelada sin guardar, auditar ni publicar una segunda notificación. | Integración pendiente de ejecutar en Docker compatible. |
+| QA-07 | `BookingControllerSecurityTest`, `BookingCancellationIT` | Parcial | JWT ausente o alterado retorna `401` y no invoca el caso de uso. | La prueba integral incorpora JWT real expirado y encabezado malformado, pendiente de Docker compatible. |
 | QA-08 | Pendiente | No ejecutado | — | Se implementará en tareas posteriores. |
 
 ## Plan de tareas
@@ -191,6 +191,8 @@ Tarea 6: `mvn test -Dtest=BookingServiceTest,NotificationMessageTest,RabbitNotif
 
 Tarea 7: `mvn test -Dtest=BookingControllerSecurityTest` ejecutado correctamente: 6 pruebas, 0 fallos, 0 errores y 0 omitidas. Cubre el contrato `PATCH`, la identidad tomada del contexto de seguridad, las respuestas `404` y `422`, la repetición idempotente y JWT ausente o alterado.
 
+Tarea 8: `mvn test -Dtest=BookingCancellationIT` compiló las 19 clases de prueba correctamente, pero no ejecutó los casos QA porque Testcontainers no pudo iniciar Ryuk. Docker Desktop exige un cliente mínimo API 1.40 y la configuración local de Testcontainers negocia API 1.32. Resultado: 1 error de infraestructura, 0 fallos de aserción. No se modificó la configuración global del equipo.
+
 ## Historial de cambios y commits
 
 | Tarea | Archivo | Cambio | Razón | Caso QA | Prueba | Commit |
@@ -212,8 +214,9 @@ Tarea 7: `mvn test -Dtest=BookingControllerSecurityTest` ejecutado correctamente
 | Tarea 5 | `application/service/BookingService.java` y `BookingServiceTest.java` | Guarda una auditoría única tras una transición efectiva y verifica ausencia de efectos en rechazos. | Mantener reserva e historial dentro de la transacción. | QA-01 a QA-06 | 18 pruebas unitarias seleccionadas. | `284ae46` |
 | Tarea 6 | `NotificationType`, `NotificationMessage`, `RabbitConfiguration` y `RabbitNotificationPublisher` | Tipo, mensaje y routing key de cancelación. | Publicar la cancelación mediante la infraestructura de notificaciones corregida. | QA-01, QA-06, QA-08 | Pruebas de mensaje y publicador Rabbit. | `47588e0` |
 | Tarea 6 | `BookingService.java` y `BookingServiceTest.java` | Publica una sola notificación tras la transición y auditoría efectivas. | Evitar publicaciones en rechazos o llamadas repetidas. | QA-01, QA-02, QA-03, QA-05, QA-06 | `BookingServiceTest`. | `47588e0` |
-| Tarea 7 | `BookingController.java` | Endpoint `PATCH /api/bookings/{bookingId}/cancel` que toma el email de `Authentication`. | Exponer la cancelación sin recibir identidad del cliente. | QA-01, QA-02, QA-03, QA-05, QA-06 | `BookingControllerSecurityTest`. | Pendiente de aprobación. |
-| Tarea 7 | `BookingControllerSecurityTest.java` y `docs/API.md` | Pruebas MockMvc de contrato y seguridad; endpoint publicado en la referencia de API. | Validar respuestas HTTP y facilitar la integración del frontend. | QA-01, QA-02, QA-03, QA-05, QA-06, QA-07 | `BookingControllerSecurityTest`. | Pendiente de aprobación. |
+| Tarea 7 | `BookingController.java` | Endpoint `PATCH /api/bookings/{bookingId}/cancel` que toma el email de `Authentication`. | Exponer la cancelación sin recibir identidad del cliente. | QA-01, QA-02, QA-03, QA-05, QA-06 | `BookingControllerSecurityTest`. | `48a231e` |
+| Tarea 7 | `BookingControllerSecurityTest.java` y `docs/API.md` | Pruebas MockMvc de contrato y seguridad; endpoint publicado en la referencia de API. | Validar respuestas HTTP y facilitar la integración del frontend. | QA-01, QA-02, QA-03, QA-05, QA-06, QA-07 | `BookingControllerSecurityTest`. | `48a231e` |
+| Tarea 8 | `BookingCancellationIT.java` | Prueba integral con MockMvc, JWT real, reloj fijo, PostgreSQL y RabbitMQ mediante Testcontainers. | Cubrir QA-01 a QA-07 contra adaptadores reales. | QA-01 a QA-07 | Compila; ejecución bloqueada por incompatibilidad local Docker/Testcontainers. | Pendiente de aprobación. |
 
 ## Instrucciones de integración para frontend
 
