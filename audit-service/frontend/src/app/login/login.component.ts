@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -23,12 +24,7 @@ export class LoginComponent {
     this.error.set('');
     this.loading.set(true);
 
-    // Call the main backend Auth API (running on port 8080)
-    // We assume the main backend is at localhost:8080 in dev/docker.
-    // In production, this would be an environment variable.
-    const authUrl = window.location.hostname === 'localhost' 
-      ? 'http://localhost:8080/api/auth/login'
-      : '/api/auth/login'; // fallback if they are on same origin via gateway
+    const authUrl = environment.authApiUrl;
 
     this.http.post<{token: string}>(authUrl, {
       email: this.email(),
