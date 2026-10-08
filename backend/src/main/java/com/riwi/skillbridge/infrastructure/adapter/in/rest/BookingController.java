@@ -34,4 +34,10 @@ public class BookingController {
         String userEmail = authentication.getName(); // Extrae el email del token
         return listCustomerBookingsUseCase.bookingsList(userEmail);
     }
+    // Expone el endpoint para cancelar reservas (permite reembolsos si está a tiempo)
+    @PostMapping("/cancel")
+    @ResponseStatus(HttpStatus.OK)
+    public Booking cancelBooking(@RequestBody com.riwi.skillbridge.application.port.in.CancelBookingCommand command) {
+        return ((com.riwi.skillbridge.application.service.BookingService) useCase).cancel(command);
+    }
 }

@@ -66,13 +66,14 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         if (!booking.customerId().equals(customerId)) {
             throw new DomainNotFoundException("Reserva no encontrada");
         }
+        
+        cancellationPolicy.validate(booking);
 
         Booking cancelled = booking.cancel();
         if (cancelled == booking) {
             return booking;
         }
 
-        cancellationPolicy.validate(booking);
         return bookingRepository.save(cancelled);
     }
 

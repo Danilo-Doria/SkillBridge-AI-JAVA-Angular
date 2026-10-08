@@ -3,7 +3,6 @@ import { Injectable } from '@angular/core';
 import { apiBase } from './api';
 import { Observable } from 'rxjs';
 
-
 export type BookingStatus = 'CREATED' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
 
 export interface Booking {
@@ -23,13 +22,13 @@ export interface CancelBookingCommand {
 export class BookingService {
   constructor(private http: HttpClient) {}
 
-  // Obtiene las reservas pertenecientes al usuario autenticado.
   getMyBookings(): Observable<Booking[]> {
-    return this.http.get<Booking[]>(${apiBase()}/bookings/me);
+    return this.http.get<Booking[]>(apiBase() + '/bookings/me');
   }
 
-  // Cancela una reserva
+  // Envía la petición al backend para cancelar una reserva
   cancelBooking(command: CancelBookingCommand): Observable<Booking> {
-    return this.http.post<Booking>(${apiBase()}/bookings/cancel, command);
+    return this.http.post<Booking>(apiBase() + '/bookings/cancel', command);
   }
 }
+
