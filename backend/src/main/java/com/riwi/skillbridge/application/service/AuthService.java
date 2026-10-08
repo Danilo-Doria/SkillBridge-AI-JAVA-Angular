@@ -7,8 +7,11 @@ import com.riwi.skillbridge.application.port.out.UserRepositoryPort;
 import com.riwi.skillbridge.domain.exception.BusinessRuleException;
 import com.riwi.skillbridge.domain.exception.InvalidCredentialsException;
 import com.riwi.skillbridge.domain.model.Role;
+import com.riwi.skillbridge.domain.exception.ForbiddenOperationException;
+import com.riwi.skillbridge.domain.model.UserStatus;
 import com.riwi.skillbridge.domain.model.UserAccount;
 import org.springframework.stereotype.Service;
+
 
 import java.util.UUID;
 
@@ -38,9 +41,12 @@ public class AuthService implements AuthUseCase {
     @Override
     public String login(String email, String rawPassword) {
         UserAccount user = users.findByEmail(email.trim().toLowerCase())
-                .orElseThrow(() -> new BusinessRuleException("Credenciales inválidas"));
+            .orElseThrow(() -> new BusinessRuleException("Credenciales inválidas"));
         if (!passwords.matches(rawPassword, user.passwordHash())) {
             throw new InvalidCredentialsException("Credenciales inválidas");
+        }
+        if (user.status() == UserStatus.SUSPENDED) {
+            throw new ForbiddenOperationException("La cuenta está suspendida");
         }
         return tokens.generate(user.email(), user.role().name());
     }
