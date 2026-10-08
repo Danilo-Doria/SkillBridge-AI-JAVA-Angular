@@ -1,5 +1,7 @@
 package com.riwi.skillbridge.infrastructure.adapter.in.rest;
 
+import com.riwi.skillbridge.application.port.in.CancelBookingCommand;
+import com.riwi.skillbridge.application.port.in.CancelBookingUseCase;
 import com.riwi.skillbridge.application.port.in.CreateBookingUseCase;
 import com.riwi.skillbridge.application.port.in.ListCustomerBookingsUseCase;
 import com.riwi.skillbridge.domain.model.Booking;
@@ -10,16 +12,21 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/bookings")
 public class BookingController {
     private final CreateBookingUseCase useCase;
-    private  final ListCustomerBookingsUseCase listCustomerBookingsUseCase;
+    private final ListCustomerBookingsUseCase listCustomerBookingsUseCase;
+    private final CancelBookingUseCase cancelBookingUseCase;
 
-    public BookingController(CreateBookingUseCase useCase, ListCustomerBookingsUseCase listCustomerBookingsUseCase) {
+    public BookingController(CreateBookingUseCase useCase, 
+                             ListCustomerBookingsUseCase listCustomerBookingsUseCase,
+                             CancelBookingUseCase cancelBookingUseCase) {
         this.useCase = useCase;
         this.listCustomerBookingsUseCase = listCustomerBookingsUseCase;
+        this.cancelBookingUseCase = cancelBookingUseCase;
     }
 
     @PostMapping
@@ -34,10 +41,10 @@ public class BookingController {
         String userEmail = authentication.getName(); // Extrae el email del token
         return listCustomerBookingsUseCase.bookingsList(userEmail);
     }
-    // Expone el endpoint para cancelar reservas (permite reembolsos si está a tiempo)
-    @PostMapping("/cancel")
+
+    @PutMapping("/{id}/cancel")
     @ResponseStatus(HttpStatus.OK)
-    public Booking cancelBooking(@RequestBody com.riwi.skillbridge.application.port.in.CancelBookingCommand command) {
-        return ((com.riwi.skillbridge.application.service.BookingService) useCase).cancel(command);
+    public Booking cancel(@PathVariable UUID id, Authentication authentication) {
+        return cancelBookingUseCase.cancel(new CancelBookingCommand(id, authentication.getName()));
     }
 }
