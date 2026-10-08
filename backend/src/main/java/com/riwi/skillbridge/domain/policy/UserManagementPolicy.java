@@ -9,6 +9,12 @@ import com.riwi.skillbridge.domain.model.UserStatus;
 
 public class UserManagementPolicy {
 
+    public void assertAdmin(Actor actor) {
+        if (actor.role() != Role.ADMIN) {
+            throw new ForbiddenOperationException("Solo un Admin puede gestionar usuarios");
+        }
+    }
+
     public void assertCanChangeStatus(Actor actor, UserAccount target, UserStatus newStatus) {
         assertAdminActingOnAnotherUser(actor, target);
         if (newStatus == null) {
@@ -32,9 +38,7 @@ public class UserManagementPolicy {
     // Como quien actúa es siempre un Admin activo y no puede tocarse a sí mismo,
     // el sistema nunca puede quedarse sin Admin activo por esta vía.
     private void assertAdminActingOnAnotherUser(Actor actor, UserAccount target) {
-        if (actor.role() != Role.ADMIN) {
-            throw new ForbiddenOperationException("Solo un Admin puede gestionar usuarios");
-        }
+        assertAdmin(actor);
         if (actor.id().equals(target.id())) {
             throw new BusinessRuleException("Un Admin no puede modificar su propia cuenta");
         }
