@@ -23,10 +23,16 @@ public class RabbitConfiguration {
     public static final String NOTIFICATION_DLQ = "notification.dlq";
     public static final String NOTIFICATION_DLQ_KEY = "notification.failed";
 
+    public static final String BOOKING_EXCHANGE = "booking.events";
+    public static final String DLX = "dlx.exchange";
+
     @Bean
     TopicExchange notificationExchange() {
         return new TopicExchange(NOTIFICATION_EXCHANGE, true, false);
     }
+    @Bean TopicExchange bookingExchange() { return new TopicExchange(BOOKING_EXCHANGE, true, false); }
+    @Bean TopicExchange paymentExchange() { return new TopicExchange("payment.events", true, false); }
+    @Bean DirectExchange deadLetterExchange() { return new DirectExchange(DLX, true, false); }
 
     @Bean
     DirectExchange notificationDeadLetterExchange() {

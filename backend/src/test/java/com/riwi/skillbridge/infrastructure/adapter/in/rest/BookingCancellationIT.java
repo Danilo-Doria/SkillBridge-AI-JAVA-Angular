@@ -6,6 +6,7 @@ import com.riwi.skillbridge.application.port.out.NotificationSenderPort;
 import com.riwi.skillbridge.application.port.out.NotificationType;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.domain.model.Role;
+import com.riwi.skillbridge.domain.model.UserStatus;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.BookingEntity;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.UserEntity;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingRepository;
@@ -27,6 +28,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -87,6 +89,7 @@ class BookingCancellationIT {
     private static final UUID OTHER_CUSTOMER_ID = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
     private static final String OTHER_CUSTOMER_EMAIL = "other-customer@test.com";
 
+
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
         .withDatabaseName("skillbridge_test")
@@ -136,7 +139,7 @@ class BookingCancellationIT {
         bookingRepository.deleteAll();
         userRepository.findById(OTHER_CUSTOMER_ID).ifPresent(userRepository::delete);
         userRepository.save(new UserEntity(OTHER_CUSTOMER_ID, "Other Customer", OTHER_CUSTOMER_EMAIL,
-            passwordEncoder.encode("12345678"), Role.CUSTOMER, NOW));
+            passwordEncoder.encode("12345678"), Role.CUSTOMER, UserStatus.ACTIVE, NOW));
         amqpAdmin.purgeQueue(RabbitConfiguration.NOTIFICATION_QUEUE);
         amqpAdmin.purgeQueue(RabbitConfiguration.NOTIFICATION_DLQ);
         reset(notificationSender);
@@ -337,3 +340,4 @@ class BookingCancellationIT {
         }
     }
 }
+

@@ -1,3 +1,4 @@
+import { environment } from '../environments/environment';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, interval, switchMap, startWith } from 'rxjs';
@@ -35,7 +36,7 @@ export interface AuditStats {
 })
 export class AuditService {
   private http = inject(HttpClient);
-  private apiUrl = '/api/audit';
+  private apiUrl = environment.auditApiUrl;
 
   getEvents(): Observable<BusinessEvent[]> {
     return this.http.get<BusinessEvent[]>(`${this.apiUrl}/events`);

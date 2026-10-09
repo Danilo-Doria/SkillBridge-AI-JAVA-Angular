@@ -34,10 +34,10 @@ class BookingTest {
     }
 
     @Test
-    void shouldRejectCancellationFromConfirmedStatus() {
+    void shouldAllowCancellationFromConfirmedStatus() {
         Booking booking = bookingWithStatus(BookingStatus.CONFIRMED);
-
-        assertThrows(BusinessRuleException.class, booking::cancel);
+        Booking cancelled = booking.cancel();
+        assertEquals(BookingStatus.CANCELLED, cancelled.status());
     }
 
     @Test
@@ -57,3 +57,4 @@ class BookingTest {
                 0);
     }
 }
+

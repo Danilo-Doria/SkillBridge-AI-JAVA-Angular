@@ -9,6 +9,7 @@ import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.infrastructure.config.SecurityConfiguration;
+import com.riwi.skillbridge.infrastructure.security.AuthCookieService;
 import com.riwi.skillbridge.infrastructure.security.DatabaseUserDetailsService;
 import com.riwi.skillbridge.infrastructure.security.JwtService;
 import com.riwi.skillbridge.infrastructure.security.RestAccessDeniedHandler;
@@ -30,7 +31,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -56,13 +59,15 @@ class BookingControllerSecurityTest {
     private JwtService jwtService;
     @MockitoBean
     private DatabaseUserDetailsService userDetailsService;
+    @MockitoBean
+    private AuthCookieService authCookieService;
 
     @Test
     @WithMockUser(username = CUSTOMER_EMAIL, roles = "CUSTOMER")
     void cancela_con_el_email_del_usuario_autenticado() throws Exception {
         when(cancelBookingUseCase.cancel(any())).thenReturn(cancelledBooking());
 
-        mvc.perform(patch(cancelUrl()))
+        mvc.perform(patch(cancelUrl()).with(csrf()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(BOOKING_ID.toString()))
             .andExpect(jsonPath("$.status").value("CANCELLED"));
@@ -78,7 +83,7 @@ class BookingControllerSecurityTest {
     void segunda_cancelacion_retorna_ok_con_el_estado_cancelled() throws Exception {
         when(cancelBookingUseCase.cancel(any())).thenReturn(cancelledBooking());
 
-        mvc.perform(patch(cancelUrl()))
+        mvc.perform(patch(cancelUrl()).with(csrf()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("CANCELLED"));
     }
@@ -89,7 +94,7 @@ class BookingControllerSecurityTest {
         when(cancelBookingUseCase.cancel(any()))
             .thenThrow(new DomainNotFoundException("Reserva no encontrada"));
 
-        mvc.perform(patch(cancelUrl()))
+        mvc.perform(patch(cancelUrl()).with(csrf()))
             .andExpect(status().isNotFound());
     }
 
@@ -99,7 +104,7 @@ class BookingControllerSecurityTest {
         when(cancelBookingUseCase.cancel(any()))
             .thenThrow(new BusinessRuleException("La reserva debe cancelarse con una anticipación mínima de 24 horas"));
 
-        mvc.perform(patch(cancelUrl()))
+        mvc.perform(patch(cancelUrl()).with(csrf()))
             .andExpect(status().isUnprocessableEntity());
     }
 
@@ -120,6 +125,15 @@ class BookingControllerSecurityTest {
             .andExpect(status().isUnauthorized());
 
         verify(cancelBookingUseCase, never()).cancel(any());
+    }
+
+    @Test
+    @WithMockUser(username = CUSTOMER_EMAIL, roles = "CUSTOMER")
+    void crear_reserva_sin_idempotency_key_responde_400() throws Exception {
+        mvc.perform(post("/api/bookings").with(csrf()).contentType("application/json")
+                .content("{\"offeringId\":\"" + UUID.randomUUID() + "\",\"scheduledAt\":\"2030-01-02T12:00:00Z\"}"))
+            .andExpect(status().isBadRequest());
+        verify(createBookingUseCase, never()).create(any(), any(), any(), any());
     }
 
     private Booking cancelledBooking() {

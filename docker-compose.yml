@@ -72,6 +72,14 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8088,http://localhost:8090,http://localhost:4200}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      NOTIFICATIONS_SENDER: ${NOTIFICATIONS_SENDER:-simulated}
+      NOTIFICATIONS_EMAIL_FROM: ${NOTIFICATIONS_EMAIL_FROM:-no-reply@skillbridge.local}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
     depends_on:
       postgres:
         condition: service_healthy
@@ -168,7 +176,7 @@ services:
     environment:
       PORT: 8081
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      CORS_ALLOWED_ORIGINS: http://localhost:8090,http://localhost:4200
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8090,http://localhost:4200}
     depends_on:
       kafka:
         condition: service_healthy
@@ -190,6 +198,12 @@ services:
         condition: service_healthy
     ports:
       - 8090:80
+    networks:
+      - skillbridge
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - 127.0.0.1:8025:8025
     networks:
       - skillbridge
 networks:
