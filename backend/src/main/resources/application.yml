@@ -99,7 +99,7 @@ app:
     provider: ${AI_PROVIDER:gemini}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:10}
     gemini:
-      enabled: ${AI_PROVIDER:gemini}
+      enabled: ${GEMINI_ENABLED:true}
     openai:
       enabled: false
   booking:
