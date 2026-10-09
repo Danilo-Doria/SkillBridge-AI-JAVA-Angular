@@ -9,6 +9,24 @@ logging:
 spring:
   application:
     name: skillbridge-api
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+  notifications:
+    sender: ${NOTIFICATIONS_SENDER:simulated}
+    email:
+      from: ${NOTIFICATIONS_EMAIL_FROM:no-reply@skillbridge.local}
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:dummy-key}
@@ -117,10 +135,3 @@ app:
     topic:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
       audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
-
-
-
-
-
-
-
