@@ -132,7 +132,7 @@ La implementación usa `NotificationMessage` con tipo `BOOKING_CANCELLED` y rout
 |---|---|
 | Archivos creados | `CancelBookingCommand`, `CancelBookingUseCase`, `BookingStatusHistory`, adaptador de historial, migración V4, pruebas de dominio, servicio, HTTP e integración. |
 | Archivos modificados | Dominio `Booking`, caso de uso, puertos, adaptadores JPA/RabbitMQ, controlador, seguridad de prueba y documentación API. |
-| Migraciones | `V4__booking_cancellation_audit.sql`: versión optimista e historial de estados de reserva. |
+| Migraciones | `V6__booking_cancellation_audit.sql`: versión optimista e historial de estados de reserva. |
 
 ## Matriz de pruebas QA
 
