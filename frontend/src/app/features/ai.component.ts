@@ -214,14 +214,12 @@ export class AiComponent {
         next: (r) => {
           this.answer = r.explanation; this.recommendationId = r.recommendationId; this.resultInputType = r.inputType; this.sourceText = r.sourceText; this.recommendations = r.recommendations ?? [];
           this.loading = false;
-  recording = false; private recorder: MediaRecorder | null = null; private chunks: Blob[] = [];
         },
         error: (e) => {
           this.error =
             e?.error?.detail ||
             'Inicia sesión y verifica GEMINI_API_KEY.';
           this.loading = false;
-  recording = false; private recorder: MediaRecorder | null = null; private chunks: Blob[] = [];
         }
       });
   }
