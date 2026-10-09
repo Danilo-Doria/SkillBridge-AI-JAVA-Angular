@@ -36,6 +36,12 @@ import java.util.Set;
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfiguration {
+
+    private CookieCsrfTokenRepository cookieCsrfTokenRepository() {
+        CookieCsrfTokenRepository repo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repo.setCookieCustomizer(customizer -> customizer.sameSite("None").secure(true));
+        return repo;
+    }
     @Bean
     SecurityFilterChain security(HttpSecurity http,
                                  JwtAuthenticationFilter jwtFilter,
@@ -61,7 +67,7 @@ public class SecurityConfiguration {
 
         return http
             .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRepository(cookieCsrfTokenRepository())
                 .csrfTokenRequestHandler(csrfHandler)
                 .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy())
                 .requireCsrfProtectionMatcher(cookieAuthenticatedUnsafeRequests)
