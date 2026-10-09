@@ -2,6 +2,10 @@ server:
   port: ${PORT:8080}
   forward-headers-strategy: framework
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{correlationId:-N/A}] %logger{36} - %msg%n"
+
 spring:
   application:
     name: skillbridge-api

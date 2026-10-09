@@ -13,6 +13,7 @@ import com.riwi.skillbridge.application.port.out.UserRepositoryPort;
 import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
 import com.riwi.skillbridge.domain.exception.BusinessRuleException;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
+import com.riwi.skillbridge.domain.exception.IdempotencyKeyConflictException;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatusHistory;
 import com.riwi.skillbridge.domain.model.BookingStatus;
@@ -53,7 +54,7 @@ class BookingServiceTest {
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
         BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
 
-        UUID offeringId = UUID.randomUUID();
+        UUID offeringId = UUID.fromString("00000000-0000-0000-0000-000000000000");
         UUID userId = UUID.randomUUID();
 
         Offering offering = new Offering(
@@ -429,6 +430,52 @@ class BookingServiceTest {
         assertSame(booking, result);
         verify(bookings, never()).save(any());
         verifyNoInteractions(notificationPublisher, historyPort);
+    }
+
+    @Test
+    void shouldReuseBookingWithoutPublishingEffectsForRepeatedIdempotencyKey() {
+        BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
+        OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
+        UserRepositoryPort users = mock(UserRepositoryPort.class);
+        NotificationPublisherPort notifications = mock(NotificationPublisherPort.class);
+        BookingEventPublisherPort events = mock(BookingEventPublisherPort.class);
+        UUID customerId = UUID.randomUUID();
+        UUID offeringId = UUID.fromString("00000000-0000-0000-0000-000000000000");
+        Instant scheduledAt = Instant.parse("2030-10-11T12:00:00Z");
+        Booking existing = new Booking(UUID.randomUUID(), offeringId, customerId, scheduledAt, BookingStatus.CREATED, 0);
+        when(users.findByEmail("user@example.com")).thenReturn(Optional.of(user(customerId, "user@example.com")));
+        when(bookings.findByCustomerIdAndIdempotencyKey(customerId, "same-key")).thenReturn(Optional.of(existing));
+        when(bookings.findIdempotencyRequestHash(customerId, "same-key"))
+            .thenReturn(Optional.of("900abdf16c6e2d53d8ee6a980e26db9b7e6b8e5a47a54a44c89498d2367f9c8b"));
+
+        Booking result = service(bookings, offerings, users, notifications,
+            mock(BookingStatusHistoryPort.class), events, Instant.parse("2030-10-10T12:00:00Z"))
+            .create(offeringId, scheduledAt, "user@example.com", "same-key");
+        assertSame(existing, result);
+        verify(bookings, never()).save(any());
+        verifyNoInteractions(notifications, events);
+    }
+
+    @Test
+    void shouldRejectAnIdempotencyKeyReusedWithDifferentRequest() {
+        BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
+        UserRepositoryPort users = mock(UserRepositoryPort.class);
+        UUID customerId = UUID.randomUUID();
+        UUID originalOfferingId = UUID.fromString("00000000-0000-0000-0000-000000000000");
+        UUID differentOfferingId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        Instant scheduledAt = Instant.parse("2030-10-11T12:00:00Z");
+        Booking existing = new Booking(UUID.randomUUID(), originalOfferingId, customerId, scheduledAt, BookingStatus.CREATED, 0);
+        when(users.findByEmail("user@example.com")).thenReturn(Optional.of(user(customerId, "user@example.com")));
+        when(bookings.findByCustomerIdAndIdempotencyKey(customerId, "same-key")).thenReturn(Optional.of(existing));
+        when(bookings.findIdempotencyRequestHash(customerId, "same-key")).thenReturn(Optional.of("different-hash"));
+
+        BookingService bookingService = service(bookings, mock(OfferingRepositoryPort.class), users,
+            mock(NotificationPublisherPort.class), mock(BookingStatusHistoryPort.class),
+            mock(BookingEventPublisherPort.class), Instant.parse("2030-10-10T12:00:00Z"));
+
+        assertThrows(IdempotencyKeyConflictException.class,
+            () -> bookingService.create(differentOfferingId, scheduledAt, "user@example.com", "same-key"));
+        verify(bookings, never()).save(any());
     }
 
     private BookingService service(
