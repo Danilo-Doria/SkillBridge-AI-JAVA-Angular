@@ -7,11 +7,17 @@ logging:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{correlationId:-N/A}] %logger{36} - %msg%n"
 
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
   application:
     name: skillbridge-api
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:dummy-key}
+      enabled: false
+      chat:
+        enabled: false
     google:
       genai:
         api-key: ${GEMINI_API_KEY:}
@@ -112,6 +118,8 @@ app:
       enabled: ${GEMINI_ENABLED:true}
     openai:
       enabled: false
+      chat:
+        enabled: false
     media:
       max-audio-bytes: ${AI_MEDIA_MAX_AUDIO_BYTES:10485760}
       max-image-bytes: ${AI_MEDIA_MAX_IMAGE_BYTES:5242880}
@@ -123,7 +131,6 @@ app:
     topic:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
       audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
-
 
 
 
