@@ -134,6 +134,7 @@ import { apiBase } from '../core/api';
               class="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700"
             >
               {{ error }}
+              <button type="button" (click)="ask()" class="mt-3 rounded-lg border border-red-300 px-3 py-1 text-xs font-semibold">Reintentar</button>
             </div>
           }
 
