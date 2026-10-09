@@ -88,7 +88,7 @@ public class SecurityConfiguration {
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(jwtFilter, CsrfFilter.class)
-            .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
+            .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
             .build();
     }
 
