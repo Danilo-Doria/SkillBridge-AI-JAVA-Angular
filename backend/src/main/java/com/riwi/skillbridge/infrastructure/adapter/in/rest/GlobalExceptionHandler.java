@@ -3,6 +3,7 @@ package com.riwi.skillbridge.infrastructure.adapter.in.rest;
 import com.riwi.skillbridge.domain.exception.BusinessRuleException;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.exception.InvalidCredentialsException;
+import com.riwi.skillbridge.domain.exception.IdempotencyKeyConflictException;
 import org.springframework.http.*;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import com.riwi.skillbridge.domain.exception.ForbiddenOperationException;
@@ -53,5 +54,9 @@ public class GlobalExceptionHandler {
         ProblemDetail p = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
         p.setTitle("Invalid request");
         return p;
+    }
+    @ExceptionHandler(IdempotencyKeyConflictException.class)
+    ProblemDetail idempotencyConflict(IdempotencyKeyConflictException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 }
