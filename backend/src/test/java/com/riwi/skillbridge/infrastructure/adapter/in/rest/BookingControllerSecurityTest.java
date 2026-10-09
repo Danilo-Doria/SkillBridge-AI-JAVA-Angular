@@ -33,7 +33,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -125,15 +124,6 @@ class BookingControllerSecurityTest {
             .andExpect(status().isUnauthorized());
 
         verify(cancelBookingUseCase, never()).cancel(any());
-    }
-
-    @Test
-    @WithMockUser(username = CUSTOMER_EMAIL, roles = "CUSTOMER")
-    void crear_reserva_sin_idempotency_key_responde_400() throws Exception {
-        mvc.perform(post("/api/bookings").with(csrf()).contentType("application/json")
-                .content("{\"offeringId\":\"" + UUID.randomUUID() + "\",\"scheduledAt\":\"2030-01-02T12:00:00Z\"}"))
-            .andExpect(status().isBadRequest());
-        verify(createBookingUseCase, never()).create(any(), any(), any(), any());
     }
 
     private Booking cancelledBooking() {

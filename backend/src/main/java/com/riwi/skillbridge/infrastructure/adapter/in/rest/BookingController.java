@@ -31,9 +31,8 @@ public class BookingController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Booking create(@Valid @RequestBody CreateBookingRequest request, Authentication authentication,
-                          @RequestHeader("Idempotency-Key") String idempotencyKey) {
-        return useCase.create(request.offeringId(), request.scheduledAt(), authentication.getName(), idempotencyKey);
+    public Booking create(@Valid @RequestBody CreateBookingRequest request, Authentication authentication) {
+        return useCase.create(request.offeringId(), request.scheduledAt(), authentication.getName());
     }
 
     @GetMapping("/me")
