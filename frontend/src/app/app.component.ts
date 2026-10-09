@@ -91,17 +91,6 @@ import { AuthService } from './core/auth.service';
             </a>
           }
           
-          @if (auth.hasRole('ADMIN')) {
-            <a
-              routerLink="/admin/users"
-              routerLinkActive="bg-slate-100 text-slate-900 font-semibold"
-              (click)="closeMenu()"
-              class="rounded-xl px-4 py-3 text-base font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-            >
-              Usuarios
-            </a>
-          }
-
           <!-- Usuario no autenticado -->
           @if (!auth.isAuthenticated()) {
 

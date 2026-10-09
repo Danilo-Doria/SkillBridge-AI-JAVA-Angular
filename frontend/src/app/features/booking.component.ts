@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Offering, OfferingService } from '../core/offering.service';
 import { BookingService } from '../core/booking.service';
 
@@ -24,7 +25,7 @@ import { BookingService } from '../core/booking.service';
             </p>
           </div>
 
-          <!-- Alertas de Error / Éxito -->
+          <!-- Alertas -->
           @if (error) {
             <div role="alert" class="mb-5 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
               <svg class="h-5 w-5 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -110,15 +111,25 @@ export class BookingComponent implements OnInit {
 
   offeringDropdownOpen = false;
 
-  constructor(
-    private offeringsService: OfferingService,
-    private bookingService: BookingService
-  ) {}
+  private offeringsService = inject(OfferingService);
+  private bookingService = inject(BookingService);
+  private route = inject(ActivatedRoute);
 
   ngOnInit(): void {
     this.offeringsService.list().subscribe({
-      next: list => this.offerings = list,
-      error: () => this.error = 'No fue posible cargar los servicios.'
+      next: (list) => {
+        this.offerings = list;
+
+        // Lee el Query Parameter 'offeringId' si viene desde Home
+        const paramOfferingId = this.route.snapshot.queryParamMap.get('offeringId');
+        if (paramOfferingId) {
+          const matched = this.offerings.find((o) => o.id === paramOfferingId);
+          if (matched) {
+            this.selectOffering(matched.id, matched.title);
+          }
+        }
+      },
+      error: () => (this.error = 'No fue posible cargar los servicios.')
     });
   }
 
@@ -139,7 +150,6 @@ export class BookingComponent implements OnInit {
     this.loading = true;
     const scheduledAt = new Date(this.scheduledLocal).toISOString();
 
-    // Se delega al BookingService para enviar 'Idempotency-Key'
     this.bookingService.createBooking({ offeringId: this.offeringId, scheduledAt })
       .subscribe({
         next: () => {
@@ -149,7 +159,7 @@ export class BookingComponent implements OnInit {
           this.scheduledLocal = '';
           this.loading = false;
         },
-        error: e => {
+        error: (e) => {
           this.error = e?.error?.detail || 'No fue posible crear la reserva. Inicia sesión y verifica la fecha.';
           this.loading = false;
         }
