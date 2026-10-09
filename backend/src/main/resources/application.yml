@@ -81,64 +81,6 @@ management:
 
 springdoc:
   swagger-ui:
-I'll retrieve the job logs to identify the failure and find a solution.
-
-
-Job 113617265540 in Danilo-Doria/SkillBridge-AI-JAVA-Angular
-The issue is clear from the logs. The test is failing because of a configuration property binding error:
-
-Root Cause: The property app.ai.gemini.enabled in application.yml is trying to bind the value "${AI_PROVIDER:gemini}" (a string) to a boolean field, but "gemini" is not a valid boolean value.
-
-Code
-Failed to bind properties under 'app.ai.gemini.enabled' to boolean:
-    Property: app.ai.gemini.enabled
-    Value: "gemini"
-    Reason: failed to convert java.lang.String to boolean (caused by java.lang.IllegalArgumentException: Invalid boolean value 'gemini')
-Let me check the configuration file to understand the structure:
-
-
-View file backend/src/main/resources/application.yml
-Solution
-The test failure is caused by a configuration property binding error in application.yml at line 102.
-
-Root Cause
-Line 102 has:
-
-YAML
-enabled: ${AI_PROVIDER:gemini}
-This is trying to bind a string value ("gemini") to a boolean property. Spring Boot's property binding expects true/false for boolean fields, not the AI provider name.
-
-Fix
-Replace line 102 in backend/src/main/resources/application.yml:
-
-Before:
-
-YAML
-app:
-  ai:
-    provider: ${AI_PROVIDER:gemini}
-    timeout-seconds: ${AI_TIMEOUT_SECONDS:10}
-    gemini:
-      enabled: ${AI_PROVIDER:gemini:true}  # ❌ Wrong - tries to convert "gemini" to boolean
-    openai:
-      enabled: false
-After:
-
-YAML
-app:
-  ai:
-    provider: ${AI_PROVIDER:gemini}
-    timeout-seconds: ${AI_TIMEOUT_SECONDS:10}
-    gemini:
-      enabled: ${GEMINI_ENABLED:true}  # ✅ Correct - expects boolean value
-    openai:
-      enabled: false
-Implementation
-Either:
-
-Set the environment variable when running tests: GEMINI_ENABLED=true
-Or use the default true value by removing the variable reference and using enabled: true directly
-This will allow the application context to load successfully and your integration tests to run.
     path: /swagger-ui.html
 
 app:
@@ -157,7 +99,7 @@ app:
     provider: ${AI_PROVIDER:gemini}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:10}
     gemini:
-      enabled: ${AI_PROVIDER:gemini}
+      enabled: ${GEMINI_ENABLED:true}
     openai:
       enabled: false
   booking:
