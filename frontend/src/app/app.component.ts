@@ -120,7 +120,7 @@ import { AuthService } from './core/auth.service';
 
         </nav>
 
-        <!-- Botón Menú Hamburguesa (Móvil) -->
+        <!-- Botón Menúú Hamburguesa (Móvil) -->
         <button
           type="button"
           (click)="toggleMenu()"
@@ -158,14 +158,14 @@ import { AuthService } from './core/auth.service';
       [class.pointer-events-none]="!isMenuOpen"
     ></div>
 
-    <!-- Menú Desplegable Lateral (Drawer de derecha a izquierda) -->
+    <!-- Menúú Desplegable Lateral (Drawer de derecha a izquierda) -->
     <aside
       class="fixed top-0 right-0 z-50 h-full w-80 max-w-[75vw] bg-white p-6 shadow-2xl transition-transform duration-300 ease-in-out md:hidden flex flex-col justify-between"
       [class.translate-x-0]="isMenuOpen"
       [class.translate-x-full]="!isMenuOpen"
     >
       <div>
-        <!-- Encabezado del Menú Móvil -->
+        <!-- Encabezado del Menúú Móvil -->
         <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
           <div class="flex items-center gap-2">
             <span
@@ -250,7 +250,7 @@ import { AuthService } from './core/auth.service';
         </nav>
       </div>
 
-      <!-- Pie del Menú (Autenticación) -->
+      <!-- Pie del Menúú (Autenticación) -->
       <div class="border-t border-slate-100 pt-4 mt-auto">
         @if (!auth.isAuthenticated()) {
           <a
