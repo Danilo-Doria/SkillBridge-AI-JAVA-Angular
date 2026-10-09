@@ -1,6 +1,6 @@
 package com.riwi.skillbridge.infrastructure.adapter.out.messaging;
 
-import com.riwi.skillbridge.application.port.out.event.BookingEventPublisherPort;
+import com.riwi.skillbridge.application.port.out.BookingEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
