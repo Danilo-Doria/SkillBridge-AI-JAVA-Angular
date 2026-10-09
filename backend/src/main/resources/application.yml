@@ -12,6 +12,7 @@ spring:
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:dummy-key}
+      enabled: false
     google:
       genai:
         api-key: ${GEMINI_API_KEY:}
