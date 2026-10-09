@@ -21,7 +21,7 @@ public class BookingController {
     private final ListCustomerBookingsUseCase listCustomerBookingsUseCase;
     private final CancelBookingUseCase cancelBookingUseCase;
 
-    public BookingController(CreateBookingUseCase useCase, 
+    public BookingController(CreateBookingUseCase useCase,
                              ListCustomerBookingsUseCase listCustomerBookingsUseCase,
                              CancelBookingUseCase cancelBookingUseCase) {
         this.useCase = useCase;
@@ -42,9 +42,8 @@ public class BookingController {
         return listCustomerBookingsUseCase.bookingsList(userEmail);
     }
 
-    @PutMapping("/{id}/cancel")
-    @ResponseStatus(HttpStatus.OK)
-    public Booking cancel(@PathVariable UUID id, Authentication authentication) {
-        return cancelBookingUseCase.cancel(new CancelBookingCommand(id, authentication.getName()));
+    @PatchMapping("/{bookingId}/cancel")
+    public Booking cancel(@PathVariable java.util.UUID bookingId, Authentication authentication) {
+        return cancelBookingUseCase.cancel(new CancelBookingCommand(bookingId, authentication.getName()));
     }
 }

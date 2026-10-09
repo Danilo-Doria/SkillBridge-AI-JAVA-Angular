@@ -52,6 +52,7 @@ class BookingCancellationPolicyTest {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 scheduledAt,
-                BookingStatus.CREATED);
+                BookingStatus.CREATED,
+                0);
     }
 }

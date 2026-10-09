@@ -10,7 +10,8 @@ public record Booking(
         UUID offeringId,
         UUID customerId,
         Instant scheduledAt,
-        BookingStatus status
+        BookingStatus status,
+        long version
 ) {
     public Booking cancel() {
         if (status == BookingStatus.CANCELLED) {
@@ -19,6 +20,6 @@ public record Booking(
         if (status != BookingStatus.CREATED) {
             throw new BusinessRuleException("Solo se pueden cancelar reservas en estado CREATED");
         }
-        return new Booking(id, offeringId, customerId, scheduledAt, BookingStatus.CANCELLED);
+        return new Booking(id, offeringId, customerId, scheduledAt, BookingStatus.CANCELLED, version);
     }
 }

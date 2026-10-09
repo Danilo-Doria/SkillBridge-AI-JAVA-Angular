@@ -18,6 +18,7 @@ public class RabbitConfiguration {
     public static final String NOTIFICATION_EXCHANGE = "notification.exchange";
     public static final String NOTIFICATION_QUEUE = "notification.queue";
     public static final String NOTIFICATION_BOOKING_CREATED_KEY = "notification.booking.created";
+    public static final String NOTIFICATION_BOOKING_CANCELLED_KEY = "notification.booking.cancelled";
     public static final String NOTIFICATION_DLX = "notification.dlx";
     public static final String NOTIFICATION_DLQ = "notification.dlq";
     public static final String NOTIFICATION_DLQ_KEY = "notification.failed";
@@ -49,6 +50,12 @@ public class RabbitConfiguration {
     Binding notificationBinding(Queue notificationQueue, TopicExchange notificationExchange) {
         return BindingBuilder.bind(notificationQueue)
             .to(notificationExchange).with(NOTIFICATION_BOOKING_CREATED_KEY);
+    }
+
+    @Bean
+    Binding notificationBookingCancelledBinding(Queue notificationQueue, TopicExchange notificationExchange) {
+        return BindingBuilder.bind(notificationQueue)
+            .to(notificationExchange).with(NOTIFICATION_BOOKING_CANCELLED_KEY);
     }
 
     @Bean

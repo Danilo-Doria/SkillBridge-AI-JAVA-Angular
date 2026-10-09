@@ -1,5 +1,5 @@
 export const environment = {
   production: false,
-  auditApiUrl: 'http://localhost:8081/api/audit',
-  authApiUrl: 'http://localhost:8080/api/auth/login'
+  get auditApiUrl() { return window.__env?.AUDIT_API_URL || '/api/audit'; },
+  get authApiUrl() { return window.__env?.AUTH_API_URL || '/api/auth/login'; }
 };

@@ -95,6 +95,13 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8088,http://localhost:4200}
   cache:
     offerings-ttl-minutes: ${OFFERINGS_CACHE_TTL_MINUTES:10}
+  ai:
+    provider: ${AI_PROVIDER:gemini}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:10}
+    gemini:
+      enabled: ${AI_PROVIDER:gemini}
+    openai:
+      enabled: false
   booking:
     cancellation:
       minimum-notice-hours: ${BOOKING_CANCELLATION_MINIMUM_NOTICE_HOURS:24}
