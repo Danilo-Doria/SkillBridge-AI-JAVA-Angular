@@ -80,6 +80,8 @@ import { apiBase } from '../core/api';
               placeholder="Ej: Quiero prepararme para una entrevista backend Java..."
               class="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-sm leading-6 text-slate-800 outline-none transition duration-200 placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-800 focus:ring-4 focus:ring-blue-800/10"
             ></textarea>
+            <input #voiceInput type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/webm" (change)="selectFile($event, 'voice')" class="block text-sm" />
+            <input #imageInput type="file" accept="image/jpeg,image/png,image/webp" (change)="selectFile($event, 'image')" class="block text-sm" />
 
             <p class="text-xs leading-5 text-slate-400">
               Describe lo que quieres aprender o conseguir para recibir
@@ -185,9 +187,14 @@ export class AiComponent {
   goal = '';
   answer = '';
   error = '';
+  selectedFile: File | null = null;
+  selectedType: 'voice' | 'image' | null = null;
   loading = false;
 
   constructor(private http: HttpClient) {}
+
+  selectFile(event: Event, type: 'voice' | 'image') { const file=(event.target as HTMLInputElement).files?.[0] ?? null; this.selectedFile=file; this.selectedType=file ? type : null; }
+  private formData() { const data=new FormData(); data.append('file', this.selectedFile!); return data; }
 
   // Envía el objetivo al backend y gestiona la respuesta.
   ask() {
@@ -196,13 +203,10 @@ export class AiComponent {
     this.loading = true;
 
     this.http
-      .post<{ recommendation: string }>(
-        `${apiBase()}/ai/recommendations`,
-        { goal: this.goal }
-      )
+      .post<{ explanation: string }>(this.selectedFile ? `${apiBase()}/ai/recommendations/${this.selectedType}` : `${apiBase()}/ai/recommendations`, this.selectedFile ? this.formData() : { goal: this.goal })
       .subscribe({
         next: (r) => {
-          this.answer = r.recommendation;
+          this.answer = r.explanation;
           this.loading = false;
         },
         error: (e) => {
