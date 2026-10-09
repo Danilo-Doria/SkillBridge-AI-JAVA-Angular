@@ -6,6 +6,8 @@ spring:
   application:
     name: skillbridge-api
   ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:dummy-key}
     google:
       genai:
         api-key: ${GEMINI_API_KEY:}
@@ -110,3 +112,9 @@ app:
     topic:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
       audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
+
+
+
+
+
+
