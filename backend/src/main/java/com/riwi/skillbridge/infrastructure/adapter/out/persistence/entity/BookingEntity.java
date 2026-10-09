@@ -18,17 +18,20 @@ public class BookingEntity {
     private Instant scheduledAt;
     @Enumerated(EnumType.STRING)
     private BookingStatus status;
-    @Column(name = "created_at")
+    @Version
+    private long version;
+    @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 
     protected BookingEntity() {}
 
-    public BookingEntity(UUID id, UUID offeringId, UUID customerId, Instant scheduledAt, BookingStatus status, Instant createdAt) {
+    public BookingEntity(UUID id, UUID offeringId, UUID customerId, Instant scheduledAt, BookingStatus status, long version, Instant createdAt) {
         this.id = id;
         this.offeringId = offeringId;
         this.customerId = customerId;
         this.scheduledAt = scheduledAt;
         this.status = status;
+        this.version = version;
         this.createdAt = createdAt;
     }
 
@@ -37,4 +40,10 @@ public class BookingEntity {
     public UUID getCustomerId() { return customerId; }
     public Instant getScheduledAt() { return scheduledAt; }
     public BookingStatus getStatus() { return status; }
+    public long getVersion() { return version; }
+    public Instant getCreatedAt() { return createdAt; }
+
+    public void updateStatus(BookingStatus status) {
+        this.status = status;
+    }
 }

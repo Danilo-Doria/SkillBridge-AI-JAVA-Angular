@@ -3,17 +3,22 @@ package com.riwi.skillbridge.application.service;
 import com.riwi.skillbridge.application.port.in.CancelBookingCommand;
 
 import com.riwi.skillbridge.application.port.out.BookingRepositoryPort;
+import com.riwi.skillbridge.application.port.out.BookingEventPublisherPort;
+import com.riwi.skillbridge.application.port.out.BookingStatusHistoryPort;
 import com.riwi.skillbridge.application.port.out.NotificationMessage;
 import com.riwi.skillbridge.application.port.out.NotificationPublisherPort;
-import com.riwi.skillbridge.application.port.out.BookingEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.NotificationType;
 import com.riwi.skillbridge.application.port.out.OfferingRepositoryPort;
 import com.riwi.skillbridge.application.port.out.UserRepositoryPort;
+import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
 import com.riwi.skillbridge.domain.exception.BusinessRuleException;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
+import com.riwi.skillbridge.domain.model.BookingStatusHistory;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.domain.model.Offering;
+import com.riwi.skillbridge.domain.model.Role;
+import com.riwi.skillbridge.domain.model.UserAccount;
 import com.riwi.skillbridge.domain.service.BookingCancellationPolicy;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -61,15 +66,16 @@ class BookingServiceTest {
             true
         );
         when(offerings.findById(offeringId)).thenReturn(Optional.of(offering));
-        when(users.findByEmail("user@example.com")).thenReturn(Optional.of(new com.riwi.skillbridge.domain.model.UserAccount(userId, "User", "user@example.com", "hash", com.riwi.skillbridge.domain.model.Role.CUSTOMER)));
+        when(users.findByEmail("user@example.com")).thenReturn(Optional.of(user(userId, "user@example.com")));
         when(bookings.save(any(Booking.class))).thenAnswer(i -> i.getArgument(0));
 
         BookingService service = service(
-                        bookings,
-                        offerings,
-                        users,
-                        notificationPublisher,
-                        eventPublisher,
+                bookings,
+                offerings,
+                users,
+                notificationPublisher,
+                mock(BookingStatusHistoryPort.class),
+                eventPublisher,
                 Instant.parse("2030-10-10T12:00:00Z")
         );
 
@@ -91,14 +97,9 @@ class BookingServiceTest {
         assertEquals(NotificationType.BOOKING_CREATED, message.notificationType());
         assertNotNull(message.eventId());
         assertNotNull(message.occurredAt());
-
-        org.mockito.ArgumentCaptor<com.riwi.skillbridge.application.port.out.event.BusinessEvent> eventCaptor = org.mockito.ArgumentCaptor.forClass(com.riwi.skillbridge.application.port.out.event.BusinessEvent.class);
+        ArgumentCaptor<BusinessEvent> eventCaptor = ArgumentCaptor.forClass(BusinessEvent.class);
         verify(eventPublisher).publish(eventCaptor.capture());
-        com.riwi.skillbridge.application.port.out.event.BusinessEvent event = eventCaptor.getValue();
-        assertEquals("BookingCreated", event.eventType());
-        assertEquals("CREATE", event.action());
-        assertEquals("BOOKING", event.resource());
-        assertEquals("user@example.com", event.actorUsername());
+        assertEquals("BookingCreated", eventCaptor.getValue().eventType());
     }
 
     @Test
@@ -108,14 +109,14 @@ class BookingServiceTest {
         UserRepositoryPort users = mock(UserRepositoryPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         BookingService service = service(
-                        bookings,
-                        offerings,
-                        users,
-                        notificationPublisher,
-                        eventPublisher,
+                bookings,
+                offerings,
+                users,
+                
+                notificationPublisher,
                 Instant.parse("2030-10-10T12:00:00Z")
         );
 
@@ -139,7 +140,6 @@ class BookingServiceTest {
         UserRepositoryPort users = mock(UserRepositoryPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
 
         UUID offeringId = UUID.randomUUID();
 
@@ -156,11 +156,11 @@ class BookingServiceTest {
         ));
 
         BookingService service = service(
-                        bookings,
-                        offerings,
-                        users,
-                        notificationPublisher,
-                        eventPublisher,
+                bookings,
+                offerings,
+                users,
+                
+                notificationPublisher,
                 Instant.parse("2030-10-10T12:00:00Z")
         );
 
@@ -184,7 +184,6 @@ class BookingServiceTest {
         UserRepositoryPort users = mock(UserRepositoryPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
 
         UUID offeringId = UUID.randomUUID();
 
@@ -204,11 +203,11 @@ class BookingServiceTest {
                 .thenReturn(Optional.empty());
 
         BookingService service = service(
-                        bookings,
-                        offerings,
-                        users,
-                        notificationPublisher,
-                        eventPublisher,
+                bookings,
+                offerings,
+                users,
+                
+                notificationPublisher,
                 Instant.parse("2030-10-10T12:00:00Z")
         );
 
@@ -230,8 +229,8 @@ class BookingServiceTest {
         BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
         OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
         UserRepositoryPort users = mock(UserRepositoryPort.class);
-        
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
         BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
@@ -243,18 +242,19 @@ class BookingServiceTest {
                 BookingStatus.CREATED
         );
 
-        when(bookings.findById(booking.id())).thenReturn(Optional.of(booking));
+        when(bookings.findByIdForCancellation(booking.id())).thenReturn(Optional.of(booking));
         when(users.findByEmail("customer@example.com"))
-                .thenReturn(Optional.of(new com.riwi.skillbridge.domain.model.UserAccount(customerId, "Customer", "customer@example.com", "pwd", com.riwi.skillbridge.domain.model.Role.CUSTOMER)));
+                .thenReturn(Optional.of(user(customerId, "customer@example.com")));
         when(bookings.save(any(Booking.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         Booking result = service(
-                        bookings,
-                        offerings,
-                        users,
-                        notificationPublisher,
-                        eventPublisher,
+                bookings,
+                offerings,
+                users,
+                notificationPublisher,
+                historyPort,
+                eventPublisher,
                 now
         ).cancel(new CancelBookingCommand(
                 booking.id(),
@@ -263,16 +263,20 @@ class BookingServiceTest {
 
         assertEquals(BookingStatus.CANCELLED, result.status());
         verify(bookings).save(result);
-
-        org.mockito.ArgumentCaptor<com.riwi.skillbridge.application.port.out.event.BusinessEvent> captor = org.mockito.ArgumentCaptor.forClass(com.riwi.skillbridge.application.port.out.event.BusinessEvent.class);
-        verify(eventPublisher).publish(captor.capture());
-        com.riwi.skillbridge.application.port.out.event.BusinessEvent event = captor.getValue();
-        assertEquals("BookingCancelled", event.eventType());
-        assertEquals("CANCEL", event.action());
-        assertEquals("BOOKING", event.resource());
-        assertEquals("customer@example.com", event.actorUsername());
-
-        
+        ArgumentCaptor<BookingStatusHistory> historyCaptor = ArgumentCaptor.forClass(BookingStatusHistory.class);
+        verify(historyPort).save(historyCaptor.capture());
+        assertEquals(booking.id(), historyCaptor.getValue().bookingId());
+        assertEquals(BookingStatus.CREATED, historyCaptor.getValue().previousStatus());
+        assertEquals(BookingStatus.CANCELLED, historyCaptor.getValue().newStatus());
+        assertEquals(customerId, historyCaptor.getValue().changedBy());
+        ArgumentCaptor<NotificationMessage> notificationCaptor = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(notificationPublisher).publish(notificationCaptor.capture());
+        assertEquals(booking.id(), notificationCaptor.getValue().bookingId());
+        assertEquals(customerId, notificationCaptor.getValue().userId());
+        assertEquals(NotificationType.BOOKING_CANCELLED, notificationCaptor.getValue().notificationType());
+        ArgumentCaptor<BusinessEvent> eventCaptor = ArgumentCaptor.forClass(BusinessEvent.class);
+        verify(eventPublisher).publish(eventCaptor.capture());
+        assertEquals("BookingCancelled", eventCaptor.getValue().eventType());
     }
 
     @Test
@@ -282,7 +286,7 @@ class BookingServiceTest {
         UserRepositoryPort users = mock(UserRepositoryPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
 
@@ -292,9 +296,9 @@ class BookingServiceTest {
                 BookingStatus.CREATED
         );
 
-        when(bookings.findById(booking.id())).thenReturn(Optional.of(booking));
+        when(bookings.findByIdForCancellation(booking.id())).thenReturn(Optional.of(booking));
         when(users.findByEmail("other@example.com"))
-                .thenReturn(Optional.of(new com.riwi.skillbridge.domain.model.UserAccount(UUID.randomUUID(), "Other", "other@example.com", "pwd", com.riwi.skillbridge.domain.model.Role.CUSTOMER)));
+                .thenReturn(Optional.of(user(UUID.randomUUID(), "other@example.com")));
 
         assertThrows(
                 DomainNotFoundException.class,
@@ -303,7 +307,7 @@ class BookingServiceTest {
                         offerings,
                         users,
                         notificationPublisher,
-                        eventPublisher,
+                        historyPort,
                         now
                 ).cancel(new CancelBookingCommand(
                         booking.id(),
@@ -312,7 +316,7 @@ class BookingServiceTest {
         );
 
         verify(bookings, never()).save(any());
-        
+        verifyNoInteractions(notificationPublisher, historyPort);
     }
 
     @Test
@@ -322,11 +326,11 @@ class BookingServiceTest {
         UserRepositoryPort users = mock(UserRepositoryPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         UUID bookingId = UUID.randomUUID();
 
-        when(bookings.findById(bookingId)).thenReturn(Optional.empty());
+        when(bookings.findByIdForCancellation(bookingId)).thenReturn(Optional.empty());
 
         assertThrows(
                 DomainNotFoundException.class,
@@ -335,7 +339,7 @@ class BookingServiceTest {
                         offerings,
                         users,
                         notificationPublisher,
-                        eventPublisher,
+                        historyPort,
                         Instant.parse("2030-10-10T12:00:00Z")
                 ).cancel(new CancelBookingCommand(
                         bookingId,
@@ -344,7 +348,7 @@ class BookingServiceTest {
         );
 
         verify(bookings, never()).save(any());
-        verifyNoInteractions(users);
+        verifyNoInteractions(users, notificationPublisher, historyPort);
     }
 
     @Test
@@ -354,7 +358,7 @@ class BookingServiceTest {
         UserRepositoryPort users = mock(UserRepositoryPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
         UUID customerId = UUID.randomUUID();
@@ -365,9 +369,9 @@ class BookingServiceTest {
                 BookingStatus.CREATED
         );
 
-        when(bookings.findById(booking.id())).thenReturn(Optional.of(booking));
+        when(bookings.findByIdForCancellation(booking.id())).thenReturn(Optional.of(booking));
         when(users.findByEmail("customer@example.com"))
-                .thenReturn(Optional.of(new com.riwi.skillbridge.domain.model.UserAccount(customerId, "Customer", "customer@example.com", "pwd", com.riwi.skillbridge.domain.model.Role.CUSTOMER)));
+                .thenReturn(Optional.of(user(customerId, "customer@example.com")));
 
         assertThrows(
                 BusinessRuleException.class,
@@ -376,7 +380,7 @@ class BookingServiceTest {
                         offerings,
                         users,
                         notificationPublisher,
-                        eventPublisher,
+                        historyPort,
                         now
                 ).cancel(new CancelBookingCommand(
                         booking.id(),
@@ -385,7 +389,7 @@ class BookingServiceTest {
         );
 
         verify(bookings, never()).save(any());
-        
+        verifyNoInteractions(notificationPublisher, historyPort);
     }
 
     @Test
@@ -395,7 +399,7 @@ class BookingServiceTest {
         UserRepositoryPort users = mock(UserRepositoryPort.class);
         
         NotificationPublisherPort notificationPublisher = mock(NotificationPublisherPort.class);
-        BookingEventPublisherPort eventPublisher = mock(BookingEventPublisherPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
 
         Instant now = Instant.parse("2030-10-10T12:00:00Z");
         UUID customerId = UUID.randomUUID();
@@ -406,16 +410,16 @@ class BookingServiceTest {
                 BookingStatus.CANCELLED
         );
 
-        when(bookings.findById(booking.id())).thenReturn(Optional.of(booking));
+        when(bookings.findByIdForCancellation(booking.id())).thenReturn(Optional.of(booking));
         when(users.findByEmail("customer@example.com"))
-                .thenReturn(Optional.of(new com.riwi.skillbridge.domain.model.UserAccount(customerId, "Customer", "customer@example.com", "pwd", com.riwi.skillbridge.domain.model.Role.CUSTOMER)));
+                .thenReturn(Optional.of(user(customerId, "customer@example.com")));
 
         Booking result = service(
-                        bookings,
-                        offerings,
-                        users,
-                        notificationPublisher,
-                        eventPublisher,
+                bookings,
+                offerings,
+                users,
+                notificationPublisher,
+                historyPort,
                 now
         ).cancel(new CancelBookingCommand(
                 booking.id(),
@@ -424,25 +428,58 @@ class BookingServiceTest {
 
         assertSame(booking, result);
         verify(bookings, never()).save(any());
-        
+        verifyNoInteractions(notificationPublisher, historyPort);
     }
 
     private BookingService service(
             BookingRepositoryPort bookings,
             OfferingRepositoryPort offerings,
             UserRepositoryPort users,
-            
             NotificationPublisherPort notificationPublisher,
+            Instant now) {
+        return service(
+                bookings,
+                offerings,
+                users,
+                notificationPublisher,
+                mock(BookingStatusHistoryPort.class),
+                mock(BookingEventPublisherPort.class),
+                now);
+    }
+
+    private BookingService service(
+            BookingRepositoryPort bookings,
+            OfferingRepositoryPort offerings,
+            UserRepositoryPort users,
+            NotificationPublisherPort notificationPublisher,
+            BookingStatusHistoryPort historyPort,
+            Instant now) {
+        return service(
+                bookings,
+                offerings,
+                users,
+                notificationPublisher,
+                historyPort,
+                mock(BookingEventPublisherPort.class),
+                now);
+    }
+
+    private BookingService service(
+            BookingRepositoryPort bookings,
+            OfferingRepositoryPort offerings,
+            UserRepositoryPort users,
+            NotificationPublisherPort notificationPublisher,
+            BookingStatusHistoryPort historyPort,
             BookingEventPublisherPort eventPublisher,
             Instant now) {
-
         return new BookingService(
                 bookings,
                 offerings,
                 users,
-                
                 cancellationPolicyAt(now),
                 notificationPublisher,
+                historyPort,
+                Clock.fixed(now, ZoneOffset.UTC),
                 eventPublisher
         );
     }
@@ -464,8 +501,13 @@ class BookingServiceTest {
                 UUID.randomUUID(),
                 customerId,
                 scheduledAt,
-                status
+                status,
+                0
         );
+    }
+
+    private UserAccount user(UUID id, String email) {
+        return new UserAccount(id, "Customer", email, "password", Role.CUSTOMER);
     }
 }
 

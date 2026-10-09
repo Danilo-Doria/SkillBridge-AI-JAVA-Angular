@@ -2,6 +2,7 @@ package com.riwi.skillbridge.infrastructure.adapter.out.messaging;
 
 import com.riwi.skillbridge.application.port.out.NotificationMessage;
 import com.riwi.skillbridge.application.port.out.NotificationPublisherPort;
+import com.riwi.skillbridge.application.port.out.NotificationType;
 import com.riwi.skillbridge.infrastructure.config.RabbitConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,19 +25,27 @@ public class RabbitNotificationPublisher implements NotificationPublisherPort {
     @Override
     public void publish(NotificationMessage message) {
         try {
+            String routingKey = routingKeyFor(message.notificationType());
             rabbitTemplate.convertAndSend(
                 RabbitConfiguration.NOTIFICATION_EXCHANGE,
-                RabbitConfiguration.NOTIFICATION_BOOKING_CREATED_KEY,
+                routingKey,
                 message,
                 new CorrelationData(message.eventId().toString()));
             log.info("Published eventId={} bookingId={} exchange={} routingKey={}",
                 message.eventId(), message.bookingId(),
                 RabbitConfiguration.NOTIFICATION_EXCHANGE,
-                RabbitConfiguration.NOTIFICATION_BOOKING_CREATED_KEY);
+                routingKey);
         } catch (AmqpException e) {
             // La reserva ya fue guardada: un fallo del broker no debe romperla
             log.error("Could not publish notification eventId={} bookingId={}",
                 message.eventId(), message.bookingId(), e);
         }
+    }
+
+    private String routingKeyFor(NotificationType notificationType) {
+        return switch (notificationType) {
+            case BOOKING_CREATED -> RabbitConfiguration.NOTIFICATION_BOOKING_CREATED_KEY;
+            case BOOKING_CANCELLED -> RabbitConfiguration.NOTIFICATION_BOOKING_CANCELLED_KEY;
+        };
     }
 }

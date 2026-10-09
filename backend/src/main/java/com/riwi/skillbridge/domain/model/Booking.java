@@ -10,7 +10,8 @@ public record Booking(
         UUID offeringId,
         UUID customerId,
         Instant scheduledAt,
-        BookingStatus status
+        BookingStatus status,
+        long version
 ) {
     // Modificado para permitir cancelar tanto reservas CREATED como CONFIRMED\n
     public Booking cancel() {
@@ -20,6 +21,6 @@ public record Booking(
         if (status == BookingStatus.COMPLETED) {
             throw new BusinessRuleException("No se pueden cancelar reservas completadas");
         }
-        return new Booking(id, offeringId, customerId, scheduledAt, BookingStatus.CANCELLED);
+        return new Booking(id, offeringId, customerId, scheduledAt, BookingStatus.CANCELLED, version);
     }
 }

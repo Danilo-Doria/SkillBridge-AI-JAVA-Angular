@@ -7,7 +7,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface BookingRepositoryPort {
+
     Optional<Booking> findById(UUID id);
     Booking save(Booking booking);
+
+    default Optional<Booking> findByIdForCancellation(UUID bookingId) {
+        return findById(bookingId);
+    }
+
     List<Booking> findByCustomerEmail(String email);
 }
