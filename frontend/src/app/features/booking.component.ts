@@ -111,7 +111,7 @@ export class BookingComponent implements OnInit {
   offeringDropdownOpen = false;
 
   constructor(
-    private offeringsService: OfferingService, 
+    private offeringsService: OfferingService,
     private bookingService: BookingService
   ) {}
 

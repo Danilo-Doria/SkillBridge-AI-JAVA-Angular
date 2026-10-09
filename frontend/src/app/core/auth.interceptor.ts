@@ -10,8 +10,17 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
+  let headers = req.headers;
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method.toUpperCase())) {
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+    if (match) {
+      headers = headers.set('X-XSRF-TOKEN', decodeURIComponent(match[1]));
+    }
+  }
+
   // Asegurar que las cookies viajen en peticiones cross-origin
   const clonedReq = req.clone({
+    headers,
     withCredentials: true
   });
 
