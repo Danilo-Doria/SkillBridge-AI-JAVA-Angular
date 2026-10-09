@@ -137,7 +137,7 @@ export class BookingComponent implements OnInit {
 
     this.loading = true;
     const scheduledAt = new Date(this.scheduledLocal).toISOString();
-    this.http.post<{id: string}>(`${apiBase()}/bookings`, { offeringId: this.offeringId, scheduledAt })
+    this.http.post<{id: string}>(`${apiBase()}/bookings`, { offeringId: this.offeringId, scheduledAt }, { headers: { 'Idempotency-Key': crypto.randomUUID() } })
       .subscribe({
         next: () => {
           this.success = 'Reserva creada exitosamente.';
