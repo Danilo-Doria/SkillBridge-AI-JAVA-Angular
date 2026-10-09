@@ -9,6 +9,7 @@ import com.riwi.skillbridge.domain.exception.BusinessRuleException;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
+import com.riwi.skillbridge.domain.model.BookingStatusHistory;
 import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.domain.model.UserAccount;
 import com.riwi.skillbridge.domain.service.BookingCancellationPolicy;
@@ -21,6 +22,7 @@ import com.riwi.skillbridge.application.common.CorrelationIdHolder;
 
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +36,8 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
 
     private final BookingCancellationPolicy cancellationPolicy;
     private final NotificationPublisherPort notificationPublisher;
+    private final BookingStatusHistoryPort bookingStatusHistoryPort;
+    private final Clock clock;
     private final BookingEventPublisherPort eventPublisher;
 
     @Override
@@ -51,10 +55,10 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         UserAccount customer = userRepositoryPort.findByEmail(customerEmail)
             .orElseThrow(() -> new DomainNotFoundException("Usuario no encontrado"));
 
-        Booking booking = new Booking(UUID.randomUUID(), offeringId, customer.id(), scheduledAt, BookingStatus.CREATED);
+        Booking booking = new Booking(UUID.randomUUID(), offeringId, customer.id(), scheduledAt, BookingStatus.CREATED, 0);
         Booking saved = bookingRepository.save(booking);
         notificationPublisher.publish(NotificationMessage.bookingCreated(saved.id(), saved.customerId()));
-        
+
         String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
         BookingCreatedPayload payload = new BookingCreatedPayload(saved.id(), saved.offeringId(), saved.customerId(), saved.scheduledAt(), saved.status().name());
         BusinessEvent<BookingCreatedPayload> event = new BusinessEvent<>(
@@ -73,7 +77,7 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
     @Override
     @Transactional
     public Booking cancel(CancelBookingCommand command) {
-        Booking booking = bookingRepository.findById(command.bookingId())
+        Booking booking = bookingRepository.findByIdForCancellation(command.bookingId())
                 .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
 
         UserAccount customer = userRepositoryPort.findByEmail(command.customerEmail())
@@ -83,22 +87,25 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         }
 
         Booking cancelled = booking.cancel();
-        Booking finalBooking;
         if (cancelled == booking) {
-            finalBooking = booking;
-        } else {
-            cancellationPolicy.validate(booking);
-            finalBooking = bookingRepository.save(cancelled);
+            return booking;
         }
-        
+
+        cancellationPolicy.validate(booking);
+        Booking saved = bookingRepository.save(cancelled);
+        bookingStatusHistoryPort.save(BookingStatusHistory.forTransition(
+                booking,
+                saved.status(),
+                customer.id(),
+                clock.instant()));
+        notificationPublisher.publish(NotificationMessage.bookingCancelled(saved.id(), saved.customerId()));
         String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
-        BookingCancelledPayload payload = new BookingCancelledPayload(finalBooking.id(), finalBooking.customerId(), finalBooking.status().name());
+        BookingCancelledPayload payload = new BookingCancelledPayload(saved.id(), saved.customerId(), saved.status().name());
         BusinessEvent<BookingCancelledPayload> event = new BusinessEvent<>(
-            UUID.randomUUID(), "BookingCancelled", finalBooking.id().toString(), "Booking", Instant.now(), correlationId, 1, payload,
-            customer.id().toString(), customer.email(), customer.role().name(), "CANCEL", "BOOKING", finalBooking.id().toString()
+            UUID.randomUUID(), "BookingCancelled", saved.id().toString(), "Booking", Instant.now(), correlationId, 1, payload,
+            customer.id().toString(), customer.email(), customer.role().name(), "CANCEL", "BOOKING", saved.id().toString()
         );
         eventPublisher.publish(event);
-        
-        return finalBooking;
+        return saved;
     }
 }

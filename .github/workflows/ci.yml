@@ -23,7 +23,7 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Test and package
-        run: mvn -B clean verify
+        run: mvn -s ../.github/.maven/settings.xml -B clean verify
 
   frontend:
     runs-on: ubuntu-latest
