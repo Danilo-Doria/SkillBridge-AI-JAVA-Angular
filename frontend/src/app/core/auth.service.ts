@@ -29,6 +29,14 @@ export class AuthService {
   isAuthenticated(): boolean { return this.authenticated(); }
   hasRole(...roles: Role[]): boolean { const r = this.role(); return !!r && roles.includes(r); }
 
+  email(): string | null {
+    const token = this.token();
+    if (!token) return null;
+    try {
+      return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub ?? null;
+    } catch { return null; }
+  }
+
   logout(): void {
     localStorage.removeItem(this.key);
     this.authenticated.set(false);
