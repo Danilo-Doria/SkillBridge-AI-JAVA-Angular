@@ -1852,3 +1852,7 @@ La evaluación no debería limitarse a "funciona". La célula debe poder **expli
 Este starter puede ser adaptado libremente como material de formación. Las credenciales de proveedores externos y los límites de sus planes son responsabilidad de cada equipo.
 # SkillBridge-AI-JAVA-Angular
 # SkillBridge-AI-JAVA-Angular
+
+### Recomendaciones multimodales
+
+El asistente acepta texto, archivos de voz e imágenes en `/api/ai/recommendations`. Todo el procesamiento Gemini ocurre en Spring Boot; el frontend no contiene API keys. Configura `GEMINI_API_KEY`, `GEMINI_MODEL`, `AI_MEDIA_MAX_AUDIO_BYTES` y `AI_MEDIA_MAX_IMAGE_BYTES` en el entorno del backend.

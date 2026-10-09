@@ -80,6 +80,8 @@ import { apiBase } from '../core/api';
               placeholder="Ej: Quiero prepararme para una entrevista backend Java..."
               class="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-sm leading-6 text-slate-800 outline-none transition duration-200 placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-800 focus:ring-4 focus:ring-blue-800/10"
             ></textarea>
+            <div class="flex gap-2"><button type="button" (click)="toggleRecording()" class="rounded-lg border px-3 py-2 text-sm">{{ recording ? 'Detener grabación' : '🎙️ Hablar' }}</button><input #voiceInput type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/webm" (change)="selectFile($event, 'voice')" class="block text-sm" /></div>
+            <input #imageInput type="file" accept="image/jpeg,image/png,image/webp" (change)="selectFile($event, 'image')" class="block text-sm" />
 
             <p class="text-xs leading-5 text-slate-400">
               Describe lo que quieres aprender o conseguir para recibir
@@ -132,6 +134,7 @@ import { apiBase } from '../core/api';
               class="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700"
             >
               {{ error }}
+              <button type="button" (click)="ask()" class="mt-3 rounded-lg border border-red-300 px-3 py-1 text-xs font-semibold">Reintentar</button>
             </div>
           }
 
@@ -165,9 +168,10 @@ import { apiBase } from '../core/api';
                 </h2>
               </div>
 
-              <div class="whitespace-pre-line text-sm leading-7 text-slate-600">
-                {{ answer }}
-              </div>
+              <div class="whitespace-pre-line text-sm leading-7 text-slate-600">{{ answer }}</div>
+              @if (recommendationId) { <p class="mt-3 text-xs text-slate-400">ID: {{ recommendationId }} · {{ resultInputType }}</p> }
+              @if (resultInputType === 'VOICE' && sourceText) { <p class="mt-3 text-sm text-slate-600"><strong>Transcripción:</strong> {{ sourceText }}</p> }
+              @if (recommendations.length) { <ul class="mt-3 list-disc pl-5 text-sm text-slate-600">@for (item of recommendations; track item.offeringId) { <li>{{ item.reason }} ({{ item.score }})</li> }</ul> }
             </div>
           }
         </div>
@@ -185,24 +189,30 @@ export class AiComponent {
   goal = '';
   answer = '';
   error = '';
+  selectedFile: File | null = null;
+  selectedType: 'voice' | 'image' | null = null;
+  recommendationId = ''; resultInputType = ''; sourceText = ''; recommendations: { offeringId: string; score: number; reason: string }[] = [];
   loading = false;
+  recording = false; private recorder: MediaRecorder | null = null; private chunks: Blob[] = [];
 
   constructor(private http: HttpClient) {}
+
+  async toggleRecording() { if (this.recording) { this.recorder?.stop(); return; } try { const stream=await navigator.mediaDevices.getUserMedia({audio:true}); this.chunks=[]; this.recorder=new MediaRecorder(stream); this.recorder.ondataavailable=e=>this.chunks.push(e.data); this.recorder.onstop=()=>{ const file=new File([new Blob(this.chunks,{type:this.recorder?.mimeType || 'audio/webm'})],'recording.webm',{type:this.recorder?.mimeType || 'audio/webm'}); this.selectedFile=file; this.selectedType='voice'; this.recording=false; stream.getTracks().forEach(t=>t.stop()); }; this.recorder.start(); this.recording=true; } catch { this.error='No fue posible acceder al micrófono.'; } }
+
+  selectFile(event: Event, type: 'voice' | 'image') { const file=(event.target as HTMLInputElement).files?.[0] ?? null; this.selectedFile=file; this.selectedType=file ? type : null; }
+  private formData() { const data=new FormData(); data.append('file', this.selectedFile!); return data; }
 
   // Envía el objetivo al backend y gestiona la respuesta.
   ask() {
     this.error = '';
-    this.answer = '';
+    this.answer = ''; this.sourceText = ''; this.recommendationId = ''; this.recommendations = [];
     this.loading = true;
 
     this.http
-      .post<{ recommendation: string }>(
-        `${apiBase()}/ai/recommendations`,
-        { goal: this.goal }
-      )
+      .post<{ explanation: string; recommendationId: string; inputType: string; sourceText: string; recommendations: { offeringId: string; score: number; reason: string }[] }>(this.selectedFile ? `${apiBase()}/ai/recommendations/${this.selectedType}` : `${apiBase()}/ai/recommendations`, this.selectedFile ? this.formData() : { goal: this.goal })
       .subscribe({
         next: (r) => {
-          this.answer = r.recommendation;
+          this.answer = r.explanation; this.recommendationId = r.recommendationId; this.resultInputType = r.inputType; this.sourceText = r.sourceText; this.recommendations = r.recommendations ?? [];
           this.loading = false;
         },
         error: (e) => {

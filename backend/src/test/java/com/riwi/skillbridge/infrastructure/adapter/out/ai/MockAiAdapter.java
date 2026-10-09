@@ -1,6 +1,7 @@
 package com.riwi.skillbridge.infrastructure.adapter.out.ai;
 
 import com.riwi.skillbridge.application.port.out.AiRecommendationPort;
+import com.riwi.skillbridge.application.recommendation.RecommendationRequest;
 import com.riwi.skillbridge.domain.model.Offering;
 import org.springframework.boot.test.context.TestComponent;
 
@@ -39,7 +40,7 @@ import java.util.List;
 public class MockAiAdapter implements AiRecommendationPort {
     
     @Override
-    public String recommend(String goal, List<Offering> offerings) {
+    public String recommend(RecommendationRequest request, List<Offering> offerings) {
         return """
                 Based on your goal: "%s"
                 
@@ -49,7 +50,7 @@ public class MockAiAdapter implements AiRecommendationPort {
                 
                 Next steps: Schedule a session with our mentors to discuss your specific needs.
                 """.formatted(
-                    goal,
+                    request.normalizedNeed(),
                     offerings.isEmpty() ? "Service 1" : offerings.get(0).title(),
                     offerings.size() > 1 ? offerings.get(1).title() : "Service 2"
                 );

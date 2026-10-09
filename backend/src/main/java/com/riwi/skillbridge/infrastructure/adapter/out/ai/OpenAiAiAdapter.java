@@ -1,6 +1,7 @@
 package com.riwi.skillbridge.infrastructure.adapter.out.ai;
 
 import com.riwi.skillbridge.application.port.out.AiRecommendationPort;
+import com.riwi.skillbridge.application.recommendation.RecommendationRequest;
 import com.riwi.skillbridge.domain.exception.AiProviderException;
 import com.riwi.skillbridge.domain.exception.AiProviderException.ErrorType;
 import com.riwi.skillbridge.domain.model.Offering;
@@ -36,8 +37,12 @@ public class OpenAiAiAdapter implements AiRecommendationPort {
         this.properties = properties;
     }
 
-    @Override
     public String recommend(String goal, List<Offering> offerings) {
+        return recommend(new RecommendationRequest(com.riwi.skillbridge.application.recommendation.InputType.TEXT, goal, null, null), offerings);
+    }
+
+    @Override
+    public String recommend(RecommendationRequest request, List<Offering> offerings) {
         String catalog = offerings.stream()
                 .map(o -> "- %s [%s]: %s".formatted(o.title(), o.category(), o.description()))
                 .reduce("", (a, b) -> a + "\n" + b);
@@ -59,7 +64,7 @@ public class OpenAiAiAdapter implements AiRecommendationPort {
                 %s
                 
                 Please provide your recommendations in a clear, helpful format.
-                """.formatted(goal, catalog);
+                """.formatted(request.normalizedNeed(), catalog);
 
         try {
             String response = chatClient.prompt()

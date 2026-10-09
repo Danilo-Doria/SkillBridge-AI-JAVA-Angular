@@ -63,3 +63,26 @@ Reglas:
 - Las respuestas nunca incluyen la contraseña ni su hash.
 - Los cambios de estado y de rol (éxitos y rechazos) quedan en el log de auditoría `AUDIT`
   con ids y valores, sin correos, contraseñas ni JWT.
+
+## Recomendaciones multimodales
+
+Todos los endpoints requieren JWT. Gemini se usa solo desde el backend.
+
+| Método | URL | Cuerpo |
+|---|---|---|
+| POST | `/api/ai/recommendations` | JSON: `{ "goal": "Prepararme para Java" }` |
+| POST | `/api/ai/recommendations/voice` | `multipart/form-data`, campo `file` |
+| POST | `/api/ai/recommendations/image` | `multipart/form-data`, campo `file` |
+
+Respuesta exitosa:
+
+```json
+{
+  "recommendationId": "uuid",
+  "inputType": "VOICE",
+  "explanation": "...",
+  "recommendations": [{"offeringId":"uuid","score":1.0,"reason":"..."}]
+}
+```
+
+Audio permitido: WAV, MP3, M4A, MP4 y WEBM. Imagen permitida: JPEG, PNG y WEBP. Los límites se controlan con `AI_MEDIA_MAX_AUDIO_BYTES` y `AI_MEDIA_MAX_IMAGE_BYTES`. Respuestas: `400` para archivo inválido y `503` si Gemini no está disponible.
