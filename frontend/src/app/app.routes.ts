@@ -3,6 +3,7 @@ import { HomeComponent } from './features/home.component';
 import { LoginComponent } from './features/login.component';
 import { AiComponent } from './features/ai.component';
 import { BookingComponent } from './features/booking.component';
+import { AdminUsersComponent } from './features/admin-users.component';
 import { authGuard } from './guards/auth-guard';
 import { MyBookingsComponent } from './features/my-bookings.component';
 import { ProviderOfferingsComponent } from './features/provider-offerings.component';
@@ -19,6 +20,7 @@ export const routes: Routes = [
 
   // Solo Provider y Admin:
   { path: 'provider/offerings', component: ProviderOfferingsComponent, canActivate: [roleGuard('PROVIDER', 'ADMIN')] },
+  { path: 'admin/users', component: AdminUsersComponent, canActivate: [roleGuard('ADMIN')] },
 
   { path: '**', redirectTo: '' }
 ];

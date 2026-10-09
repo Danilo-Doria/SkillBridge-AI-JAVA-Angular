@@ -78,6 +78,7 @@ public class SecurityConfiguration {
                     "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/offerings").permitAll()
                 .requestMatchers("/actuator/prometheus").permitAll()
+                .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(jwtFilter, CsrfFilter.class)
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
