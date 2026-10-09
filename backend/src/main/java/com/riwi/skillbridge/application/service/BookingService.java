@@ -4,6 +4,7 @@ import com.riwi.skillbridge.application.port.in.CancelBookingCommand;
 import com.riwi.skillbridge.application.port.in.CancelBookingUseCase;
 import com.riwi.skillbridge.application.port.in.CreateBookingUseCase;
 import com.riwi.skillbridge.application.port.in.ListCustomerBookingsUseCase;
+import com.riwi.skillbridge.application.port.in.PaymentResultUseCase;
 import com.riwi.skillbridge.application.port.out.*;
 import com.riwi.skillbridge.domain.exception.BusinessRuleException;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
@@ -32,7 +33,7 @@ import java.security.MessageDigest;
 
 @Service
 @RequiredArgsConstructor
-public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, CancelBookingUseCase {
+public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, CancelBookingUseCase, PaymentResultUseCase {
     private final BookingRepositoryPort bookingRepository;
     private final OfferingRepositoryPort offeringRepository;
     private final UserRepositoryPort userRepositoryPort;
@@ -98,7 +99,7 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         Offering offering = offeringRepository.findById(offeringId)
             .orElseThrow(() -> new DomainNotFoundException("Servicio no encontrado"));
         if (!offering.active()) {
-            throw new BusinessRuleException("El servicio no está activo");
+            throw new BusinessRuleException("El servicio no estǭ activo");
         }
     }
 
@@ -130,7 +131,7 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         if (!booking.customerId().equals(customer.id())) {
             throw new DomainNotFoundException("Reserva no encontrada");
         }
-
+        
         Booking cancelled = booking.cancel();
         if (cancelled == booking) {
             return booking;
@@ -153,4 +154,36 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         eventPublisher.publish(event);
         return saved;
     }
+
+
+    @Override
+    public void processPaymentApproved(UUID bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+            .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
+
+        if (booking.status() != BookingStatus.CREATED) {
+            throw new BusinessRuleException("La reserva no esta en estado CREATED");
+        }
+
+        Booking confirmedBooking = new Booking(
+            booking.id(),
+            booking.offeringId(),
+            booking.customerId(),
+            booking.scheduledAt(),
+            BookingStatus.CONFIRMED,
+            booking.version()
+        );
+
+        bookingRepository.save(confirmedBooking);
+    }
+
+    @Override
+    public void processPaymentRejected(UUID bookingId, String reason) {
+        Booking booking = bookingRepository.findById(bookingId)
+            .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
+
+        // No alteramos el estado de la reserva, la mantenemos en CREATED
+        // para permitir que el usuario pueda intentar realizar el pago nuevamente.
+    }
 }
+

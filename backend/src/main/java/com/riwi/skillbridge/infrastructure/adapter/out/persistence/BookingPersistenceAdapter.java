@@ -8,6 +8,7 @@ import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.UserEn
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingRepository;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaUserRepository;
 import org.springframework.stereotype.Component;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -15,10 +16,13 @@ import java.util.UUID;
 
 @Component
 public class BookingPersistenceAdapter implements BookingRepositoryPort {
+
     private final JpaBookingRepository repository;
     private final JpaUserRepository userRepository;
 
-    public BookingPersistenceAdapter(JpaBookingRepository repository, JpaUserRepository userRepository) {
+    public BookingPersistenceAdapter(
+        JpaBookingRepository repository,
+        JpaUserRepository userRepository) {
         this.repository = repository;
         this.userRepository = userRepository;
     }
@@ -26,18 +30,20 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
     @Override
     public Booking save(Booking booking) {
         BookingEntity saved = repository.findById(booking.id())
-                .map(entity -> {
-                    entity.updateStatus(booking.status());
-                    return repository.saveAndFlush(entity);
-                })
-                .orElseGet(() -> repository.save(new BookingEntity(
-                        booking.id(),
-                        booking.offeringId(),
-                        booking.customerId(),
-                        booking.scheduledAt(),
-                        booking.status(),
-                        booking.version(),
-                        Instant.now())));
+            .map(entity -> {
+                entity.updateStatus(booking.status());
+                return repository.saveAndFlush(entity);
+            })
+            .orElseGet(() -> repository.save(new BookingEntity(
+                booking.id(),
+                booking.offeringId(),
+                booking.customerId(),
+                booking.scheduledAt(),
+                booking.status(),
+                booking.version(),
+                Instant.now()
+            )));
+
         return toDomain(saved);
     }
     @Override
@@ -70,7 +76,8 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
     @Override
     public List<Booking> findByCustomerEmail(String email) {
         UserEntity user = userRepository.findByEmailIgnoreCase(email)
-            .orElseThrow(() -> new DomainNotFoundException("Usuario no encontrado con el email: " + email));
+            .orElseThrow(() -> new DomainNotFoundException(
+                "Usuario no encontrado con el email: " + email));
 
         return repository.findByCustomerIdOrderByScheduledAtDesc(user.getId())
             .stream()
@@ -80,11 +87,12 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
 
     private Booking toDomain(BookingEntity entity) {
         return new Booking(
-                entity.getId(),
-                entity.getOfferingId(),
-                entity.getCustomerId(),
-                entity.getScheduledAt(),
-                entity.getStatus(),
-                entity.getVersion());
+            entity.getId(),
+            entity.getOfferingId(),
+            entity.getCustomerId(),
+            entity.getScheduledAt(),
+            entity.getStatus(),
+            entity.getVersion()
+        );
     }
 }

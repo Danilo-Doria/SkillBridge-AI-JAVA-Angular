@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface BookingRepositoryPort {
+
     Booking save(Booking booking);
     default Booking save(Booking booking, String idempotencyKey, String requestHash) { return save(booking); }
     Optional<Booking> findById(UUID bookingId);
