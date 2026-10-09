@@ -59,7 +59,7 @@ export class MyBookingsComponent implements OnInit {
 
   // Llama al servicio para cancelar la reserva y actualiza la lista localmente
   cancelBooking(bookingId: string): void {
-    if (!confirm('Estǭs seguro de que deseas cancelar esta reserva?')) {
+    if (!confirm('¿Estás seguro de que deseas cancelar esta reserva?')) {
       return;
     }
 
@@ -70,7 +70,7 @@ export class MyBookingsComponent implements OnInit {
     this.bookingService.cancelBooking(bookingId).subscribe({
       next: (updatedBooking) => {
         this.isCancelingId = null;
-        this.cancelSuccessMessage = 'Reserva cancelada exitosamente. Se ha procesado el reembolso del 100% a tu mǸtodo de pago.';
+        this.cancelSuccessMessage = 'Reserva cancelada exitosamente. Se ha procesado el reembolso del 100% a tu método de pago.';
         const index = this.bookings.findIndex(b => b.id === bookingId);
         if (index !== -1) {
           this.bookings[index] = updatedBooking;
@@ -78,7 +78,7 @@ export class MyBookingsComponent implements OnInit {
       },
       error: (err) => {
         this.isCancelingId = null;
-        this.cancelErrorMessage = 'No se pudo cancelar la reserva. Tal vez expir el tiempo de cancelacin.';
+        this.cancelErrorMessage = 'No se pudo cancelar la reserva. Tal vez expir el tiempo de cancelación.';
         console.error(err);
       }
     });

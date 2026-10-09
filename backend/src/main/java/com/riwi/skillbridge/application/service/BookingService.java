@@ -83,8 +83,6 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
             throw new DomainNotFoundException("Reserva no encontrada");
         }
         
-        cancellationPolicy.validate(booking);
-
         Booking cancelled = booking.cancel();
         Booking finalBooking;
         if (cancelled == booking) {
@@ -135,3 +133,4 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         // para permitir que el usuario pueda intentar realizar el pago nuevamente.
     }
 }
+

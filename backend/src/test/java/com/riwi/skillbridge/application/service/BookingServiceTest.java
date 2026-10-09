@@ -361,7 +361,7 @@ class BookingServiceTest {
 
         Booking booking = booking(
                 customerId,
-                now.plus(Duration.ofHours(24)).minusSeconds(1),
+                now.plus(Duration.ofHours(24)).minusSeconds(121),
                 BookingStatus.CREATED
         );
 
@@ -468,3 +468,5 @@ class BookingServiceTest {
         );
     }
 }
+
+

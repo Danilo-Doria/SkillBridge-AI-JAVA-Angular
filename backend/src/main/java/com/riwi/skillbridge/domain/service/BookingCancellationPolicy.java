@@ -26,7 +26,8 @@ public final class BookingCancellationPolicy {
         if (!booking.scheduledAt().isAfter(now)) {
             throw new BusinessRuleException("Solo se pueden cancelar reservas con fecha futura");
         }
-        // Tolera 2 minutos de margen de gracia por latencias de red al cancelar\n        Instant cutoffTime = now.plus(minimumNotice).minus(Duration.ofMinutes(2));
+        // Tolera 2 minutos de margen de gracia por latencias de red al cancelar\n
+        Instant cutoffTime = now.plus(minimumNotice).minus(Duration.ofMinutes(2));
         if (booking.scheduledAt().isBefore(cutoffTime)) {
             throw new BusinessRuleException("La reserva debe cancelarse con una anticipación mínima de " + minimumNotice.toHours() + " horas");
         }

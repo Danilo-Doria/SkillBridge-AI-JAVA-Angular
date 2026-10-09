@@ -33,7 +33,7 @@ class BookingCancellationPolicyTest {
     @Test
     void shouldRejectCancellationWithInsufficientNotice() {
         assertThrows(BusinessRuleException.class,
-                () -> policy.validate(bookingScheduledAt(NOW.plus(MINIMUM_NOTICE).minusSeconds(1))));
+                () -> policy.validate(bookingScheduledAt(NOW.plus(MINIMUM_NOTICE).minusSeconds(121))));
     }
 
     @Test
@@ -55,3 +55,5 @@ class BookingCancellationPolicyTest {
                 BookingStatus.CREATED);
     }
 }
+
+

@@ -12,7 +12,8 @@ public record Booking(
         Instant scheduledAt,
         BookingStatus status
 ) {
-    // Modificado para permitir cancelar tanto reservas CREATED como CONFIRMED\n    public Booking cancel() {
+    // Modificado para permitir cancelar tanto reservas CREATED como CONFIRMED\n
+    public Booking cancel() {
         if (status == BookingStatus.CANCELLED) {
             return this;
         }
