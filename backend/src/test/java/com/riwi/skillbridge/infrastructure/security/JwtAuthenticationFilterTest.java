@@ -20,7 +20,8 @@ class JwtAuthenticationFilterTest {
 
     private final JwtService jwtService = mock(JwtService.class);
     private final DatabaseUserDetailsService userDetailsService = mock(DatabaseUserDetailsService.class);
-    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, userDetailsService);
+    private final AuthCookieService cookieService = mock(AuthCookieService.class);
+    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, userDetailsService, cookieService);
 
     @AfterEach
     void limpiarContexto() {
@@ -51,3 +52,4 @@ class JwtAuthenticationFilterTest {
         assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 }
+
