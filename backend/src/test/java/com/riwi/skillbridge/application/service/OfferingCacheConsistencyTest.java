@@ -4,6 +4,8 @@ import com.riwi.skillbridge.application.port.in.CreateOfferingUseCase;
 import com.riwi.skillbridge.application.port.in.UpdateOfferingUseCase;
 import com.riwi.skillbridge.application.port.out.OfferingCachePort;
 import com.riwi.skillbridge.application.port.out.OfferingRepositoryPort;
+import com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort;
+import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
 import com.riwi.skillbridge.domain.model.Actor;
 import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.domain.model.Role;
@@ -28,8 +30,9 @@ class OfferingCacheConsistencyTest {
 
     private final InMemoryRepository repository = new InMemoryRepository();
     private final InMemoryCache cache = new InMemoryCache();
+    private final DummyAuditPublisher auditPublisher = new DummyAuditPublisher();
     private final OfferingCommandService commands =
-        new OfferingCommandService(repository, cache, new OfferingAccessPolicy());
+        new OfferingCommandService(repository, cache, new OfferingAccessPolicy(), auditPublisher);
     private final OfferingService catalog = new OfferingService(repository, cache);
 
     private final Actor provider = new Actor(UUID.randomUUID(), Role.PROVIDER);
@@ -91,5 +94,12 @@ class OfferingCacheConsistencyTest {
         @Override public Optional<List<Offering>> getActiveOfferings() { return Optional.ofNullable(cached); }
         @Override public void putActiveOfferings(List<Offering> offerings) { cached = offerings; }
         @Override public void evictActiveOfferings() { cached = null; }
+    }
+
+    private static class DummyAuditPublisher implements AuditEventPublisherPort {
+        @Override
+        public void publish(BusinessEvent<?> event) {
+            // do nothing
+        }
     }
 }

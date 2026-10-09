@@ -9,17 +9,16 @@ import com.riwi.skillbridge.application.service.OfferingService;
 import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.domain.policy.OfferingAccessPolicy;
 import com.riwi.skillbridge.infrastructure.config.SecurityConfiguration;
-import com.riwi.skillbridge.infrastructure.security.CurrentActorResolver;
-import com.riwi.skillbridge.infrastructure.security.RestAccessDeniedHandler;
-import com.riwi.skillbridge.infrastructure.security.DatabaseUserDetailsService;
-import com.riwi.skillbridge.infrastructure.security.JwtService;
+import com.riwi.skillbridge.infrastructure.security.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -33,6 +32,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -44,10 +44,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(
     controllers = {OfferingController.class, AdminOfferingController.class},
-    properties = "app.cors.allowed-origins=http://localhost:4200")
-@Import({SecurityConfiguration.class, RestAccessDeniedHandler.class, OfferingCommandService.class,
-    OfferingQueryService.class, OfferingService.class, OfferingAccessPolicy.class,
-    CurrentActorResolver.class})
+    properties = "app.cors.allowed-origins=http://localhost:4200"
+)
+@Import({
+    SecurityConfiguration.class,
+    RestAccessDeniedHandler.class,
+    OfferingCommandService.class,
+    OfferingQueryService.class,
+    OfferingService.class,
+    OfferingAccessPolicy.class,
+    CurrentActorResolver.class
+})
 class OfferingSecurityTest {
 
     private static final UUID PROVIDER_ID = UUID.randomUUID();
@@ -58,14 +65,23 @@ class OfferingSecurityTest {
     private static final String BODY =
         "{\"title\":\"Java\",\"description\":\"desc\",\"category\":\"BACKEND\",\"price\":100}";
 
-    @Autowired MockMvc mvc;
+    @Autowired
+    MockMvc mvc;
 
-    @MockitoBean OfferingRepositoryPort repository;
-    @MockitoBean OfferingCachePort cache;
-    @MockitoBean UserAccountPort users;
-    // Dependencias del filtro JWT (aquí la autenticación la simula @WithMockUser)
-    @MockitoBean JwtService jwtService;
-    @MockitoBean DatabaseUserDetailsService userDetailsService;
+    @MockitoBean
+    OfferingRepositoryPort repository;
+    @MockitoBean
+    OfferingCachePort cache;
+    @MockitoBean
+    UserAccountPort users;
+    @MockitoBean
+    com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort auditPublisher;
+    @MockitoBean
+    JwtService jwtService;
+    @MockitoBean
+    DatabaseUserDetailsService userDetailsService;
+    @MockitoBean
+    AuthCookieService cookieService;
 
     private final Offering own = new Offering(UUID.randomUUID(), PROVIDER_ID,
         "Propio", "desc", "BACKEND", BigDecimal.TEN, true);
@@ -80,6 +96,9 @@ class OfferingSecurityTest {
         when(repository.findById(own.id())).thenReturn(Optional.of(own));
         when(repository.findById(foreign.id())).thenReturn(Optional.of(foreign));
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        when(cookieService.resolve(any())).thenReturn(Optional.empty());
+        when(jwtService.extractUsername(any())).thenThrow(new IllegalStateException("No token"));
     }
 
     // ---------- Sin autenticar: 401 ----------
@@ -96,7 +115,8 @@ class OfferingSecurityTest {
 
     @Test
     void sin_token_no_puede_crear() throws Exception {
-        mvc.perform(post("/api/offerings").contentType(MediaType.APPLICATION_JSON).content(BODY))
+        mvc.perform(post("/api/offerings").contentType(MediaType.APPLICATION_JSON).content(BODY)
+            .with(csrf()))
             .andExpect(status().isUnauthorized());
         verify(repository, never()).save(any());
     }
@@ -125,7 +145,8 @@ class OfferingSecurityTest {
         String manipulado = "{\"providerId\":\"" + OTHER_PROVIDER_ID
             + "\",\"title\":\"Java\",\"description\":\"desc\",\"category\":\"BACKEND\",\"price\":100}";
 
-        mvc.perform(post("/api/offerings").contentType(MediaType.APPLICATION_JSON).content(manipulado))
+        mvc.perform(post("/api/offerings").contentType(MediaType.APPLICATION_JSON).content(manipulado)
+            .with(csrf()))
             .andExpect(status().isCreated());
 
         verify(repository).save(argThat(o -> o.providerId().equals(PROVIDER_ID)));
@@ -142,8 +163,8 @@ class OfferingSecurityTest {
     @Test
     @WithMockUser(username = "provider@test.com", roles = "PROVIDER")
     void provider_actualiza_su_offering() throws Exception {
-        mvc.perform(put("/api/offerings/" + own.id()).contentType(MediaType.APPLICATION_JSON).content(BODY))
-            .andExpect(status().isOk());
+        mvc.perform(put("/api/offerings/" + own.id()).contentType(MediaType.APPLICATION_JSON).content(BODY)
+            .with(csrf())).andExpect(status().isOk());
     }
 
     @Test
@@ -157,7 +178,8 @@ class OfferingSecurityTest {
     @Test
     @WithMockUser(username = "provider@test.com", roles = "PROVIDER")
     void provider_desactiva_su_offering() throws Exception {
-        mvc.perform(post("/api/offerings/" + own.id() + "/deactivate"))
+        mvc.perform(post("/api/offerings/" + own.id() + "/deactivate")
+            .with(csrf()))
             .andExpect(status().isNoContent());
 
         verify(repository).save(argThat(o -> !o.active()));
@@ -174,7 +196,10 @@ class OfferingSecurityTest {
     @Test
     @WithMockUser(username = "provider@test.com", roles = "PROVIDER")
     void id_inexistente_responde_404() throws Exception {
-        mvc.perform(put("/api/offerings/" + UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON).content(BODY))
+        mvc.perform(put("/api/offerings/" + UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(BODY)
+                .with(csrf()))
             .andExpect(status().isNotFound());
     }
 
@@ -183,7 +208,8 @@ class OfferingSecurityTest {
     @Test
     @WithMockUser(username = "admin@test.com", roles = "ADMIN")
     void admin_desactiva_offering_de_cualquier_provider() throws Exception {
-        mvc.perform(post("/api/offerings/" + foreign.id() + "/deactivate"))
+        mvc.perform(post("/api/offerings/" + foreign.id() + "/deactivate")
+            .with(csrf()))
             .andExpect(status().isNoContent());
 
         verify(repository).save(argThat(o -> !o.active() && o.providerId().equals(OTHER_PROVIDER_ID)));
@@ -195,7 +221,8 @@ class OfferingSecurityTest {
         String conDueno = "{\"providerId\":\"" + OTHER_PROVIDER_ID
             + "\",\"title\":\"Java\",\"description\":\"desc\",\"category\":\"BACKEND\",\"price\":100}";
 
-        mvc.perform(post("/api/offerings").contentType(MediaType.APPLICATION_JSON).content(conDueno))
+        mvc.perform(post("/api/offerings").contentType(MediaType.APPLICATION_JSON).content(conDueno)
+            .with(csrf()))
             .andExpect(status().isCreated());
 
         verify(repository).save(argThat(o -> o.providerId().equals(OTHER_PROVIDER_ID)));
