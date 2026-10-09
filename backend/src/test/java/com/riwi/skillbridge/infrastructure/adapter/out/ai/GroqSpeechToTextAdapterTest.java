@@ -26,7 +26,7 @@ class GroqSpeechToTextAdapterTest {
         when(template.postForEntity(any(String.class), any(), eq(Map.class)))
             .thenReturn(new ResponseEntity<>(Map.of("text", "Hola mundo"), HttpStatus.OK));
 
-        GroqSpeechToTextAdapter adapter = new GroqSpeechToTextAdapter(builder, "dummy-key");
+        GroqSpeechToTextAdapter adapter = new GroqSpeechToTextAdapter(builder, "dummy-key", "whisper-large-v3-turbo");
         String result = adapter.transcribe(new byte[]{1, 2, 3}, "audio/mp3", "test.mp3");
         
         assertEquals("Hola mundo", result);
@@ -35,7 +35,7 @@ class GroqSpeechToTextAdapterTest {
     @Test
     void shouldThrowExceptionWhenApiKeyMissing() {
         RestTemplateBuilder builder = mock(RestTemplateBuilder.class);
-        GroqSpeechToTextAdapter adapter = new GroqSpeechToTextAdapter(builder, "");
+        GroqSpeechToTextAdapter adapter = new GroqSpeechToTextAdapter(builder, "", "whisper-large-v3-turbo");
         
         assertThrows(AiProviderException.class, () -> 
             adapter.transcribe(new byte[]{1, 2, 3}, "audio/mp3", "test.mp3")

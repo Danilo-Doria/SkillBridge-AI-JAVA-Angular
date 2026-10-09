@@ -23,13 +23,15 @@ public class GroqSpeechToTextAdapter implements SpeechToTextPort {
 
     private final RestTemplate restTemplate;
     private final String apiKey;
+    private final String audioModel;
     private static final String GROQ_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 
     public GroqSpeechToTextAdapter(
             RestTemplateBuilder restTemplateBuilder, 
-            @Value("${app.ai.groq.api-key:}") String apiKey) {
+            @Value("${app.ai.groq.api-key:}") String apiKey, @Value("${app.ai.groq.audio-model:whisper-large-v3-turbo}") String audioModel) {
         this.restTemplate = restTemplateBuilder.build();
         this.apiKey = apiKey;
+        this.audioModel = audioModel;
     }
 
     @Override
@@ -53,7 +55,7 @@ public class GroqSpeechToTextAdapter implements SpeechToTextPort {
             };
             
             body.add("file", resource);
-            body.add("model", "whisper-large-v3-turbo");
+            body.add("model", audioModel);
             body.add("language", "es");
             body.add("response_format", "json");
 
