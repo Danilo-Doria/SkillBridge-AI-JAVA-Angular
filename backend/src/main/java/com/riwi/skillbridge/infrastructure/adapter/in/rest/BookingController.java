@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +30,8 @@ public class BookingController {
         this.cancelBookingUseCase = cancelBookingUseCase;
     }
 
+    // Permitir a CUSTOMER, PROVIDER y ADMIN crear reservas
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'PROVIDER', 'ADMIN')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Booking create(@Valid @RequestBody CreateBookingRequest request, Authentication authentication,
@@ -36,10 +39,12 @@ public class BookingController {
         return useCase.create(request.offeringId(), request.scheduledAt(), authentication.getName(), idempotencyKey);
     }
 
+    // Si deseas que PROVIDER o ADMIN también puedan listar sus reservas o consultar esta ruta:
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'PROVIDER', 'ADMIN')")
     @GetMapping("/me")
     @ResponseStatus(HttpStatus.OK)
     public List<Booking> getBookingsById(Authentication authentication) {
-        String userEmail = authentication.getName(); // Extrae el email del token
+        String userEmail = authentication.getName();
         return listCustomerBookingsUseCase.bookingsList(userEmail);
     }
 
