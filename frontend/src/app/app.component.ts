@@ -120,7 +120,7 @@ import { AuthService } from './core/auth.service';
 
         </nav>
 
-        <!-- Botón Menúú Hamburguesa (Móvil) -->
+        <!-- Botón Menú Hamburguesa (Móvil) -->
         <button
           type="button"
           (click)="toggleMenu()"
@@ -158,15 +158,16 @@ import { AuthService } from './core/auth.service';
       [class.pointer-events-none]="!isMenuOpen"
     ></div>
 
-    <!-- Menúú Desplegable Lateral (Drawer de derecha a izquierda) -->
+    <!-- Menú Desplegable Lateral (Drawer) -->
     <aside
       class="fixed top-0 right-0 z-50 h-full w-80 max-w-[75vw] bg-white p-6 shadow-2xl transition-transform duration-300 ease-in-out md:hidden flex flex-col justify-between"
       [class.translate-x-0]="isMenuOpen"
       [class.translate-x-full]="!isMenuOpen"
     >
-      <div>
-        <!-- Encabezado del Menúú Móvil -->
-        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+      <!-- Se añade overflow-y-auto y flex-1 para permitir el desplazamiento si el contenido supera el alto de la pantalla -->
+      <div class="flex-1 overflow-y-auto pr-1">
+        <!-- Encabezado del Menú Móvil -->
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6 sticky top-0 bg-white z-10">
           <div class="flex items-center gap-2">
             <span
               class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white"
@@ -199,7 +200,7 @@ import { AuthService } from './core/auth.service';
         </div>
 
         <!-- Enlaces de Navegación -->
-        <nav class="flex flex-col space-y-2">
+        <nav class="flex flex-col space-y-2 pb-4">
           <a
             routerLink="/"
             routerLinkActive="bg-slate-100 text-slate-900 font-semibold"
@@ -247,10 +248,22 @@ import { AuthService } from './core/auth.service';
               {{ auth.hasRole('ADMIN') ? 'Gestionar servicios' : 'Mis servicios' }}
             </a>
           }
+
+          <!-- Enlace 'Usuarios' para el menú móvil -->
+          @if (auth.hasRole('ADMIN')) {
+            <a
+              routerLink="/admin/users"
+              routerLinkActive="bg-slate-100 text-slate-900 font-semibold"
+              (click)="closeMenu()"
+              class="rounded-xl px-4 py-3 text-base font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+            >
+              Usuarios
+            </a>
+          }
         </nav>
       </div>
 
-      <!-- Pie del Menúú (Autenticación) -->
+      <!-- Pie del Menú (Autenticación) -->
       <div class="border-t border-slate-100 pt-4 mt-auto">
         @if (!auth.isAuthenticated()) {
           <a
