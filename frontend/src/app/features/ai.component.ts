@@ -169,6 +169,7 @@ import { apiBase } from '../core/api';
 
               <div class="whitespace-pre-line text-sm leading-7 text-slate-600">{{ answer }}</div>
               @if (recommendationId) { <p class="mt-3 text-xs text-slate-400">ID: {{ recommendationId }} · {{ resultInputType }}</p> }
+              @if (resultInputType === 'VOICE' && sourceText) { <p class="mt-3 text-sm text-slate-600"><strong>Transcripción:</strong> {{ sourceText }}</p> }
               @if (recommendations.length) { <ul class="mt-3 list-disc pl-5 text-sm text-slate-600">@for (item of recommendations; track item.offeringId) { <li>{{ item.reason }} ({{ item.score }})</li> }</ul> }
             </div>
           }
@@ -189,7 +190,7 @@ export class AiComponent {
   error = '';
   selectedFile: File | null = null;
   selectedType: 'voice' | 'image' | null = null;
-  recommendationId = ''; resultInputType = ''; recommendations: { offeringId: string; score: number; reason: string }[] = [];
+  recommendationId = ''; resultInputType = ''; sourceText = ''; recommendations: { offeringId: string; score: number; reason: string }[] = [];
   loading = false;
   recording = false; private recorder: MediaRecorder | null = null; private chunks: Blob[] = [];
 
@@ -203,14 +204,14 @@ export class AiComponent {
   // Envía el objetivo al backend y gestiona la respuesta.
   ask() {
     this.error = '';
-    this.answer = ''; this.recommendationId = ''; this.recommendations = [];
+    this.answer = ''; this.sourceText = ''; this.recommendationId = ''; this.recommendations = [];
     this.loading = true;
 
     this.http
-      .post<{ explanation: string; recommendationId: string; inputType: string; recommendations: { offeringId: string; score: number; reason: string }[] }>(this.selectedFile ? `${apiBase()}/ai/recommendations/${this.selectedType}` : `${apiBase()}/ai/recommendations`, this.selectedFile ? this.formData() : { goal: this.goal })
+      .post<{ explanation: string; recommendationId: string; inputType: string; sourceText: string; recommendations: { offeringId: string; score: number; reason: string }[] }>(this.selectedFile ? `${apiBase()}/ai/recommendations/${this.selectedType}` : `${apiBase()}/ai/recommendations`, this.selectedFile ? this.formData() : { goal: this.goal })
       .subscribe({
         next: (r) => {
-          this.answer = r.explanation; this.recommendationId = r.recommendationId; this.resultInputType = r.inputType; this.recommendations = r.recommendations ?? [];
+          this.answer = r.explanation; this.recommendationId = r.recommendationId; this.resultInputType = r.inputType; this.sourceText = r.sourceText; this.recommendations = r.recommendations ?? [];
           this.loading = false;
   recording = false; private recorder: MediaRecorder | null = null; private chunks: Blob[] = [];
         },

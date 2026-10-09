@@ -31,7 +31,7 @@ public class AiRecommendationService implements GenerateRecommendationUseCase {
         List<Recommendation> selected = IntStream.range(0, Math.min(3, active.size()))
             .mapToObj(index -> new Recommendation(active.get(index).id(), 1.0 - (index * 0.1), "Servicio disponible relacionado con tu necesidad"))
             .toList();
-        RecommendationResult result = new RecommendationResult(id, explanation, request.inputType(), selected);
+        RecommendationResult result = new RecommendationResult(id, explanation, request.inputType(), request.normalizedNeed(), selected);
         events.publish(new BusinessEvent<>(UUID.randomUUID(), "RecommendationGenerated", id.toString(), "Recommendation", Instant.now(), correlation, 1, request.inputType(), String.valueOf(request.userId()), null, null, "GENERATE", "RECOMMENDATION", id.toString()));
         return result;
     }
