@@ -12,6 +12,7 @@ import com.riwi.skillbridge.infrastructure.config.SecurityConfiguration;
 import com.riwi.skillbridge.infrastructure.security.CurrentActorResolver;
 import com.riwi.skillbridge.infrastructure.security.DatabaseUserDetailsService;
 import com.riwi.skillbridge.infrastructure.security.JwtService;
+import com.riwi.skillbridge.infrastructure.security.AuthCookieService;
 import com.riwi.skillbridge.infrastructure.security.RestAccessDeniedHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,7 @@ class AdminUserControllerTest {
     // Dependencias del filtro JWT (aquí la autenticación la simula @WithMockUser)
     @MockitoBean JwtService jwtService;
     @MockitoBean DatabaseUserDetailsService userDetailsService;
+    @MockitoBean AuthCookieService cookieService;
 
     private final UserAccount customer =
         new UserAccount(UUID.randomUUID(), "Ana", "ana@test.com", "secret-hash", Role.CUSTOMER);
@@ -238,3 +240,4 @@ class AdminUserControllerTest {
         verify(users, never()).save(any());
     }
 }
+
