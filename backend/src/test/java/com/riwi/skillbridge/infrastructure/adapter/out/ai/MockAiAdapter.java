@@ -18,7 +18,7 @@ public class MockAiAdapter implements AiRecommendationPort {
         String explanation = "Mock explanation for: " + request.normalizedNeed();
         List<AiStructuredResponse.AiItem> items = offerings.stream()
             .limit(3)
-            .map(o -> new AiStructuredResponse.AiItem(o.id(), 0.95, "Mock reason"))
+            .map(o -> new AiStructuredResponse.AiItem(o.id().toString(), 0.95, "Mock reason"))
             .toList();
         return new AiStructuredResponse(explanation, items);
     }
