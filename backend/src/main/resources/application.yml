@@ -37,7 +37,7 @@ spring:
       timeout: 2s
   rabbitmq:
     addresses: ${RABBITMQ_URL:amqp://guest:guest@localhost:5672}
-    connection-timeout: 3s
+    connection-timeout: 3s  @ConditionalOnProperty(name = "spring.ai.openai.api-key")
     publisher-confirm-type: correlated
     publisher-returns: true
     listener:
