@@ -25,21 +25,30 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
 
     @Override
     public Booking save(Booking booking) {
-        BookingEntity entity = new BookingEntity(
-                booking.id(), booking.offeringId(), booking.customerId(), booking.scheduledAt(), booking.status(), Instant.now());
-        BookingEntity saved = repository.save(entity);
-        return new Booking(saved.getId(), saved.getOfferingId(), saved.getCustomerId(), saved.getScheduledAt(), saved.getStatus());
+        BookingEntity saved = repository.findById(booking.id())
+                .map(entity -> {
+                    entity.updateStatus(booking.status());
+                    return repository.saveAndFlush(entity);
+                })
+                .orElseGet(() -> repository.save(new BookingEntity(
+                        booking.id(),
+                        booking.offeringId(),
+                        booking.customerId(),
+                        booking.scheduledAt(),
+                        booking.status(),
+                        booking.version(),
+                        Instant.now())));
+        return toDomain(saved);
     }
 
     @Override
     public Optional<Booking> findById(UUID bookingId) {
-        return repository.findById(bookingId)
-                .map(entity -> new Booking(
-                        entity.getId(),
-                        entity.getOfferingId(),
-                        entity.getCustomerId(),
-                        entity.getScheduledAt(),
-                        entity.getStatus()));
+        return repository.findById(bookingId).map(this::toDomain);
+    }
+
+    @Override
+    public Optional<Booking> findByIdForCancellation(UUID bookingId) {
+        return repository.findByIdForUpdate(bookingId).map(this::toDomain);
     }
 
     @Override
@@ -49,13 +58,17 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
 
         return repository.findByCustomerIdOrderByScheduledAtDesc(user.getId())
             .stream()
-            .map(entity -> new Booking(
+            .map(this::toDomain)
+            .toList();
+    }
+
+    private Booking toDomain(BookingEntity entity) {
+        return new Booking(
                 entity.getId(),
                 entity.getOfferingId(),
                 entity.getCustomerId(),
                 entity.getScheduledAt(),
-                entity.getStatus()
-            ))
-            .toList();
+                entity.getStatus(),
+                entity.getVersion());
     }
 }

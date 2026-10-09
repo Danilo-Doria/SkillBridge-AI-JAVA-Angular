@@ -9,5 +9,10 @@ import java.util.UUID;
 public interface BookingRepositoryPort {
     Booking save(Booking booking);
     Optional<Booking> findById(UUID bookingId);
+
+    default Optional<Booking> findByIdForCancellation(UUID bookingId) {
+        return findById(bookingId);
+    }
+
     List<Booking> findByCustomerEmail(String email);
 }
