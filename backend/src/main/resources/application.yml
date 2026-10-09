@@ -122,6 +122,9 @@ app:
     offerings-ttl-minutes: ${OFFERINGS_CACHE_TTL_MINUTES:10}
   ai:
     provider: ${AI_PROVIDER:gemini}
+    audio-provider: ${AI_AUDIO_PROVIDER:gemini}
+    groq:
+      api-key: ${GROQ_API_KEY:}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:10}
     gemini:
       enabled: ${GEMINI_ENABLED:true}
