@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -90,9 +91,9 @@ class AdminUserControllerTest {
     void sin_token_todas_las_operaciones_son_401() throws Exception {
         mvc.perform(get("/api/admin/users")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/admin/users/" + customer.id())).andExpect(status().isUnauthorized());
-        mvc.perform(put(statusUrl(customer.id())).contentType(MediaType.APPLICATION_JSON).content(STATUS_BODY))
+        mvc.perform(put(statusUrl(customer.id())).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(STATUS_BODY))
             .andExpect(status().isUnauthorized());
-        mvc.perform(put(roleUrl(customer.id())).contentType(MediaType.APPLICATION_JSON).content(ROLE_BODY))
+        mvc.perform(put(roleUrl(customer.id())).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(ROLE_BODY))
             .andExpect(status().isUnauthorized());
         verify(users, never()).save(any());
     }
@@ -103,9 +104,9 @@ class AdminUserControllerTest {
     @WithMockUser(username = "customer@test.com", roles = "CUSTOMER")
     void customer_no_puede_usar_operaciones_administrativas() throws Exception {
         mvc.perform(get("/api/admin/users")).andExpect(status().isForbidden());
-        mvc.perform(put(statusUrl(customer.id())).contentType(MediaType.APPLICATION_JSON).content(STATUS_BODY))
+        mvc.perform(put(statusUrl(customer.id())).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(STATUS_BODY))
             .andExpect(status().isForbidden());
-        mvc.perform(put(roleUrl(customer.id())).contentType(MediaType.APPLICATION_JSON).content(ROLE_BODY))
+        mvc.perform(put(roleUrl(customer.id())).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(ROLE_BODY))
             .andExpect(status().isForbidden());
         verify(users, never()).save(any());
     }
@@ -114,7 +115,7 @@ class AdminUserControllerTest {
     @WithMockUser(username = "provider@test.com", roles = "PROVIDER")
     void provider_no_puede_usar_operaciones_administrativas() throws Exception {
         mvc.perform(get("/api/admin/users")).andExpect(status().isForbidden());
-        mvc.perform(put(roleUrl(customer.id())).contentType(MediaType.APPLICATION_JSON).content(ROLE_BODY))
+        mvc.perform(put(roleUrl(customer.id())).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(ROLE_BODY))
             .andExpect(status().isForbidden());
         verify(users, never()).save(any());
     }
@@ -185,7 +186,7 @@ class AdminUserControllerTest {
     @Test
     @WithMockUser(username = "admin@test.com", roles = "ADMIN")
     void admin_suspende_a_otro_usuario() throws Exception {
-        mvc.perform(put(statusUrl(customer.id())).contentType(MediaType.APPLICATION_JSON).content(STATUS_BODY))
+        mvc.perform(put(statusUrl(customer.id())).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(STATUS_BODY))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("SUSPENDED"));
 
@@ -195,7 +196,7 @@ class AdminUserControllerTest {
     @Test
     @WithMockUser(username = "admin@test.com", roles = "ADMIN")
     void admin_no_puede_cambiar_su_propio_estado() throws Exception {
-        mvc.perform(put(statusUrl(ADMIN_ID)).contentType(MediaType.APPLICATION_JSON).content(STATUS_BODY))
+        mvc.perform(put(statusUrl(ADMIN_ID)).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(STATUS_BODY))
             .andExpect(status().isUnprocessableEntity());
         verify(users, never()).save(any());
     }
@@ -203,7 +204,7 @@ class AdminUserControllerTest {
     @Test
     @WithMockUser(username = "admin@test.com", roles = "ADMIN")
     void poner_el_mismo_estado_es_422() throws Exception {
-        mvc.perform(put(statusUrl(customer.id())).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(put(statusUrl(customer.id())).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\":\"ACTIVE\"}"))
             .andExpect(status().isUnprocessableEntity());
     }
@@ -211,10 +212,10 @@ class AdminUserControllerTest {
     @Test
     @WithMockUser(username = "admin@test.com", roles = "ADMIN")
     void estado_invalido_o_ausente_es_400() throws Exception {
-        mvc.perform(put(statusUrl(customer.id())).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(put(statusUrl(customer.id())).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\":\"BANNED\"}"))
             .andExpect(status().isBadRequest());
-        mvc.perform(put(statusUrl(customer.id())).contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mvc.perform(put(statusUrl(customer.id())).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isBadRequest());
         verify(users, never()).save(any());
     }
@@ -224,7 +225,7 @@ class AdminUserControllerTest {
     @Test
     @WithMockUser(username = "admin@test.com", roles = "ADMIN")
     void admin_cambia_el_rol_de_otro_usuario() throws Exception {
-        mvc.perform(put(roleUrl(customer.id())).contentType(MediaType.APPLICATION_JSON).content(ROLE_BODY))
+        mvc.perform(put(roleUrl(customer.id())).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(ROLE_BODY))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.role").value("PROVIDER"));
 
@@ -234,10 +235,11 @@ class AdminUserControllerTest {
     @Test
     @WithMockUser(username = "admin@test.com", roles = "ADMIN")
     void admin_no_puede_cambiar_su_propio_rol() throws Exception {
-        mvc.perform(put(roleUrl(ADMIN_ID)).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(put(roleUrl(ADMIN_ID)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"role\":\"CUSTOMER\"}"))
             .andExpect(status().isUnprocessableEntity());
         verify(users, never()).save(any());
     }
 }
+
 
