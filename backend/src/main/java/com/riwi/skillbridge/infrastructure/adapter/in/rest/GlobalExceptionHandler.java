@@ -3,6 +3,8 @@ package com.riwi.skillbridge.infrastructure.adapter.in.rest;
 import com.riwi.skillbridge.domain.exception.BusinessRuleException;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.exception.InvalidCredentialsException;
+import com.riwi.skillbridge.domain.exception.InvalidMediaFileException;
+import com.riwi.skillbridge.domain.exception.AiProviderException;
 import org.springframework.http.*;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import com.riwi.skillbridge.domain.exception.ForbiddenOperationException;
@@ -54,4 +56,6 @@ public class GlobalExceptionHandler {
         p.setTitle("Invalid request");
         return p;
     }
+    @ExceptionHandler(InvalidMediaFileException.class) ProblemDetail media(InvalidMediaFileException ex) { ProblemDetail p=ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,ex.getMessage()); p.setTitle("Archivo inválido"); return p; }
+    @ExceptionHandler(AiProviderException.class) ProblemDetail ai(AiProviderException ex) { ProblemDetail p=ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,"El proveedor de IA no está disponible"); p.setTitle("Proveedor de IA no disponible"); return p; }
 }
