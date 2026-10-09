@@ -80,7 +80,7 @@ import { apiBase } from '../core/api';
               placeholder="Ej: Quiero prepararme para una entrevista backend Java..."
               class="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-sm leading-6 text-slate-800 outline-none transition duration-200 placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-800 focus:ring-4 focus:ring-blue-800/10"
             ></textarea>
-            <input #voiceInput type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/webm" (change)="selectFile($event, 'voice')" class="block text-sm" />
+            <div class="flex gap-2"><button type="button" (click)="toggleRecording()" class="rounded-lg border px-3 py-2 text-sm">{{ recording ? 'Detener grabación' : '🎙️ Hablar' }}</button><input #voiceInput type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/webm" (change)="selectFile($event, 'voice')" class="block text-sm" /></div>
             <input #imageInput type="file" accept="image/jpeg,image/png,image/webp" (change)="selectFile($event, 'image')" class="block text-sm" />
 
             <p class="text-xs leading-5 text-slate-400">
@@ -191,8 +191,11 @@ export class AiComponent {
   selectedType: 'voice' | 'image' | null = null;
   recommendationId = ''; resultInputType = ''; recommendations: { offeringId: string; score: number; reason: string }[] = [];
   loading = false;
+  recording = false; private recorder: MediaRecorder | null = null; private chunks: Blob[] = [];
 
   constructor(private http: HttpClient) {}
+
+  async toggleRecording() { if (this.recording) { this.recorder?.stop(); return; } try { const stream=await navigator.mediaDevices.getUserMedia({audio:true}); this.chunks=[]; this.recorder=new MediaRecorder(stream); this.recorder.ondataavailable=e=>this.chunks.push(e.data); this.recorder.onstop=()=>{ const file=new File([new Blob(this.chunks,{type:this.recorder?.mimeType || 'audio/webm'})],'recording.webm',{type:this.recorder?.mimeType || 'audio/webm'}); this.selectedFile=file; this.selectedType='voice'; this.recording=false; stream.getTracks().forEach(t=>t.stop()); }; this.recorder.start(); this.recording=true; } catch { this.error='No fue posible acceder al micrófono.'; } }
 
   selectFile(event: Event, type: 'voice' | 'image') { const file=(event.target as HTMLInputElement).files?.[0] ?? null; this.selectedFile=file; this.selectedType=file ? type : null; }
   private formData() { const data=new FormData(); data.append('file', this.selectedFile!); return data; }
@@ -209,12 +212,14 @@ export class AiComponent {
         next: (r) => {
           this.answer = r.explanation; this.recommendationId = r.recommendationId; this.resultInputType = r.inputType; this.recommendations = r.recommendations ?? [];
           this.loading = false;
+  recording = false; private recorder: MediaRecorder | null = null; private chunks: Blob[] = [];
         },
         error: (e) => {
           this.error =
             e?.error?.detail ||
             'Inicia sesión y verifica GEMINI_API_KEY.';
           this.loading = false;
+  recording = false; private recorder: MediaRecorder | null = null; private chunks: Blob[] = [];
         }
       });
   }
