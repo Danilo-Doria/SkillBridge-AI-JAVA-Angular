@@ -38,6 +38,6 @@ export class BookingService {
 
   // Envía la petición al backend para cancelar una reserva usando PUT según el último estándar de develop
   cancelBooking(bookingId: string): Observable<Booking> {
-    return this.http.put<Booking>(apiBase() + '/bookings/' + bookingId + '/cancel', {});
-  }
+  return this.http.patch<Booking>(apiBase() + '/bookings/' + bookingId + '/cancel', {});
+}
 }
