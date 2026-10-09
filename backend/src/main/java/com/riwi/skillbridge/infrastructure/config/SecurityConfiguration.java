@@ -36,6 +36,12 @@ import java.util.Set;
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfiguration {
+
+    private CookieCsrfTokenRepository cookieCsrfTokenRepository() {
+        CookieCsrfTokenRepository repo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repo.setCookieCustomizer(customizer -> customizer.sameSite("None").secure(true));
+        return repo;
+    }
     @Bean
     SecurityFilterChain security(HttpSecurity http,
                                  JwtAuthenticationFilter jwtFilter,
@@ -61,7 +67,7 @@ public class SecurityConfiguration {
 
         return http
             .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRepository(cookieCsrfTokenRepository())
                 .csrfTokenRequestHandler(csrfHandler)
                 .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy())
                 .requireCsrfProtectionMatcher(cookieAuthenticatedUnsafeRequests)
@@ -82,7 +88,7 @@ public class SecurityConfiguration {
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(jwtFilter, CsrfFilter.class)
-            .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
+            .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
             .build();
     }
 
@@ -96,7 +102,8 @@ public class SecurityConfiguration {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).filter(s -> !s.isBlank()).toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-XSRF-TOKEN"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-XSRF-TOKEN", "Idempotency-Key"));
+        config.setExposedHeaders(List.of("X-XSRF-TOKEN"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

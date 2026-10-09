@@ -1,17 +1,30 @@
 server:
   port: ${PORT:8080}
   forward-headers-strategy: framework
-
 logging:
   pattern:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{correlationId:-N/A}] %logger{36} - %msg%n"
-
 spring:
   autoconfigure:
     exclude:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
   application:
     name: skillbridge-api
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+  notifications:
+    sender: ${NOTIFICATIONS_SENDER:simulated}
+    email:
+      from: ${NOTIFICATIONS_EMAIL_FROM:no-reply@skillbridge.local}
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:dummy-key}
@@ -67,7 +80,6 @@ spring:
           multiplier: 2.0
           max-interval: 10s
           max-attempts: 3
-
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -80,7 +92,6 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
         spring.json.trusted.packages: '*'
-
 management:
   endpoints:
     web:
@@ -94,11 +105,9 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
-
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-
 app:
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-long-random-secret-at-least-32-characters}
@@ -106,7 +115,7 @@ app:
     cookie:
       name: ${JWT_COOKIE_NAME:access_token}
       secure: ${JWT_COOKIE_SECURE:true}
-      same-site: ${JWT_COOKIE_SAME_SITE:Lax}
+      same-site: ${JWT_COOKIE_SAME_SITE:None}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8088,http://localhost:4200}
   cache:
@@ -126,14 +135,7 @@ app:
   booking:
     cancellation:
       minimum-notice-hours: ${BOOKING_CANCELLATION_MINIMUM_NOTICE_HOURS:24}
-
   kafka:
     topic:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
       audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
-
-
-
-
-
-

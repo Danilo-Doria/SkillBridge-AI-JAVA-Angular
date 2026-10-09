@@ -14,8 +14,13 @@ public class CsrfCookieFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
         throws ServletException, IOException {
         CsrfToken csrfToken = (CsrfToken) request.getAttribute("_csrf");
+        if (csrfToken == null) {
+            csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+        }
         if (csrfToken != null) {
-            csrfToken.getToken(); // fuerza la escritura de la cookie XSRF-TOKEN
+            String token = csrfToken.getToken(); // fuerza la escritura de la cookie XSRF-TOKEN
+            // Exponemos el token en un header para clientes cross-domain
+            response.setHeader("X-XSRF-TOKEN", token);
         }
         chain.doFilter(request, response);
     }
