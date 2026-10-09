@@ -67,7 +67,8 @@ public class SecurityConfiguration {
                 .requireCsrfProtectionMatcher(cookieAuthenticatedUnsafeRequests)
                 .ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/logout")
                 .ignoringRequestMatchers(bearerRequests))
-            .cors(cors -> {})
+            .cors(cors -> {
+            })
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(e -> e
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
@@ -85,7 +86,10 @@ public class SecurityConfiguration {
             .build();
     }
 
-    @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
     @Bean
     CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origins}") String origins) {
