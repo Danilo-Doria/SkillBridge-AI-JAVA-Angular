@@ -100,7 +100,7 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
                 clock.instant()));
         notificationPublisher.publish(NotificationMessage.bookingCancelled(saved.id(), saved.customerId()));
         String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
-        BookingCancelledPayload payload = new BookingCancelledPayload(saved.id(), saved.customerId(), saved.status().name());
+        BookingCancelledPayload payload = new BookingCancelledPayload(saved.id(), saved.offeringId(), saved.customerId(), saved.status().name());
         BusinessEvent<BookingCancelledPayload> event = new BusinessEvent<>(
             UUID.randomUUID(), "BookingCancelled", saved.id().toString(), "Booking", Instant.now(), correlationId, 1, payload,
             customer.id().toString(), customer.email(), customer.role().name(), "CANCEL", "BOOKING", saved.id().toString()
