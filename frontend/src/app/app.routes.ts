@@ -6,6 +6,7 @@ import { BookingComponent } from './features/booking.component';
 import { authGuard } from './guards/auth-guard';
 import { MyBookingsComponent } from './features/my-bookings.component';
 import { ProviderOfferingsComponent } from './features/provider-offerings.component';
+import { TrendingComponent } from './features/trending.component';
 import { roleGuard } from './guards/role-guard';
 
 export const routes: Routes = [
@@ -15,7 +16,8 @@ export const routes: Routes = [
   // Vistas protegidas:
   { path: 'ai', component: AiComponent, canActivate: [authGuard] },
   { path: 'book', component: BookingComponent, canActivate: [authGuard] },
-  { path: 'bookings/me', component: MyBookingsComponent, canActivate: [authGuard]},
+  { path: 'bookings/me', component: MyBookingsComponent, canActivate: [authGuard] },
+  { path: 'trending', component: TrendingComponent, canActivate: [authGuard] },
 
   // Solo Provider y Admin:
   { path: 'provider/offerings', component: ProviderOfferingsComponent, canActivate: [roleGuard('PROVIDER', 'ADMIN')] },
