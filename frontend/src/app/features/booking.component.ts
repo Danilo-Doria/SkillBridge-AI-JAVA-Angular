@@ -1,8 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { Offering, OfferingService } from '../core/offering.service';
-import { apiBase } from '../core/api';
+import { BookingService } from '../core/booking.service';
 
 @Component({
   standalone: true,
@@ -109,10 +108,12 @@ export class BookingComponent implements OnInit {
   error = '';
   success = '';
 
-  // Control para abrir/cerrar el dropdown personalizado con scroll
   offeringDropdownOpen = false;
 
-  constructor(private offeringsService: OfferingService, private http: HttpClient) {}
+  constructor(
+    private offeringsService: OfferingService, 
+    private bookingService: BookingService
+  ) {}
 
   ngOnInit(): void {
     this.offeringsService.list().subscribe({
@@ -137,7 +138,9 @@ export class BookingComponent implements OnInit {
 
     this.loading = true;
     const scheduledAt = new Date(this.scheduledLocal).toISOString();
-    this.http.post<{id: string}>(`${apiBase()}/bookings`, { offeringId: this.offeringId, scheduledAt })
+
+    // Se delega al BookingService para enviar 'Idempotency-Key'
+    this.bookingService.createBooking({ offeringId: this.offeringId, scheduledAt })
       .subscribe({
         next: () => {
           this.success = 'Reserva creada exitosamente.';

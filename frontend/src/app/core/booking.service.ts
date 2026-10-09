@@ -1,9 +1,15 @@
-﻿import { HttpClient } from '@angular/common/http';
+﻿import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { apiBase } from './api';
 import { Observable } from 'rxjs';
 
 export type BookingStatus = 'CREATED' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+
+export interface CreateBookingPayload {
+  offeringId: string;
+  scheduledAt: string;
+  notes?: string;
+}
 
 export interface Booking {
   id: string;
@@ -16,6 +22,15 @@ export interface Booking {
 @Injectable({ providedIn: 'root' })
 export class BookingService {
   constructor(private http: HttpClient) {}
+
+  // Crea una reserva adjuntando la clave de idempotencia requerida por Spring Boot
+  createBooking(payload: CreateBookingPayload): Observable<Booking> {
+    const headers = new HttpHeaders({
+      'Idempotency-Key': crypto.randomUUID()
+    });
+
+    return this.http.post<Booking>(apiBase() + '/bookings', payload, { headers });
+  }
 
   getMyBookings(): Observable<Booking[]> {
     return this.http.get<Booking[]>(apiBase() + '/bookings/me');
