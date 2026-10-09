@@ -28,20 +28,26 @@ import { PaymentModal } from './payment-modal/payment-modal';
           </div>
 
           @if (!isLoading && !errorMessage && bookings.length > 0) {
-            <div class="flex items-center gap-3">
-              <div class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-center shadow-sm">
-                <span class="block text-xs font-medium text-slate-400">Total</span>
-                <span class="text-base font-bold text-slate-900">{{ bookings.length }}</span>
-              </div>
-              <div class="rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-2 text-center shadow-sm">
-                <span class="block text-xs font-medium text-emerald-600">Confirmadas</span>
-                <span class="text-base font-bold text-emerald-700">{{ getCountByStatus('CONFIRMED') }}</span>
-              </div>
-              <div class="rounded-xl border border-amber-100 bg-amber-50/50 px-4 py-2 text-center shadow-sm">
-                <span class="block text-xs font-medium text-amber-600">Pendientes</span>
-                <span class="text-base font-bold text-amber-700">{{ getCountByStatus('CREATED') }}</span>
-              </div>
-            </div>
+            
+<div class="flex flex-wrap items-center gap-3">
+  <button (click)="statusFilter = 'ALL'" [class.opacity-50]="statusFilter !== 'ALL'" class="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2 text-center shadow-sm transition hover:opacity-100">
+    <span class="block text-xs font-medium text-slate-400">Total</span>
+    <span class="text-base font-bold text-slate-900">{{ bookings.length }}</span>
+  </button>
+  <button (click)="statusFilter = 'CONFIRMED'" [class.opacity-50]="statusFilter !== 'CONFIRMED'" class="cursor-pointer rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-2 text-center shadow-sm transition hover:opacity-100">
+    <span class="block text-xs font-medium text-emerald-600">Confirmadas</span>
+    <span class="text-base font-bold text-emerald-700">{{ getCountByStatus('CONFIRMED') }}</span>
+  </button>
+  <button (click)="statusFilter = 'CREATED'" [class.opacity-50]="statusFilter !== 'CREATED'" class="cursor-pointer rounded-xl border border-amber-100 bg-amber-50/50 px-4 py-2 text-center shadow-sm transition hover:opacity-100">
+    <span class="block text-xs font-medium text-amber-600">Pendientes</span>
+    <span class="text-base font-bold text-amber-700">{{ getCountByStatus('CREATED') }}</span>
+  </button>
+  <button (click)="statusFilter = 'CANCELLED'" [class.opacity-50]="statusFilter !== 'CANCELLED'" class="cursor-pointer rounded-xl border border-red-100 bg-red-50/50 px-4 py-2 text-center shadow-sm transition hover:opacity-100">
+    <span class="block text-xs font-medium text-red-600">Canceladas</span>
+    <span class="text-base font-bold text-red-700">{{ getCountByStatus('CANCELLED') }}</span>
+  </button>
+</div>
+
           }
         </div>
 
@@ -106,9 +112,17 @@ import { PaymentModal } from './payment-modal/payment-modal';
               Explorar servicios
             </a>
           </div>
-        } @else {
-          <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            @for (booking of bookings; track booking.id) {
+        } @else if (filteredBookings.length === 0) {
+  <div class="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
+    <h2 class="text-lg font-semibold text-slate-900">No hay reservas</h2>
+    <p class="mt-1 max-w-md text-sm text-slate-500">No se encontraron reservas con el estado seleccionado.</p>
+    <button (click)="statusFilter = 'ALL'" class="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+      Ver todas
+    </button>
+  </div>
+} @else {
+  <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    @for (booking of filteredBookings; track booking.id) {
               @let offering = getOffering(booking.offeringId);
 
               <article class="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl">
@@ -248,6 +262,15 @@ import { PaymentModal } from './payment-modal/payment-modal';
   `
 })
 export class MyBookingsComponent implements OnInit {
+  statusFilter: string = 'ALL';
+  
+  get filteredBookings(): Booking[] {
+    if (this.statusFilter === 'ALL') {
+      return this.bookings;
+    }
+    return this.bookings.filter(b => b.status === this.statusFilter);
+  }
+
   private bookingService = inject(BookingService);
   private authService = inject(AuthService);
   private offeringService = inject(OfferingService);
