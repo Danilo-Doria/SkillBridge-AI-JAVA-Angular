@@ -45,6 +45,8 @@ export class AuthService {
     const r = this.role();
     return !!r && roles.includes(r);
   }
+  /** Email del usuario autenticado (viene de /auth/me; ya no se decodifica de un JWT). */
+  email(): string | null { return this.user()?.email ?? null; }
 
   logout(): void {
     this.http.post<void>(`${apiBase()}/auth/logout`, {})

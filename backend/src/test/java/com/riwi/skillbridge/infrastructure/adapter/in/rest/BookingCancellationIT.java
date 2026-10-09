@@ -6,6 +6,7 @@ import com.riwi.skillbridge.application.port.out.NotificationSenderPort;
 import com.riwi.skillbridge.application.port.out.NotificationType;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.domain.model.Role;
+import com.riwi.skillbridge.domain.model.UserStatus;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.BookingEntity;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.UserEntity;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingRepository;
@@ -139,7 +140,7 @@ class BookingCancellationIT {
         bookingRepository.deleteAll();
         userRepository.findById(OTHER_CUSTOMER_ID).ifPresent(userRepository::delete);
         userRepository.save(new UserEntity(OTHER_CUSTOMER_ID, "Other Customer", OTHER_CUSTOMER_EMAIL,
-            passwordEncoder.encode("12345678"), Role.CUSTOMER, NOW));
+            passwordEncoder.encode("12345678"), Role.CUSTOMER, UserStatus.ACTIVE, NOW));
         amqpAdmin.purgeQueue(RabbitConfiguration.NOTIFICATION_QUEUE);
         amqpAdmin.purgeQueue(RabbitConfiguration.NOTIFICATION_DLQ);
         reset(notificationSender);
@@ -340,3 +341,4 @@ class BookingCancellationIT {
         }
     }
 }
+
