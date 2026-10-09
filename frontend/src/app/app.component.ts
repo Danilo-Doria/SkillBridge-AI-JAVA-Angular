@@ -13,7 +13,7 @@ import { AuthService } from './core/auth.service';
         <!-- Logo / Marca -->
         <a
           routerLink="/"
-          (click)="closeMenúu()"
+          (click)="closeMenu()"
           class="flex items-center gap-2.5 transition-opacity hover:opacity-80"
         >
           <span
@@ -123,10 +123,10 @@ import { AuthService } from './core/auth.service';
         <!-- Botón Menúú Hamburguesa (Móvil) -->
         <button
           type="button"
-          (click)="toggleMenúu()"
+          (click)="toggleMenu()"
           class="rounded-lg p-2 text-slate-600 transition
                  hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300 md:hidden"
-          [attr.aria-expanded]="isMenúuOpen"
+          [attr.aria-expanded]="isMenuOpen"
           aria-label="Abrir menú"
         >
           <svg
@@ -150,19 +150,19 @@ import { AuthService } from './core/auth.service';
 
     <!-- Overlay / Fondo Oscuro Suave -->
     <div
-      (click)="closeMenúu()"
+      (click)="closeMenu()"
       class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 md:hidden"
-      [class.opacity-100]="isMenúuOpen"
-      [class.opacity-0]="!isMenúuOpen"
-      [class.pointer-events-auto]="isMenúuOpen"
-      [class.pointer-events-none]="!isMenúuOpen"
+      [class.opacity-100]="isMenuOpen"
+      [class.opacity-0]="!isMenuOpen"
+      [class.pointer-events-auto]="isMenuOpen"
+      [class.pointer-events-none]="!isMenuOpen"
     ></div>
 
     <!-- Menúú Desplegable Lateral (Drawer de derecha a izquierda) -->
     <aside
       class="fixed top-0 right-0 z-50 h-full w-80 max-w-[75vw] bg-white p-6 shadow-2xl transition-transform duration-300 ease-in-out md:hidden flex flex-col justify-between"
-      [class.translate-x-0]="isMenúuOpen"
-      [class.translate-x-full]="!isMenúuOpen"
+      [class.translate-x-0]="isMenuOpen"
+      [class.translate-x-full]="!isMenuOpen"
     >
       <div>
         <!-- Encabezado del Menúú Móvil -->
@@ -181,7 +181,7 @@ import { AuthService } from './core/auth.service';
           <!-- Botón Cierre (X) -->
           <button
             type="button"
-            (click)="closeMenúu()"
+            (click)="closeMenu()"
             class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
             aria-label="Cerrar menú"
           >
@@ -204,7 +204,7 @@ import { AuthService } from './core/auth.service';
             routerLink="/"
             routerLinkActive="bg-slate-100 text-slate-900 font-semibold"
             [routerLinkActiveOptions]="{ exact: true }"
-            (click)="closeMenúu()"
+            (click)="closeMenu()"
             class="rounded-xl px-4 py-3 text-base font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
           >
             Servicios
@@ -213,7 +213,7 @@ import { AuthService } from './core/auth.service';
           <a
             routerLink="/book"
             routerLinkActive="bg-slate-100 text-slate-900 font-semibold"
-            (click)="closeMenúu()"
+            (click)="closeMenu()"
             class="rounded-xl px-4 py-3 text-base font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
           >
             Reservar
@@ -222,7 +222,7 @@ import { AuthService } from './core/auth.service';
           <a
             routerLink="/ai"
             routerLinkActive="bg-slate-100 text-slate-900 font-semibold"
-            (click)="closeMenúu()"
+            (click)="closeMenu()"
             class="rounded-xl px-4 py-3 text-base font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
           >
             IA
@@ -231,7 +231,7 @@ import { AuthService } from './core/auth.service';
           <a
             routerLink="/bookings/me"
             routerLinkActive="bg-slate-100 text-slate-900 font-semibold"
-            (click)="closeMenúu()"
+            (click)="closeMenu()"
             class="rounded-xl px-4 py-3 text-base font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
           >
             Mis reservas
@@ -241,7 +241,7 @@ import { AuthService } from './core/auth.service';
             <a
               routerLink="/provider/offerings"
               routerLinkActive="bg-slate-100 text-slate-900 font-semibold"
-              (click)="closeMenúu()"
+              (click)="closeMenu()"
               class="rounded-xl px-4 py-3 text-base font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
             >
               {{ auth.hasRole('ADMIN') ? 'Gestionar servicios' : 'Mis servicios' }}
@@ -255,7 +255,7 @@ import { AuthService } from './core/auth.service';
         @if (!auth.isAuthenticated()) {
           <a
             routerLink="/login"
-            (click)="closeMenúu()"
+            (click)="closeMenu()"
             class="block w-full text-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
           >
             Ingresar
@@ -280,18 +280,18 @@ import { AuthService } from './core/auth.service';
 })
 export class AppComponent {
   auth = inject(AuthService);
-  isMenúuOpen = false;
+  isMenuOpen = false;
 
-  toggleMenúu(): void {
-    this.isMenúuOpen = !this.isMenúuOpen;
+  toggleMenu(): void {
+    this.isMenuOpen = !this.isMenuOpen;
   }
 
-  closeMenúu(): void {
-    this.isMenúuOpen = false;
+  closeMenu(): void {
+    this.isMenuOpen = false;
   }
 
   handleLogout(): void {
-    this.closeMenúu();
+    this.closeMenu();
     this.auth.logout();
   }
 }

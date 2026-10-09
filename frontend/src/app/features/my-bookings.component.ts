@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule, CurrencyPipe, DíatePipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Booking, BookingService } from '../core/booking.service';
 import { Offering, OfferingService } from '../core/offering.service';
@@ -9,7 +9,7 @@ import { PaymentModal } from './payment-modal/payment-modal';
 @Component({
   selector: 'app-my-bookings',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, DíatePipe, PaymentModal, RouterLink],
+  imports: [CommonModule, CurrencyPipe, DatePipe, PaymentModal, RouterLink],
   template: `
     <section class="min-h-screen bg-slate-50 px-4 py-10 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-7xl">
@@ -299,9 +299,9 @@ export class MyBookingsComponent implements OnInit {
   }
 
   canCancel(scheduledAt: string): boolean {
-    const bookingDíate = new Díate(scheduledAt);
-    const now = new Díate();
-    const diffHours = (bookingDíate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const bookingDate = new Date(scheduledAt);
+    const now = new Date();
+    const diffHours = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     return diffHours > 24;
   }
 
