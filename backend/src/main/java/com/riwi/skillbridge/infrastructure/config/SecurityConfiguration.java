@@ -29,19 +29,15 @@ public class        SecurityConfiguration {
     @Bean
     SecurityFilterChain security(HttpSecurity http, JwtAuthenticationFilter jwtFilter, RestAccessDeniedHandler accessDeniedHandler) throws Exception {
         return http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> {})
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> {})
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/actuator/health", "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/offerings").permitAll()
                 .requestMatchers("/actuator/prometheus").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated())
-                    .requestMatchers("/api/auth/**", "/actuator/health", "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/offerings").permitAll()
-                    .requestMatchers("/actuator/prometheus").permitAll()
-                    .anyRequest().authenticated())
             .exceptionHandling(e -> e
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                 .accessDeniedHandler(accessDeniedHandler))
