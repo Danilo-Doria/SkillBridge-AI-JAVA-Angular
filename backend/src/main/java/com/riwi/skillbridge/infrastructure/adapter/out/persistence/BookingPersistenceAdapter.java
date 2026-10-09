@@ -46,6 +46,22 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
 
         return toDomain(saved);
     }
+    @Override
+    public Booking save(Booking booking, String idempotencyKey, String requestHash) {
+        return toDomain(repository.saveAndFlush(new BookingEntity(booking.id(), booking.offeringId(), booking.customerId(),
+            booking.scheduledAt(), booking.status(), booking.version(), Instant.now(), idempotencyKey, requestHash)));
+    }
+
+    @Override
+    public Optional<Booking> findByCustomerIdAndIdempotencyKey(UUID customerId, String idempotencyKey) {
+        return repository.findByCustomerIdAndIdempotencyKey(customerId, idempotencyKey).map(this::toDomain);
+    }
+
+    @Override
+    public Optional<String> findIdempotencyRequestHash(UUID customerId, String idempotencyKey) {
+        return repository.findByCustomerIdAndIdempotencyKey(customerId, idempotencyKey)
+            .map(BookingEntity::getIdempotencyRequestHash);
+    }
 
     @Override
     public Optional<Booking> findById(UUID bookingId) {
