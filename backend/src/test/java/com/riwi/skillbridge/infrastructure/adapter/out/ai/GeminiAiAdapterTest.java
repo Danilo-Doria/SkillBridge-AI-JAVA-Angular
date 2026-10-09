@@ -31,7 +31,7 @@ class GeminiAiAdapterTest {
     private AiProviderProperties properties;
     private GeminiAiAdapter adapter;
 
-    private static final String GOAL = "Quiero aprender Java Backend con arquitectura hexagonal";
+    private static final com.riwi.skillbridge.application.recommendation.RecommendationRequest REQ = new com.riwi.skillbridge.application.recommendation.RecommendationRequest(com.riwi.skillbridge.application.recommendation.InputType.TEXT, "goal", null, null);
     private static final UUID PROVIDER_ID = UUID.randomUUID();
     private static final List<Offering> TEST_OFFERINGS = List.of(
         new Offering(
@@ -84,7 +84,7 @@ class GeminiAiAdapterTest {
         // Act & Assert
         AiProviderException exception = assertThrows(
             AiProviderException.class,
-            () -> adapter.recommend(GOAL, TEST_OFFERINGS)
+            () -> adapter.recommend(REQ, TEST_OFFERINGS)
         );
 
         assertEquals(ErrorType.INVALID_INPUT, exception.getErrorType());
@@ -102,7 +102,7 @@ class GeminiAiAdapterTest {
         // Act & Assert
         AiProviderException exception = assertThrows(
             AiProviderException.class,
-            () -> adapter.recommend(GOAL, TEST_OFFERINGS)
+            () -> adapter.recommend(REQ, TEST_OFFERINGS)
         );
 
         assertEquals(ErrorType.UNAVAILABLE, exception.getErrorType());
@@ -124,7 +124,7 @@ class GeminiAiAdapterTest {
         // Act & Assert
         AiProviderException exception = assertThrows(
             AiProviderException.class,
-            () -> adapter.recommend(GOAL, TEST_OFFERINGS)
+            () -> adapter.recommend(REQ, TEST_OFFERINGS)
         );
 
         assertEquals(ErrorType.INTERNAL_ERROR, exception.getErrorType());
@@ -144,7 +144,7 @@ class GeminiAiAdapterTest {
         // Act & Assert
         AiProviderException exception = assertThrows(
             AiProviderException.class,
-            () -> adapter.recommend(GOAL, TEST_OFFERINGS)
+            () -> adapter.recommend(REQ, TEST_OFFERINGS)
         );
 
         assertTrue(exception.getMessage().contains("timeout: 5s"));
@@ -157,7 +157,7 @@ class GeminiAiAdapterTest {
         when(chatClient.prompt()).thenThrow(new RuntimeException("Expected error"));
 
         // Act & Assert
-        assertThrows(AiProviderException.class, () -> adapter.recommend(GOAL, TEST_OFFERINGS));
+        assertThrows(AiProviderException.class, () -> adapter.recommend(REQ, TEST_OFFERINGS));
         
         verify(chatClient).prompt();
     }
@@ -173,7 +173,7 @@ class GeminiAiAdapterTest {
         // Act & Assert
         AiProviderException exception = assertThrows(
             AiProviderException.class,
-            () -> adapter.recommend(GOAL, List.of())
+            () -> adapter.recommend(REQ, List.of())
         );
 
         assertEquals(ErrorType.INVALID_INPUT, exception.getErrorType());
@@ -199,7 +199,7 @@ class GeminiAiAdapterTest {
             // Act & Assert
             AiProviderException exception = assertThrows(
                 AiProviderException.class,
-                () -> adapter.recommend(GOAL, TEST_OFFERINGS),
+                () -> adapter.recommend(REQ, TEST_OFFERINGS),
                 "Should handle: " + error.getMessage()
             );
 

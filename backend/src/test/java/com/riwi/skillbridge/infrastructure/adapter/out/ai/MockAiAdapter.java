@@ -1,58 +1,25 @@
 package com.riwi.skillbridge.infrastructure.adapter.out.ai;
 
 import com.riwi.skillbridge.application.port.out.AiRecommendationPort;
+import com.riwi.skillbridge.application.port.out.AiStructuredResponse;
 import com.riwi.skillbridge.application.recommendation.RecommendationRequest;
 import com.riwi.skillbridge.domain.model.Offering;
-import org.springframework.boot.test.context.TestComponent;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/**
- * Mock AI adapter for testing purposes.
- * 
- * This adapter implements AiRecommendationPort and returns deterministic responses
- * without making external API calls. Use this in tests to verify application logic
- * without depending on actual AI provider availability or network connectivity.
- * 
- * Usage in tests:
- * 
- * @SpringBootTest
- * public class SomeServiceTest {
- *     @MockBean
- *     private AiRecommendationPort aiPort;
- *     
- *     @Test
- *     void testWithMockAdapter() {
- *         when(aiPort.recommend(anyString(), anyList()))
- *             .thenReturn("Mock recommendation");
- *     }
- * }
- * 
- * Or inject directly:
- * 
- * @Bean
- * @Primary
- * public AiRecommendationPort mockAiAdapter() {
- *     return new MockAiAdapter();
- * }
- */
-@TestComponent
+@Component
+@ConditionalOnProperty(name = "app.ai.provider", havingValue = "mock", matchIfMissing = false)
 public class MockAiAdapter implements AiRecommendationPort {
-    
+
     @Override
-    public String recommend(RecommendationRequest request, List<Offering> offerings) {
-        return """
-                Based on your goal: "%s"
-                
-                Recommended services:
-                1. %s - Perfect match for your learning goals
-                2. %s - Comprehensive support in this area
-                
-                Next steps: Schedule a session with our mentors to discuss your specific needs.
-                """.formatted(
-                    request.normalizedNeed(),
-                    offerings.isEmpty() ? "Service 1" : offerings.get(0).title(),
-                    offerings.size() > 1 ? offerings.get(1).title() : "Service 2"
-                );
+    public AiStructuredResponse recommend(RecommendationRequest request, List<Offering> offerings) {
+        String explanation = "Mock explanation for: " + request.normalizedNeed();
+        List<AiStructuredResponse.AiItem> items = offerings.stream()
+            .limit(3)
+            .map(o -> new AiStructuredResponse.AiItem(o.id().toString(), 0.95, "Mock reason"))
+            .toList();
+        return new AiStructuredResponse(explanation, items);
     }
 }

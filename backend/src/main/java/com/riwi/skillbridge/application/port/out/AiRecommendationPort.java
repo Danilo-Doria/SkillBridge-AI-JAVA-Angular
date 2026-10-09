@@ -5,5 +5,5 @@ import com.riwi.skillbridge.domain.model.Offering;
 import java.util.List;
 
 public interface AiRecommendationPort {
-    String recommend(RecommendationRequest request, List<Offering> offerings);
+    AiStructuredResponse recommend(RecommendationRequest request, List<Offering> offerings);
 }
