@@ -125,7 +125,8 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
             booking.offeringId(),
             booking.customerId(),
             booking.scheduledAt(),
-            BookingStatus.CONFIRMED
+            BookingStatus.CONFIRMED,
+            booking.version()
         );
 
         bookingRepository.save(confirmedBooking);
