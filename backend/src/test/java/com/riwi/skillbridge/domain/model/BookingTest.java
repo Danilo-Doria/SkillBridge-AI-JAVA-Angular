@@ -53,6 +53,7 @@ class BookingTest {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 Instant.parse("2030-10-10T15:00:00Z"),
-                status);
+                status,
+                0);
     }
 }
