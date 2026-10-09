@@ -20,6 +20,10 @@ spring:
             model: ${GEMINI_MODEL:gemini-3.8-flash}
             temperature: 0.2
             max-output-tokens: 800
+  servlet:
+    multipart:
+      max-file-size: ${AI_MULTIPART_MAX_FILE_SIZE:10MB}
+      max-request-size: ${AI_MULTIPART_MAX_REQUEST_SIZE:10MB}
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/skillbridge}
     username: ${DATABASE_USER:skillbridge}

@@ -10,6 +10,7 @@ import org.springframework.http.*;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import com.riwi.skillbridge.domain.exception.ForbiddenOperationException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -57,6 +58,7 @@ public class GlobalExceptionHandler {
         p.setTitle("Invalid request");
         return p;
     }
+    @ExceptionHandler(MaxUploadSizeExceededException.class) ProblemDetail fileTooLarge(MaxUploadSizeExceededException ex) { ProblemDetail p=ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE,"El archivo supera el tamaño máximo permitido"); p.setTitle("Archivo demasiado grande"); return p; }
     @ExceptionHandler(InvalidMediaFileException.class) ProblemDetail media(InvalidMediaFileException ex) { ProblemDetail p=ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,ex.getMessage()); p.setTitle("Archivo inválido"); return p; }
     @ExceptionHandler(AiProviderException.class) ProblemDetail ai(AiProviderException ex) { ProblemDetail p=ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,"El proveedor de IA no está disponible"); p.setTitle("Proveedor de IA no disponible"); return p; }
     @ExceptionHandler(IdempotencyKeyConflictException.class)
