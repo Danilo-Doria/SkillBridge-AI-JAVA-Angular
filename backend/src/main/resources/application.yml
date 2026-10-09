@@ -27,9 +27,6 @@ spring:
     sender: ${NOTIFICATIONS_SENDER:simulated}
     email:
       from: ${NOTIFICATIONS_EMAIL_FROM:no-reply@skillbridge.local}
-  autoconfigure:
-    exclude:
-      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:dummy-key}

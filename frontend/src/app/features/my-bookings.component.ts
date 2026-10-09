@@ -177,7 +177,7 @@ import { PaymentModal } from './payment-modal/payment-modal';
                     @if (booking.status === 'CONFIRMED') {
                       @if (canCancel(booking.scheduledAt)) {
                         <button
-                          (click)="cancelBooking(booking.id)"
+                          (click)="openCancelModal(booking)"
                           [disabled]="isCancelingId === booking.id"
                           class="w-full cursor-pointer rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-300 disabled:cursor-not-allowed disabled:opacity-50"
                         >
@@ -200,6 +200,43 @@ import { PaymentModal } from './payment-modal/payment-modal';
       </div>
     </section>
 
+    <!-- Modal de confirmación para cancelar reserva -->
+    @if (bookingToCancel) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+        <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl transition-all">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+
+          <div class="mt-4 text-center">
+            <h3 class="text-lg font-bold text-slate-900">¿Cancelar esta reserva?</h3>
+            <p class="mt-2 text-sm text-slate-500">
+              Esta acción cancelará tu sesión agendada y procesará la solicitud de reembolso. ¿Estás seguro de continuar?
+            </p>
+          </div>
+
+          <div class="mt-6 flex gap-3">
+            <button
+              type="button"
+              (click)="bookingToCancel = null"
+              class="w-full cursor-pointer rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              (click)="confirmCancelBooking()"
+              class="w-full cursor-pointer rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+            >
+              Sí, cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     @if (selectedBookingForPayment) {
       <app-payment-modal
         [bookingId]="selectedBookingForPayment.id"
@@ -221,6 +258,7 @@ export class MyBookingsComponent implements OnInit {
   errorMessage: string | null = null;
 
   selectedBookingForPayment: Booking | null = null;
+  bookingToCancel: Booking | null = null;
 
   isCancelingId: string | null = null;
   cancelSuccessMessage = '';
@@ -267,10 +305,15 @@ export class MyBookingsComponent implements OnInit {
     return diffHours > 24;
   }
 
-  cancelBooking(bookingId: string): void {
-    if (!confirm('¿Estás seguro de que deseas cancelar esta reserva?')) {
-      return;
-    }
+  openCancelModal(booking: Booking): void {
+    this.bookingToCancel = booking;
+  }
+
+  confirmCancelBooking(): void {
+    if (!this.bookingToCancel) return;
+
+    const bookingId = this.bookingToCancel.id;
+    this.bookingToCancel = null; // Cierra el modal de confirmación
 
     this.isCancelingId = bookingId;
     this.cancelSuccessMessage = '';
