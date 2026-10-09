@@ -38,6 +38,20 @@ class NotificationMessageTest {
     }
 
     @Test
+    void shouldBuildValidBookingCancelledMessage() {
+        UUID bookingId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        NotificationMessage message = NotificationMessage.bookingCancelled(bookingId, userId);
+
+        assertNotNull(message.eventId());
+        assertEquals(bookingId, message.bookingId());
+        assertEquals(userId, message.userId());
+        assertEquals(NotificationType.BOOKING_CANCELLED, message.notificationType());
+        assertNotNull(message.occurredAt());
+    }
+
+    @Test
     void shouldRejectMissingFields() {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();

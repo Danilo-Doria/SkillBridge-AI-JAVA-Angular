@@ -1,8 +1,10 @@
 package com.riwi.skillbridge.infrastructure.adapter.out.ai;
 
 import com.riwi.skillbridge.application.port.out.AiRecommendationPort;
-import com.riwi.skillbridge.domain.exception.BusinessRuleException;
+import com.riwi.skillbridge.domain.exception.AiProviderException;
+import com.riwi.skillbridge.domain.exception.AiProviderException.ErrorType;
 import com.riwi.skillbridge.domain.model.Offering;
+import com.riwi.skillbridge.infrastructure.config.AiProviderProperties;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
 
@@ -10,10 +12,12 @@ import java.util.List;
 
 @Component
 public class GeminiAiAdapter implements AiRecommendationPort {
-        private final ChatClient chatClient;
+    private final ChatClient chatClient;
+    private final AiProviderProperties properties;
 
-        public GeminiAiAdapter(ChatClient.Builder chatClientBuilder) {
-                this.chatClient = chatClientBuilder.build();
+    public GeminiAiAdapter(ChatClient.Builder chatClientBuilder, AiProviderProperties properties) {
+        this.chatClient = chatClientBuilder.build();
+        this.properties = properties;
     }
 
     @Override
@@ -39,14 +43,30 @@ public class GeminiAiAdapter implements AiRecommendationPort {
                     .user(prompt)
                     .call()
                     .content();
+            
             if (response == null || response.isBlank()) {
-                throw new BusinessRuleException("Gemini no devolvió una respuesta válida");
+                throw new AiProviderException(
+                    "Gemini did not return a valid response",
+                    ErrorType.INTERNAL_ERROR
+                );
             }
             return response;
-        } catch (BusinessRuleException ex) {
+        } catch (AiProviderException ex) {
             throw ex;
+        } catch (IllegalArgumentException ex) {
+            // Typically thrown when API key is missing or invalid
+            throw new AiProviderException(
+                "Gemini is not properly configured: " + ex.getMessage(),
+                ErrorType.INVALID_INPUT,
+                ex
+            );
         } catch (RuntimeException ex) {
-            throw new BusinessRuleException("Gemini no está disponible; inténtalo de nuevo");
+            // Catches network errors, timeout exceptions, etc.
+            throw new AiProviderException(
+                "Gemini is temporarily unavailable (timeout: " + properties.getTimeoutSeconds() + "s)",
+                ErrorType.UNAVAILABLE,
+                ex
+            );
         }
     }
 }
