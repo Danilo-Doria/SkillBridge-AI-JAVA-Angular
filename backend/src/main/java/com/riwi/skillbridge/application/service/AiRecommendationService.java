@@ -40,7 +40,14 @@ public class AiRecommendationService implements GenerateRecommendationUseCase {
         AiStructuredResponse aiResponse = ai.recommend(request, active);
         
         List<Recommendation> selected = aiResponse.recommendations().stream()
-            .map(item -> new Recommendation(item.offeringId(), item.score(), item.reason()))
+            .map(item -> {
+                try {
+                    return new Recommendation(UUID.fromString(item.offeringId()), item.score(), item.reason());
+                } catch (IllegalArgumentException e) {
+                    return null; // Ignore if the AI hallucinated an invalid UUID
+                }
+            })
+            .filter(java.util.Objects::nonNull)
             .collect(Collectors.toList());
             
         RecommendationResult result = new RecommendationResult(id, aiResponse.explanation(), request.inputType(), request.normalizedNeed(), selected);
