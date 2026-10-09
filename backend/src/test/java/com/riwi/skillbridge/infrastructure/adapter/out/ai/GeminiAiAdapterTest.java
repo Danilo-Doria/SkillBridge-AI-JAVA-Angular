@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -71,6 +72,29 @@ class GeminiAiAdapterTest {
     void testAdapterInitialization() {
         assertNotNull(adapter);
         verify(chatClientBuilder).build();
+    }
+
+    @Test
+    void springCreatesAdapterThroughInjectedConstructorByDefault() {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(ChatClient.Builder.class, () -> chatClientBuilder);
+            context.registerBean(AiProviderProperties.class, () -> properties);
+            context.register(GeminiAiAdapter.class);
+            context.refresh();
+
+            assertNotNull(context.getBean(GeminiAiAdapter.class));
+        }
+    }
+
+    @Test
+    void geminiAdapterIsNotRegisteredWhenAnotherProviderIsSelected() {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.getEnvironment().getSystemProperties().put("app.ai.provider", "openai");
+            context.register(GeminiAiAdapter.class);
+            context.refresh();
+
+            assertFalse(context.containsBean("geminiAiAdapter"));
+        }
     }
 
     @Test

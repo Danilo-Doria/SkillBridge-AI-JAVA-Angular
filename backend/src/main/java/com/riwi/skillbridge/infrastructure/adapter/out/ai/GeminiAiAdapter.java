@@ -9,6 +9,8 @@ import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.infrastructure.config.AiProviderProperties;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
+@ConditionalOnProperty(name = "app.ai.provider", havingValue = "gemini", matchIfMissing = true)
 public class GeminiAiAdapter implements AiRecommendationPort {
     private static final Logger log = LoggerFactory.getLogger(GeminiAiAdapter.class);
     private static final String RESPONSE_SCHEMA = """
@@ -27,6 +30,7 @@ public class GeminiAiAdapter implements AiRecommendationPort {
     private final AiProviderProperties properties;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public GeminiAiAdapter(ChatClient.Builder chatClientBuilder, AiProviderProperties properties) {
         this(chatClientBuilder, properties, new ObjectMapper());
     }
