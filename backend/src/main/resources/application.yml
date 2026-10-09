@@ -7,12 +7,17 @@ logging:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{correlationId:-N/A}] %logger{36} - %msg%n"
 
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
   application:
     name: skillbridge-api
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:dummy-key}
       enabled: false
+      chat:
+        enabled: false
     google:
       genai:
         api-key: ${GEMINI_API_KEY:}
@@ -109,6 +114,8 @@ app:
       enabled: ${GEMINI_ENABLED:true}
     openai:
       enabled: false
+      chat:
+        enabled: false
   booking:
     cancellation:
       minimum-notice-hours: ${BOOKING_CANCELLATION_MINIMUM_NOTICE_HOURS:24}
