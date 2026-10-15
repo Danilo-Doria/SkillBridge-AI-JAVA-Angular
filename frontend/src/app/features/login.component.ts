@@ -221,6 +221,9 @@ export class LoginComponent {
   }
 
   submit(): void {
+    // Evita doble envío si Enter/click llega antes de que el botón se deshabilite visualmente
+    if (this.loading) return;
+
     this.error = '';
 
     // 1. Pre-validaciones inmediatas en cliente (Evita peticiones innecesarias)

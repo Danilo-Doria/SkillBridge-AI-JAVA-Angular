@@ -195,7 +195,7 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
                   </article>
                 } @empty {
                   <div class="rounded-xl border border-dashed border-slate-200 px-6 py-12 text-center">
-                    <p class="text-sm text-slate-400">No hay servicios registrados todavía.</p>
+                    <p class="text-sm text-slate-400">{{ offeringsLoading ? 'Cargando servicios…' : 'No hay servicios registrados todavía.' }}</p>
                   </div>
                 }
               </div>
@@ -220,7 +220,7 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
                   </div>
                 } @empty {
                   <div class="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center">
-                    <p class="text-xs text-slate-400">No hay categorías registradas.</p>
+                    <p class="text-xs text-slate-400">{{ categoriesLoading ? 'Cargando categorías…' : 'No hay categorías registradas.' }}</p>
                   </div>
                 }
               </div>
@@ -243,6 +243,8 @@ export class ProviderOfferingsComponent implements OnInit {
   editingId: string | null = null;
   loading = false;
   categoryLoading = false;
+  offeringsLoading = true;
+  categoriesLoading = true;
   error = '';
 
   // Control de estado para el desplegable con scroll de categorías
@@ -258,15 +260,15 @@ export class ProviderOfferingsComponent implements OnInit {
   load(): void {
     const req = this.isAdmin ? this.service.listAll() : this.service.listMine();
     req.subscribe({
-      next: r => this.offerings = r,
-      error: e => this.fail(e, 'No fue posible cargar los servicios.'),
+      next: r => { this.offerings = r; this.offeringsLoading = false; },
+      error: e => { this.offeringsLoading = false; this.fail(e, 'No fue posible cargar los servicios.'); },
     });
   }
 
   loadCategories(): void {
     this.categoryService.list().subscribe({
-      next: r => this.categories = r,
-      error: e => this.fail(e, 'No fue posible cargar las categorías.'),
+      next: r => { this.categories = r; this.categoriesLoading = false; },
+      error: e => { this.categoriesLoading = false; this.fail(e, 'No fue posible cargar las categorías.'); },
     });
   }
 

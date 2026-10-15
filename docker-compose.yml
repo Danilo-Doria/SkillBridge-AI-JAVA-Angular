@@ -170,15 +170,34 @@ services:
       retries: 15
     networks:
     - skillbridge
+  audit-mongo:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: ${AUDIT_MONGO_DB:-audit}
+    ports:
+      - 127.0.0.1:27018:27017
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - audit_mongo_data:/data/db
+    networks:
+      - skillbridge
   audit-backend:
     build:
       context: ./audit-service/backend
     environment:
       PORT: 8081
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      AUDIT_MONGO_URI: mongodb://audit-mongo:27017/${AUDIT_MONGO_DB:-audit}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8090,http://localhost:4200}
     depends_on:
       kafka:
+        condition: service_healthy
+      audit-mongo:
         condition: service_healthy
     ports:
       - 127.0.0.1:8081:8081
@@ -215,3 +234,4 @@ volumes:
   rabbitmq_data: null
   grafana_data: null
   kafka_data: null
+  audit_mongo_data: null

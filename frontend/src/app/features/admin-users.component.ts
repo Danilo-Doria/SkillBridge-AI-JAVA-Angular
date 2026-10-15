@@ -10,17 +10,20 @@ import { AdminUser, AdminUserService, UserStatus } from '../core/admin-user.serv
     <section class="mx-auto max-w-6xl px-4 py-10">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 class="text-2xl font-bold text-slate-900">Usuarios</h1>
+          <span class="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
+            Administración
+          </span>
+          <h1 class="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Usuarios</h1>
           <p class="mt-1 text-sm text-slate-500">{{ totalElements }} usuarios en total</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   (change)="changeSort($any($event.target).value)" aria-label="Ordenar por">
             @for (o of sortOptions; track o.value) {
               <option [value]="o.value" [selected]="o.value === sort">{{ o.label }}</option>
             }
           </select>
-          <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   (change)="changeSize($any($event.target).value)" aria-label="Usuarios por página">
             @for (s of pageSizes; track s) {
               <option [value]="s" [selected]="s === size">{{ s }} por página</option>
@@ -30,10 +33,20 @@ import { AdminUser, AdminUserService, UserStatus } from '../core/admin-user.serv
       </div>
 
       @if (error) {
-        <div role="alert" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ error }}</div>
+        <div role="alert" class="mt-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+          <svg class="h-5 w-5 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <span>{{ error }}</span>
+        </div>
       }
       @if (notice) {
-        <div role="status" class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ notice }}</div>
+        <div role="status" class="mt-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
+          <svg class="h-5 w-5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          <span>{{ notice }}</span>
+        </div>
       }
 
       <div class="mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
