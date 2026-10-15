@@ -65,6 +65,28 @@ import { Offering, OfferingService } from "../core/offering.service";
           </div>
         }
 
+        @if (loading) {
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+            @for (i of skeletonPlaceholders; track i) {
+              <div class="animate-pulse rounded-2xl border border-slate-200 bg-white p-6">
+                <div class="mb-5 flex items-center justify-between">
+                  <div class="h-5 w-20 rounded bg-slate-100"></div>
+                  <div class="h-2.5 w-2.5 rounded-full bg-slate-100"></div>
+                </div>
+                <div class="h-5 w-3/4 rounded bg-slate-100"></div>
+                <div class="mt-3 h-4 w-full rounded bg-slate-100"></div>
+                <div class="mt-2 h-4 w-5/6 rounded bg-slate-100"></div>
+                <div class="my-5 border-t border-slate-100"></div>
+                <div class="flex items-end justify-between">
+                  <div class="h-6 w-20 rounded bg-slate-100"></div>
+                  <div class="h-9 w-24 rounded-lg bg-slate-100"></div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        @if (!loading) {
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           @for (offering of offerings; track offering.id) {
             <article class="group flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl">
@@ -105,11 +127,12 @@ import { Offering, OfferingService } from "../core/offering.service";
           }
         </div>
 
-        @if (!error && offerings.length === 0) {
+        @if (!loading && !error && offerings.length === 0) {
           <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
             <h3 class="text-lg font-semibold text-slate-900">No hay servicios disponibles</h3>
             <p class="mt-2 text-sm text-slate-500">Actualmente no encontramos servicios en el catálogo.</p>
           </div>
+        }
         }
       </div>
     </section>
@@ -118,14 +141,16 @@ import { Offering, OfferingService } from "../core/offering.service";
 export class HomeComponent implements OnInit {
   offerings: Offering[] = [];
   error = "";
+  loading = true;
+  readonly skeletonPlaceholders = [0, 1, 2];
 
   private service = inject(OfferingService);
   private router = inject(Router);
 
   ngOnInit(): void {
     this.service.list().subscribe({
-      next: (r) => (this.offerings = r),
-      error: () => (this.error = "No fue posible cargar el catálogo."),
+      next: (r) => { this.offerings = r; this.loading = false; },
+      error: () => { this.error = "No fue posible cargar el catálogo."; this.loading = false; },
     });
   }
 
