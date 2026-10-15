@@ -7,111 +7,104 @@ import { AdminUser, AdminUserService, UserStatus } from '../core/admin-user.serv
 @Component({
   standalone: true,
   template: `
-    <section class="mx-auto max-w-6xl px-4 py-10">
-      <div class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <span class="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
-            Administración
-          </span>
-          <h1 class="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Usuarios</h1>
-          <p class="mt-1 text-sm text-slate-500">{{ totalElements }} usuarios en total</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  (change)="changeSort($any($event.target).value)" aria-label="Ordenar por">
-            @for (o of sortOptions; track o.value) {
-              <option [value]="o.value" [selected]="o.value === sort">{{ o.label }}</option>
-            }
-          </select>
-          <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  (change)="changeSize($any($event.target).value)" aria-label="Usuarios por página">
-            @for (s of pageSizes; track s) {
-              <option [value]="s" [selected]="s === size">{{ s }} por página</option>
-            }
-          </select>
-        </div>
-      </div>
+    <section class="min-h-screen bg-[#FBFBFA] px-4 py-16 sm:px-6 lg:py-24">
+      <div class="mx-auto max-w-5xl">
 
-      @if (error) {
-        <div role="alert" class="mt-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
-          <svg class="h-5 w-5 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-          </svg>
-          <span>{{ error }}</span>
-        </div>
-      }
-      @if (notice) {
-        <div role="status" class="mt-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
-          <svg class="h-5 w-5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-          </svg>
-          <span>{{ notice }}</span>
-        </div>
-      }
+        <!-- Encabezado -->
+        <header class="enter-rise flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 class="font-display text-5xl text-[#111111] sm:text-6xl">Usuarios</h1>
+            <p class="mt-4 text-base text-[#787774] tabular-nums">{{ totalElements }} usuarios en total</p>
+          </div>
 
-      <div class="mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table class="min-w-full text-left text-sm">
-          <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-semibold">Nombre</th>
-              <th class="px-4 py-3 font-semibold">Correo</th>
-              <th class="px-4 py-3 font-semibold">Rol</th>
-              <th class="px-4 py-3 font-semibold">Estado</th>
-              <th class="px-4 py-3 font-semibold">Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (u of users; track u.id) {
-              <tr class="border-b border-slate-100 last:border-0">
-                <td class="px-4 py-3 font-medium text-slate-900">
-                  {{ u.name }}
-                  @if (isMe(u)) {
-                    <span class="ml-2 rounded bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-800">Tú</span>
-                  }
-                </td>
-                <td class="px-4 py-3 text-slate-600">{{ u.email }}</td>
-                <td class="px-4 py-3">
-                  <select class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-                          [disabled]="isMe(u)" (change)="setRole(u, $any($event.target))" [attr.aria-label]="'Rol de ' + u.name">
-                    @for (r of roles; track r) {
-                      <option [value]="r" [selected]="r === u.role">{{ r }}</option>
+          <div class="flex flex-wrap gap-2">
+            <select class="cursor-pointer rounded-md border border-[#EAEAEA] bg-white px-3 py-2 text-sm text-[#111111] outline-none transition-colors duration-150 hover:border-[#C9C8C4] focus:border-[#111111]"
+                    (change)="changeSort($any($event.target).value)" aria-label="Ordenar por">
+              @for (o of sortOptions; track o.value) {
+                <option [value]="o.value" [selected]="o.value === sort">{{ o.label }}</option>
+              }
+            </select>
+            <select class="cursor-pointer rounded-md border border-[#EAEAEA] bg-white px-3 py-2 text-sm text-[#111111] outline-none transition-colors duration-150 hover:border-[#C9C8C4] focus:border-[#111111]"
+                    (change)="changeSize($any($event.target).value)" aria-label="Usuarios por página">
+              @for (s of pageSizes; track s) {
+                <option [value]="s" [selected]="s === size">{{ s }} por página</option>
+              }
+            </select>
+          </div>
+        </header>
+
+        @if (error) {
+          <div role="alert" class="enter-rise mt-8 rounded-lg bg-[#FDEBEC] px-4 py-3 text-sm text-[#9F2F2D]">{{ error }}</div>
+        }
+        @if (notice) {
+          <div role="status" class="enter-rise mt-8 rounded-lg bg-[#EDF3EC] px-4 py-3 text-sm text-[#346538]">{{ notice }}</div>
+        }
+
+        <!-- Tabla: sin contenedor, solo líneas de fila -->
+        <div class="enter-rise mt-12 overflow-x-auto" style="animation-delay: 60ms">
+          <table class="min-w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-[#EAEAEA] text-[#787774]">
+                <th class="py-3 pr-4 font-medium">Nombre</th>
+                <th class="px-4 py-3 font-medium">Correo</th>
+                <th class="px-4 py-3 font-medium">Rol</th>
+                <th class="px-4 py-3 font-medium">Estado</th>
+                <th class="py-3 pl-4 text-right font-medium">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (u of users; track u.id) {
+                <tr class="border-b border-[#EAEAEA] transition-colors duration-150 hover:bg-[#F7F6F3]">
+                  <td class="py-4 pr-4 font-medium text-[#111111]">
+                    {{ u.name }}
+                    @if (isMe(u)) {
+                      <span class="ml-2 rounded-md bg-[#111111] px-1.5 py-0.5 text-xs font-medium text-white">Tú</span>
                     }
-                  </select>
-                </td>
-                <td class="px-4 py-3">
-                  @if (u.status === 'ACTIVE') {
-                    <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">Activa</span>
-                  } @else {
-                    <span class="rounded bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">Suspendida</span>
-                  }
-                </td>
-                <td class="px-4 py-3">
-                  <button type="button" [disabled]="isMe(u)" (click)="toggleStatus(u)"
-                          class="cursor-pointer rounded-lg border px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                          [class.border-red-300]="u.status === 'ACTIVE'" [class.text-red-700]="u.status === 'ACTIVE'"
-                          [class.border-emerald-300]="u.status === 'SUSPENDED'" [class.text-emerald-700]="u.status === 'SUSPENDED'">
-                    {{ u.status === 'ACTIVE' ? 'Suspender' : 'Reactivar' }}
-                  </button>
-                </td>
-              </tr>
-            } @empty {
-              <tr>
-                <td colspan="5" class="px-4 py-10 text-center text-slate-500">
-                  {{ loading ? 'Cargando usuarios…' : 'No hay usuarios para mostrar.' }}
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                  <td class="px-4 py-4 text-[#787774]">{{ u.email }}</td>
+                  <td class="px-4 py-4">
+                    <select class="cursor-pointer rounded-md border border-[#EAEAEA] bg-white px-2.5 py-1.5 text-sm text-[#111111] outline-none transition-colors duration-150 hover:border-[#C9C8C4] focus:border-[#111111] disabled:cursor-not-allowed disabled:opacity-40"
+                            [disabled]="isMe(u)" (change)="setRole(u, $any($event.target))" [attr.aria-label]="'Rol de ' + u.name">
+                      @for (r of roles; track r) {
+                        <option [value]="r" [selected]="r === u.role">{{ r }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td class="px-4 py-4">
+                    @if (u.status === 'ACTIVE') {
+                      <span class="rounded-md bg-[#EDF3EC] px-2 py-0.5 text-xs font-medium text-[#346538]">Activa</span>
+                    } @else {
+                      <span class="rounded-md bg-[#FDEBEC] px-2 py-0.5 text-xs font-medium text-[#9F2F2D]">Suspendida</span>
+                    }
+                  </td>
+                  <td class="py-4 pl-4 text-right">
+                    <button type="button" [disabled]="isMe(u)" (click)="toggleStatus(u)"
+                            [class]="u.status === 'ACTIVE' ? 'text-[#9F2F2D] hover:bg-[#FDEBEC]' : 'text-[#346538] hover:bg-[#EDF3EC]'"
+                            class="cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100">
+                      {{ u.status === 'ACTIVE' ? 'Suspender' : 'Reactivar' }}
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5" class="py-24 text-center text-sm text-[#787774]">
+                    {{ loading ? 'Cargando usuarios…' : 'No hay usuarios para mostrar.' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
 
-      <div class="mt-4 flex items-center justify-between text-sm text-slate-600">
-        <span>Página {{ page + 1 }} de {{ totalPages || 1 }}</span>
-        <div class="flex gap-2">
-          <button type="button" (click)="prev()" [disabled]="page === 0"
-                  class="cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 font-semibold disabled:cursor-not-allowed disabled:opacity-40">Anterior</button>
-          <button type="button" (click)="next()" [disabled]="page + 1 >= totalPages"
-                  class="cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 font-semibold disabled:cursor-not-allowed disabled:opacity-40">Siguiente</button>
+        <!-- Paginación -->
+        <div class="mt-6 flex items-center justify-between text-sm text-[#787774]">
+          <span class="tabular-nums">Página {{ page + 1 }} de {{ totalPages || 1 }}</span>
+          <div class="flex gap-2">
+            <button type="button" (click)="prev()" [disabled]="page === 0"
+                    class="cursor-pointer rounded-md border border-[#EAEAEA] bg-white px-4 py-2 font-medium text-[#111111] transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#F7F6F3] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100">Anterior</button>
+            <button type="button" (click)="next()" [disabled]="page + 1 >= totalPages"
+                    class="cursor-pointer rounded-md bg-[#111111] px-4 py-2 font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100">Siguiente</button>
+          </div>
         </div>
       </div>
     </section>

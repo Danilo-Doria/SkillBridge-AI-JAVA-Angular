@@ -7,134 +7,109 @@ import { AuthService } from '../core/auth.service';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <main class="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-12 selection:bg-blue-500 selection:text-white">
-      <!-- Glows decorativos de fondo -->
-      <div class="pointer-events-none absolute -left-40 -top-40 h-[30rem] w-[30rem] rounded-full bg-blue-600/15 blur-[120px]" aria-hidden="true"></div>
-      <div class="pointer-events-none absolute -bottom-40 -right-40 h-[30rem] w-[30rem] rounded-full bg-indigo-600/15 blur-[120px]" aria-hidden="true"></div>
+    <main class="grid min-h-screen bg-[#FBFBFA] lg:grid-cols-2">
 
-      <section class="relative w-full max-w-md">
-        <!-- Logo y Branding -->
-        <div class="mb-8 text-center">
-          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-xl font-black text-white shadow-lg shadow-blue-500/25 ring-1 ring-white/20">
-            S
-          </div>
-          <h1 class="mt-4 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
-            SkillBridge
-          </h1>
-          <p class="mt-2 text-sm text-slate-400">
-            {{ mode === 'login' ? 'Accede a tu panel de control' : 'Crea tu cuenta profesional en segundos' }}
+      <!-- Panel de marca (solo escritorio) -->
+      <aside class="hidden flex-col justify-end bg-[#111111] p-12 lg:flex">
+        <div class="mb-28">
+          <p class="font-display max-w-md text-5xl text-[#FFFFFF]">
+            Mentorías que conectan tu experiencia con tu siguiente paso.
+          </p>
+          <p class="mt-6 max-w-sm text-base leading-7 text-[#FFFFFF]">
+            Reserva sesiones con mentores y recibe recomendaciones según tu objetivo.
           </p>
         </div>
+      </aside>
 
-        <!-- Tarjeta Principal -->
-        <div class="rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
-          
-          <!-- Selector de Modo / Tabs -->
-          <div class="mb-6 flex rounded-xl bg-slate-950/60 p-1 ring-1 ring-white/10">
+      <!-- Formulario -->
+      <section class="flex items-center justify-center px-4 py-12 sm:px-8">
+        <div class="enter-rise w-full max-w-sm">
+
+          <!-- Marca (móvil) -->
+          <div class="mb-10 flex items-center gap-2.5 lg:hidden">
+            <svg class="h-8 w-8 shrink-0" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <rect width="32" height="32" rx="8" fill="#111111"/>
+              <path d="M8 22a8 8 0 0 1 16 0" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M5.5 22h21" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"/>
+              <circle cx="16" cy="9" r="2.3" fill="#FFFFFF"/>
+            </svg>
+            <span class="font-display text-2xl text-[#111111]">SkillBridge<span class="text-[#787774]"> AI</span></span>
+          </div>
+
+          <h1 class="font-display text-4xl text-[#111111] sm:text-5xl">
+            {{ mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta' }}
+          </h1>
+          <p class="mt-3 text-base text-[#787774]">
+            {{ mode === 'login' ? 'Accede a tu panel de control' : 'Crea tu cuenta profesional en segundos' }}
+          </p>
+
+          <!-- Selector de modo -->
+          <div class="mt-8 flex gap-6 border-b border-[#EAEAEA]">
             <button
               type="button"
               (click)="setMode('login')"
-              [class]="mode === 'login' 
-                ? 'bg-slate-800 text-white shadow-sm' 
-                : 'text-slate-400 hover:text-slate-200'"
-              class="cursor-pointer w-1/2 rounded-lg py-2 text-xs font-semibold transition-all duration-200"
+              [class]="mode === 'login' ? 'border-[#111111] text-[#111111]' : 'border-transparent text-[#787774] hover:text-[#111111]'"
+              class="-mb-px cursor-pointer border-b-2 py-3 text-sm font-medium transition-colors duration-150"
             >
               Iniciar sesión
             </button>
             <button
               type="button"
               (click)="setMode('register')"
-              [class]="mode === 'register' 
-                ? 'bg-slate-800 text-white shadow-sm' 
-                : 'text-slate-400 hover:text-slate-200'"
-              class="cursor-pointer w-1/2 rounded-lg py-2 text-xs font-semibold transition-all duration-200"
+              [class]="mode === 'register' ? 'border-[#111111] text-[#111111]' : 'border-transparent text-[#787774] hover:text-[#111111]'"
+              class="-mb-px cursor-pointer border-b-2 py-3 text-sm font-medium transition-colors duration-150"
             >
               Registrarse
             </button>
           </div>
 
-          <!-- Banner de Error Intuitivo -->
           @if (error) {
-            <div role="alert" class="mb-6 flex items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-xs font-medium text-red-300 animate-in fade-in duration-200">
-              <svg class="h-5 w-5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-              </svg>
-              <div class="flex-1">
-                <p class="font-semibold text-red-200">Atención</p>
-                <p class="mt-0.5 text-red-300/90 leading-relaxed">{{ error }}</p>
-              </div>
+            <div role="alert" class="enter-rise mt-6 rounded-lg bg-[#FDEBEC] px-4 py-3 text-sm text-[#9F2F2D]">
+              <p class="font-medium">Atención</p>
+              <p class="mt-0.5 leading-relaxed">{{ error }}</p>
             </div>
           }
 
-          <!-- Formulario Nativo (Soporta Submit con Tecla Enter) -->
-          <form (ngSubmit)="submit()" class="space-y-4">
-            
-            <!-- Campo Nombre (Solo Registro) -->
+          <form (ngSubmit)="submit()" class="mt-8 space-y-5">
+
             @if (mode === 'register') {
-              <div>
-                <label for="name" class="mb-1.5 block text-xs font-medium text-slate-300">
-                  Nombre completo
-                </label>
-                <div class="relative">
-                  <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                    </svg>
-                  </div>
-                  <input
-                    id="name"
-                    type="text"
-                    [(ngModel)]="name"
-                    name="name"
-                    placeholder="Ej. María García"
-                    autocomplete="name"
-                    class="w-full rounded-xl border border-white/10 bg-slate-950/50 py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
+              <div class="enter-rise">
+                <label for="name" class="mb-2 block text-sm text-[#787774]">Nombre completo</label>
+                <input
+                  id="name"
+                  type="text"
+                  [(ngModel)]="name"
+                  name="name"
+                  placeholder="Ej. María García"
+                  autocomplete="name"
+                  class="w-full rounded-md border border-[#EAEAEA] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none transition-colors duration-150 placeholder:text-[#9B9A97] hover:border-[#C9C8C4] focus:border-[#111111]"
+                />
               </div>
             }
 
-            <!-- Campo Correo -->
             <div>
-              <label for="email" class="mb-1.5 block text-xs font-medium text-slate-300">
-                Correo electrónico
-              </label>
-              <div class="relative">
-                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                  </svg>
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  [(ngModel)]="email"
-                  name="email"
-                  placeholder="nombre@ejemplo.com"
-                  autocomplete="email"
-                  class="w-full rounded-xl border border-white/10 bg-slate-950/50 py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
+              <label for="email" class="mb-2 block text-sm text-[#787774]">Correo electrónico</label>
+              <input
+                id="email"
+                type="email"
+                [(ngModel)]="email"
+                name="email"
+                placeholder="nombre@ejemplo.com"
+                autocomplete="email"
+                class="w-full rounded-md border border-[#EAEAEA] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none transition-colors duration-150 placeholder:text-[#9B9A97] hover:border-[#C9C8C4] focus:border-[#111111]"
+              />
             </div>
 
-            <!-- Campo Contraseña con Toggle Ocultar/Mostrar -->
             <div>
-              <div class="mb-1.5 flex items-center justify-between">
-                <label for="password" class="block text-xs font-medium text-slate-300">
-                  Contraseña
-                </label>
+              <div class="mb-2 flex items-center justify-between">
+                <label for="password" class="block text-sm text-[#787774]">Contraseña</label>
                 @if (mode === 'login') {
-                  <a href="#" (click)="$event.preventDefault()" class="text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                  <a href="#" (click)="$event.preventDefault()" class="text-sm text-[#787774] transition-colors duration-150 hover:text-[#111111]">
                     ¿Olvidaste tu contraseña?
                   </a>
                 }
               </div>
               <div class="relative">
-                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                  </svg>
-                </div>
                 <input
                   id="password"
                   [type]="showPassword ? 'text' : 'password'"
@@ -142,60 +117,55 @@ import { AuthService } from '../core/auth.service';
                   name="password"
                   placeholder="••••••••"
                   [autocomplete]="mode === 'login' ? 'current-password' : 'new-password'"
-                  class="w-full rounded-xl border border-white/10 bg-slate-950/50 py-3 pl-10 pr-11 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-500/20"
+                  class="w-full rounded-md border border-[#EAEAEA] bg-white py-2.5 pl-3 pr-11 text-sm text-[#111111] outline-none transition-colors duration-150 placeholder:text-[#9B9A97] hover:border-[#C9C8C4] focus:border-[#111111]"
                 />
                 <button
                   type="button"
                   (click)="showPassword = !showPassword"
-                  class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-200"
+                  class="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-3 text-[#787774] transition-colors duration-150 hover:text-[#111111]"
                   tabindex="-1"
+                  [attr.aria-label]="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
                 >
                   @if (showPassword) {
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a8.959 8.959 0 013.68-.763c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.692-4.692a3 3 0 00-4.243-4.243m4.243 4.243L3 3l18 18"/>
+                    <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                      <path d="M53.92 34.62a8 8 0 1 0-11.84 10.76l19.24 21.17C25 88.84 9.38 123.2 8.69 124.76a8 8 0 0 0 0 6.5c.35.79 8.82 19.57 27.65 38.4C61.43 194.74 93.12 208 128 208a127.11 127.11 0 0 0 52.07-10.83l22 24.21a8 8 0 1 0 11.84-10.76Zm47.33 75.84 41.67 45.85a32 32 0 0 1-41.67-45.85ZM128 192c-30.78 0-57.67-11.19-79.93-33.25A133.47 133.47 0 0 1 25 128c4.69-8.79 19.66-33.39 47.35-49.38l18 19.75a48 48 0 0 0 63.66 70l14.73 16.2A112 112 0 0 1 128 192Zm6-95.43a8 8 0 0 1 3-15.72 48.16 48.16 0 0 1 38.77 42.64 8 8 0 0 1-7.22 8.71 6.39 6.39 0 0 1-.75 0 8 8 0 0 1-8-7.26A32.2 32.2 0 0 0 134 96.57Zm113.28 34.69c-.42.94-10.55 23.37-33.36 43.8a8 8 0 1 1-10.67-11.92A132.77 132.77 0 0 0 231.05 128a133.15 133.15 0 0 0-23.12-30.77C185.67 75.19 158.78 64 128 64a118.37 118.37 0 0 0-19.36 1.57A8 8 0 1 1 106 49.79 134 134 0 0 1 128 48c34.88 0 66.57 13.26 91.66 38.35 18.83 18.83 27.3 37.62 27.65 38.41a8 8 0 0 1 0 6.5Z"/>
                     </svg>
                   } @else {
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                      <path d="M247.31 124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57 61.26 162.88 48 128 48S61.43 61.26 36.34 86.35C17.51 105.18 9 124 8.69 124.76a8 8 0 0 0 0 6.5c.35.79 8.82 19.57 27.65 38.4C61.43 194.74 93.12 208 128 208s66.57-13.26 91.66-38.34c18.83-18.83 27.3-37.61 27.65-38.4a8 8 0 0 0 0-6.5ZM128 192c-30.78 0-57.67-11.19-79.93-33.25A133.47 133.47 0 0 1 25 128a133.33 133.33 0 0 1 23.07-30.75C70.33 75.19 97.22 64 128 64s57.67 11.19 79.93 33.25A133.46 133.46 0 0 1 231.05 128c-7.21 13.46-38.62 64-103.05 64Zm0-112a48 48 0 1 0 48 48 48.05 48.05 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Z"/>
                     </svg>
                   }
                 </button>
               </div>
               @if (mode === 'register') {
-                <p class="mt-1.5 text-[11px] text-slate-500">Mínimo 6 caracteres.</p>
+                <p class="mt-2 text-xs text-[#787774]">Mínimo 6 caracteres.</p>
               }
             </div>
 
-            <!-- Botón Principal con Spinner de Carga -->
             <button
               type="submit"
               [disabled]="loading"
-              class="cursor-pointer mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition duration-200 hover:bg-blue-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              class="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-[#111111] px-4 py-3 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
             >
               @if (loading) {
-                <svg class="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                <svg class="h-4 w-4 animate-spin [animation-duration:600ms]" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 <span>Procesando...</span>
               } @else {
                 <span>{{ mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta gratis' }}</span>
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-                </svg>
               }
             </button>
           </form>
-        </div>
 
-        <!-- Pie de página de Términos -->
-        <p class="mt-6 text-center text-xs leading-5 text-slate-500">
-          Al continuar, aceptas los
-          <a href="#" (click)="$event.preventDefault()" class="text-slate-400 underline hover:text-slate-300">Términos de servicio</a>
-          y la
-          <a href="#" (click)="$event.preventDefault()" class="text-slate-400 underline hover:text-slate-300">Política de privacidad</a>.
-        </p>
+          <p class="mt-8 text-xs leading-5 text-[#787774]">
+            Al continuar, aceptas los
+            <a href="#" (click)="$event.preventDefault()" class="underline underline-offset-2 transition-colors duration-150 hover:text-[#111111]">Términos de servicio</a>
+            y la
+            <a href="#" (click)="$event.preventDefault()" class="underline underline-offset-2 transition-colors duration-150 hover:text-[#111111]">Política de privacidad</a>.
+          </p>
+        </div>
       </section>
     </main>
   `,
