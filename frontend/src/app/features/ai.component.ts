@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -137,6 +137,38 @@ import { apiBase } from '../core/api';
           {{ answer }}
         </div>
 
+        @if (answer) {
+          <button
+            type="button"
+            (click)="toggleAudio()"
+            [disabled]="audioLoading"
+            [class]="audioPlaying ? 'bg-[#F1F0ED] text-[#111111]' : ''"
+            class="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+          >
+            @if (audioLoading) {
+              <svg class="h-4 w-4 animate-spin [animation-duration:600ms]" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              Generando audio...
+            } @else if (audioPlaying) {
+              <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                <path d="M200 48H56a8 8 0 0 0-8 8v144a8 8 0 0 0 8 8h144a8 8 0 0 0 8-8V56a8 8 0 0 0-8-8Z"/>
+              </svg>
+              Detener audio
+            } @else {
+              <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                <path d="M155.51 24.81a8 8 0 0 0-8.42.88L77.25 80H32a16 16 0 0 0-16 16v64a16 16 0 0 0 16 16h45.25l69.84 54.31A8 8 0 0 0 160 224V32a8 8 0 0 0-4.49-7.19ZM32 96h40v64H32Zm112 111.64-56-43.55V91.91l56-43.55Zm54-106.08a40 40 0 0 1 0 52.88 8 8 0 0 1-12-10.58 24 24 0 0 0 0-31.72 8 8 0 0 1 12-10.58Z"/>
+              </svg>
+              Escuchar respuesta
+            }
+          </button>
+
+          @if (audioError) {
+            <p role="alert" class="mt-2 text-sm text-[#9F2F2D]">{{ audioError }}</p>
+          }
+        }
+
         @if (recommendations.length > 0) {
           <h3 class="mt-12 text-sm font-medium text-[#111111]">Cursos sugeridos para ti</h3>
           <ul class="mt-3 border-t border-[#EAEAEA]">
@@ -162,55 +194,63 @@ import { apiBase } from '../core/api';
     </aside>
   `
 })
-export class AiComponent {
+export class AiComponent implements OnDestroy {
   goal = '';
   answer = '';
   error = '';
   selectedFile: File | null = null;
   selectedType: 'voice' | 'image' | null = null;
-  
-  resultInputType = ''; 
-  sourceText = ''; 
+
+  resultInputType = '';
+  sourceText = '';
   recommendations: { offeringId: string; score: number; reason: string }[] = [];
-  
+
   loading = false;
-  recording = false; 
+  recording = false;
   showModal = false;
-  private recorder: MediaRecorder | null = null; 
+  private recorder: MediaRecorder | null = null;
   private chunks: Blob[] = [];
+
+  // Audio (ElevenLabs TTS)
+  audioLoading = false;
+  audioPlaying = false;
+  audioError = '';
+  private audio: HTMLAudioElement | null = null;
+  private audioUrl: string | null = null;
+  private audioForText = '';
 
   constructor(private http: HttpClient, private router: Router) {}
 
-  async toggleRecording() { 
-    if (this.recording) { 
-      this.recorder?.stop(); 
-      return; 
-    } 
-    try { 
-      const stream = await navigator.mediaDevices.getUserMedia({audio: true}); 
-      this.chunks = []; 
-      this.recorder = new MediaRecorder(stream); 
-      this.recorder.ondataavailable = e => this.chunks.push(e.data); 
-      this.recorder.onstop = () => { 
-        const file = new File([new Blob(this.chunks, {type: this.recorder?.mimeType || 'audio/webm'})], 'nota-de-voz.webm', {type: this.recorder?.mimeType || 'audio/webm'}); 
-        this.selectedFile = file; 
-        this.selectedType = 'voice'; 
-        this.recording = false; 
-        stream.getTracks().forEach(t => t.stop()); 
-      }; 
-      this.recorder.start(); 
-      this.recording = true; 
-    } catch { 
-      this.error = 'No fue posible acceder al micrófono. Verifica los permisos de tu navegador.'; 
-    } 
+  async toggleRecording() {
+    if (this.recording) {
+      this.recorder?.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      this.chunks = [];
+      this.recorder = new MediaRecorder(stream);
+      this.recorder.ondataavailable = e => this.chunks.push(e.data);
+      this.recorder.onstop = () => {
+        const file = new File([new Blob(this.chunks, {type: this.recorder?.mimeType || 'audio/webm'})], 'nota-de-voz.webm', {type: this.recorder?.mimeType || 'audio/webm'});
+        this.selectedFile = file;
+        this.selectedType = 'voice';
+        this.recording = false;
+        stream.getTracks().forEach(t => t.stop());
+      };
+      this.recorder.start();
+      this.recording = true;
+    } catch {
+      this.error = 'No fue posible acceder al micrófono. Verifica los permisos de tu navegador.';
+    }
   }
 
-  selectFile(event: Event, type: 'voice' | 'image') { 
-    const file = (event.target as HTMLInputElement).files?.[0] ?? null; 
-    this.selectedFile = file; 
-    this.selectedType = file ? type : null; 
+  selectFile(event: Event, type: 'voice' | 'image') {
+    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+    this.selectedFile = file;
+    this.selectedType = file ? type : null;
   }
-  
+
   clearSelection() {
     this.selectedFile = null;
     this.selectedType = null;
@@ -219,6 +259,7 @@ export class AiComponent {
 
   closeModal() {
     this.showModal = false;
+    this.stopAudio(); // el audio no sigue sonando al cerrar el panel
   }
 
   goToBooking(offeringId: string) {
@@ -226,33 +267,35 @@ export class AiComponent {
     this.router.navigate(['/book'], { queryParams: { offeringId } });
   }
 
-  private formData() { 
-    const data = new FormData(); 
-    data.append('file', this.selectedFile!); 
-    return data; 
+  private formData() {
+    const data = new FormData();
+    data.append('file', this.selectedFile!);
+    return data;
   }
 
   ask() {
     this.error = '';
-    this.answer = ''; 
-    this.sourceText = ''; 
+    this.answer = '';
+    this.sourceText = '';
     this.recommendations = [];
     this.showModal = false;
+    this.clearAudio();
+    this.audioError = '';
     this.loading = true;
 
-    const url = this.selectedFile 
-      ? `${apiBase()}/ai/recommendations/${this.selectedType}` 
+    const url = this.selectedFile
+      ? `${apiBase()}/ai/recommendations/${this.selectedType}`
       : `${apiBase()}/ai/recommendations`;
-      
-    const payload = this.selectedFile 
-      ? this.formData() 
+
+    const payload = this.selectedFile
+      ? this.formData()
       : { goal: this.goal };
 
     this.http.post<any>(url, payload).subscribe({
       next: (r) => {
-        this.answer = r.explanation; 
-        this.resultInputType = r.inputType; 
-        this.sourceText = r.sourceText; 
+        this.answer = r.explanation;
+        this.resultInputType = r.inputType;
+        this.sourceText = r.sourceText;
         this.recommendations = r.recommendations ?? [];
         this.loading = false;
         this.showModal = true;
@@ -262,5 +305,61 @@ export class AiComponent {
         this.loading = false;
       }
     });
+  }
+
+  toggleAudio() {
+    if (this.audioPlaying) {
+      this.stopAudio();
+      return;
+    }
+    if (!this.answer) return;
+    this.audioError = '';
+
+    // Si ya generamos el audio de esta misma respuesta, lo reutilizamos (no se vuelve a cobrar)
+    if (this.audioUrl && this.audioForText === this.answer) {
+      this.playUrl(this.audioUrl);
+      return;
+    }
+
+    this.audioLoading = true;
+    this.http.post(`${apiBase()}/ai/tts`, { text: this.answer }, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        this.clearAudio();
+        this.audioUrl = URL.createObjectURL(blob);
+        this.audioForText = this.answer;
+        this.audioLoading = false;
+        this.playUrl(this.audioUrl);
+      },
+      error: () => {
+        // Con responseType 'blob' el cuerpo del error también llega como Blob, por eso el mensaje es fijo
+        this.audioError = 'No se pudo generar el audio. Intenta de nuevo.';
+        this.audioLoading = false;
+      }
+    });
+  }
+
+  private playUrl(url: string) {
+    this.audio = new Audio(url);
+    this.audio.onended = () => (this.audioPlaying = false);
+    this.audio.play()
+      .then(() => (this.audioPlaying = true))
+      .catch(() => (this.audioError = 'El navegador bloqueó la reproducción.'));
+  }
+
+  private stopAudio() {
+    this.audio?.pause();
+    this.audio = null;
+    this.audioPlaying = false;
+  }
+
+  private clearAudio() {
+    this.stopAudio();
+    if (this.audioUrl) URL.revokeObjectURL(this.audioUrl);
+    this.audioUrl = null;
+    this.audioForText = '';
+  }
+
+  ngOnDestroy() {
+    this.clearAudio();
   }
 }
