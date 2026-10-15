@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(name = "app.ai.tts.enabled", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(name = "spring.ai.tts.enabled", havingValue = "false", matchIfMissing = true)
 public class NoOpTextToSpeechAdapter implements TextToSpeechPort {
 
     @Override

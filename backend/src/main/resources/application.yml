@@ -38,7 +38,7 @@ spring:
           options:
             model: ${GEMINI_MODEL:gemini-3.8-flash}
             temperature: 0.2
-            max-output-tokens: 800
+            max-output-tokens: ${GEMINI_MAX_OUTPUT_TOKENS:2048}
     tts:
       enabled: ${TTS_ENABLED:false}
       max-chars: ${TTS_MAX_CHARS:1000}

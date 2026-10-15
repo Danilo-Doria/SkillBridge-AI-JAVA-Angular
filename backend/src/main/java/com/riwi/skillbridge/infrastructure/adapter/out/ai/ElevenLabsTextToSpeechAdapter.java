@@ -14,7 +14,7 @@ import java.time.Duration;
 import java.util.Map;
 
 @Component
-@ConditionalOnProperty(name = "app.ai.tts.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "spring.ai.tts.enabled", havingValue = "true")
 public class ElevenLabsTextToSpeechAdapter implements TextToSpeechPort {
 
     private final RestClient client;
