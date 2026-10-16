@@ -106,20 +106,21 @@ class StripePaymentAdapterTest {
     }
 
     @Test
-    void testFallbackProcessTriggered() {
+    void testProcessHandlesExceptionGracefully() {
         // Arrange
         PaymentCommand command = new PaymentCommand("idem-fail", bookingId, new BigDecimal("75.00"), null, null, null);
-        RuntimeException ex = new RuntimeException("Stripe API connection timed out");
+        when(stripeFeignClient.createPaymentIntent(eq("idem-fail"), any(MultiValueMap.class)))
+                .thenThrow(new RuntimeException("Stripe API connection timed out"));
 
         // Act
-        PaymentResult fallbackResult = adapter.fallbackProcess(command, ex);
+        PaymentResult result = adapter.process(command);
 
         // Assert
-        assertNotNull(fallbackResult);
-        assertEquals(bookingId, fallbackResult.bookingId());
-        assertEquals(PaymentStatus.DECLINED, fallbackResult.status());
-        assertNull(fallbackResult.clientSecret());
-        assertTrue(fallbackResult.message().contains("Payment gateway unavailable"));
-        assertTrue(fallbackResult.message().contains("Stripe API connection timed out"));
+        assertNotNull(result);
+        assertEquals(bookingId, result.bookingId());
+        assertEquals(PaymentStatus.DECLINED, result.status());
+        assertNull(result.clientSecret());
+        assertTrue(result.message().contains("Payment gateway error"));
+        assertTrue(result.message().contains("Stripe API connection timed out"));
     }
 }

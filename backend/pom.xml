@@ -22,7 +22,6 @@
     <testcontainers.version>1.21.4</testcontainers.version>
     <spring-ai.version>1.1.8</spring-ai.version>
     <spring-cloud-openfeign.version>4.2.0</spring-cloud-openfeign.version>
-    <resilience4j.version>2.2.0</resilience4j.version>
     <stripe-java.version>28.3.0</stripe-java.version>
   </properties>
 
@@ -131,17 +130,6 @@
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-openfeign</artifactId>
       <version>${spring-cloud-openfeign.version}</version>
-    </dependency>
-
-    <!-- Resilience4j: Circuit Breaker and Retry for fault tolerance -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-aop</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.github.resilience4j</groupId>
-      <artifactId>resilience4j-spring-boot3</artifactId>
-      <version>${resilience4j.version}</version>
     </dependency>
 
     <!-- Stripe Java SDK (Exclusively for Webhook cryptographic signature verification) -->
