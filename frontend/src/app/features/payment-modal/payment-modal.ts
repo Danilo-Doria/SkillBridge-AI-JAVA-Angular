@@ -154,7 +154,7 @@ export class PaymentModal implements OnInit, OnDestroy {
           elements: this.elements,
           confirmParams: {
             // En caso de redirección (ej. 3D Secure) Stripe redirige al origen actual
-            return_url: window.location.href
+            return_url: this.getPaymentReturnUrl()
           },
           redirect: 'if_required'
         });
@@ -181,6 +181,12 @@ export class PaymentModal implements OnInit, OnDestroy {
       // Flujo de Respaldo Simulado
       this.submitSimulatedPayment();
     }
+  }
+
+  private getPaymentReturnUrl(): string {
+    const returnUrl = new URL(window.location.href);
+    returnUrl.searchParams.set('payment_booking_id', this.bookingId);
+    return returnUrl.toString();
   }
 
   /**
