@@ -4,9 +4,11 @@ import com.riwi.skillbridge.application.port.out.PaymentPort;
 import com.riwi.skillbridge.domain.model.PaymentCommand;
 import com.riwi.skillbridge.domain.model.PaymentResult;
 import com.riwi.skillbridge.domain.model.PaymentStatus;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("simulatedPaymentAdapter")
+@ConditionalOnProperty(name = "app.payment.provider", havingValue = "simulated")
 public class SimulatedPaymentAdapter implements PaymentPort {
 
     @Override
@@ -35,4 +37,3 @@ public class SimulatedPaymentAdapter implements PaymentPort {
         return new PaymentResult(java.util.UUID.randomUUID(), command.bookingId(), PaymentStatus.APPROVED, "Payment approved");
     }
 }
-
