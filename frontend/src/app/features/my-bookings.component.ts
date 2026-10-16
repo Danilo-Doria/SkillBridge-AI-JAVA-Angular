@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Booking, BookingService } from '../core/booking.service';
@@ -61,6 +61,12 @@ import { PaymentModal } from './payment-modal/payment-modal';
             <span>{{ cancelErrorMessage }}</span>
             <button (click)="cancelErrorMessage = ''" aria-label="Cerrar"
                     class="cursor-pointer rounded px-2 text-lg leading-none transition-[background-color,transform] duration-150 hover:bg-white/60 active:scale-[0.94]">&times;</button>
+          </div>
+        }
+
+        @if (paymentStatusMessage) {
+          <div role="status" aria-live="polite" class="enter-rise mt-8 rounded-lg bg-[#FBF3DB] px-4 py-3 text-sm text-[#795A00]">
+            {{ paymentStatusMessage }}
           </div>
         }
 
@@ -225,7 +231,7 @@ import { PaymentModal } from './payment-modal/payment-modal';
     }
   `
 })
-export class MyBookingsComponent implements OnInit {
+export class MyBookingsComponent implements OnInit, OnDestroy {
   statusFilter: string = 'ALL';
   
   get filteredBookings(): Booking[] {
@@ -250,12 +256,68 @@ export class MyBookingsComponent implements OnInit {
   isCancelingId: string | null = null;
   cancelSuccessMessage = '';
   cancelErrorMessage = '';
+  paymentStatusMessage = '';
+  private paymentPollingTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.fetchMyBookings();
+    this.handleStripeReturn();
     this.offeringService.list().subscribe({
       next: (data) => (this.offerings = data),
       error: () => console.warn('No se pudieron cargar las especificaciones de servicios.')
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.paymentPollingTimer) {
+      clearTimeout(this.paymentPollingTimer);
+    }
+  }
+
+  private handleStripeReturn(): void {
+    const params = new URLSearchParams(window.location.search);
+    const bookingId = params.get('payment_booking_id');
+    const paymentIntent = params.get('payment_intent');
+    if (!bookingId || !paymentIntent) return;
+
+    // El client secret de Stripe puede venir en la URL de retorno; quitar los
+    // parámetros de pago del historial del navegador tan pronto como se lean.
+    window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+
+    const redirectStatus = params.get('redirect_status');
+    if (redirectStatus === 'failed') {
+      this.paymentStatusMessage = 'Stripe no pudo completar el pago. Puedes intentarlo nuevamente.';
+      return;
+    }
+
+    this.paymentStatusMessage = 'Pago autorizado. Estamos confirmando tu reserva...';
+    this.pollBookingStatus(bookingId, 20);
+  }
+
+  private pollBookingStatus(bookingId: string, attemptsRemaining: number): void {
+    this.bookingService.getMyBookings().subscribe({
+      next: (data) => {
+        this.bookings = data;
+        const booking = data.find((item) => item.id === bookingId);
+        if (booking?.status === 'CONFIRMED' || booking?.status === 'COMPLETED') {
+          this.paymentStatusMessage = 'Pago confirmado y reserva actualizada.';
+          return;
+        }
+
+        if (attemptsRemaining <= 1) {
+          this.paymentStatusMessage = 'El pago fue autorizado y Stripe aún está notificando la confirmación. Esta página seguirá mostrando el estado actualizado al volver a cargar.';
+          return;
+        }
+
+        this.paymentPollingTimer = setTimeout(() => this.pollBookingStatus(bookingId, attemptsRemaining - 1), 1500);
+      },
+      error: () => {
+        if (attemptsRemaining > 1) {
+          this.paymentPollingTimer = setTimeout(() => this.pollBookingStatus(bookingId, attemptsRemaining - 1), 1500);
+        } else {
+          this.paymentStatusMessage = 'No pudimos consultar el estado todavía. Recarga la página en unos segundos.';
+        }
+      }
     });
   }
 
