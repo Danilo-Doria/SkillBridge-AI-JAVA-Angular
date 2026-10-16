@@ -1,82 +1,192 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { apiBase } from '../../core/api';
+import { StripeService } from '../../core/stripe.service';
+import { Stripe, StripeElements, StripePaymentElement } from '@stripe/stripe-js';
 
 @Component({
   selector: 'app-payment-modal',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './payment-modal.html'
+  templateUrl: './payment-modal.html',
+  styleUrls: ['./payment-modal.css']
 })
-export class PaymentModal {
+export class PaymentModal implements OnInit, OnDestroy {
   @Input() bookingId!: string;
   @Input() amount: number = 0;
   
   @Output() close = new EventEmitter<void>();
   @Output() paymentSuccess = new EventEmitter<void>();
 
+  @ViewChild('paymentElementContainer') paymentElementRef?: ElementRef<HTMLDivElement>;
+
+  // Variables de control de Stripe
+  stripe: Stripe | null = null;
+  elements: StripeElements | null = null;
+  paymentElement: StripePaymentElement | null = null;
+  clientSecret: string = '';
+
+  // Estado del componente
+  initializingStripe = true;
+  stripeAvailable = false;
+  loading = false;
+  errorMsg = '';
+
+  // Datos para fallback simulado (en caso de que no haya clave de Stripe configurada)
   cardData = {
     cardNumber: '',
     expiryDate: '',
     cvv: ''
   };
 
-  loading = false;
-  errorMsg = '';
+  constructor(
+    private http: HttpClient,
+    private stripeService: StripeService
+  ) {}
 
-  constructor(private http: HttpClient) {}
+  async ngOnInit() {
+    await this.initStripeFlow();
+  }
 
-  formatCardNumber(value: string) {
-    // Si el usuario escribe una letra u otro caracter no válido, evitamos que Angular lo repinte con espacios que validen patrones parciales.
-    // Solo formateamos los numeros. Si hay letras, las respetamos para que el HTML Pattern se dispare y ponga la caja roja.
-    const isOnlyNumbersAndSpaces = /^[0-9\s]*$/.test(value);
+  ngOnDestroy() {
+    if (this.paymentElement) {
+      try {
+        this.paymentElement.destroy();
+      } catch (e) {
+        // Ignorar cleanup si ya fue destruido
+      }
+    }
+  }
 
-    let input = value.replace(/\s/g, ''); // quitamos espacios para procesar la cadena cruda
-    input = input.substring(0, 16);
+  /**
+   * Inicializa el flujo solicitando el PaymentIntent al backend para montar Stripe Elements.
+   */
+  private async initStripeFlow() {
+    this.initializingStripe = true;
+    this.errorMsg = '';
 
-    if (isOnlyNumbersAndSpaces) {
-      let formatted = '';
-      for (let i = 0; i < input.length; i++) {
-        if (i > 0 && i % 4 === 0) {
-          formatted += ' ';
+    const publishableKey = this.stripeService.getPublishableKey();
+    if (!publishableKey) {
+      // Si no se proporcionó la clave pública de Stripe, caemos al modo simulado transparente
+      console.info('[PaymentModal] STRIPE_PUBLISHABLE_KEY no encontrada. Activando modo simulado.');
+      this.stripeAvailable = false;
+      this.initializingStripe = false;
+      return;
+    }
+
+    try {
+      this.stripe = await this.stripeService.getStripe();
+      if (!this.stripe) {
+        throw new Error('No se pudo inicializar Stripe.js.');
+      }
+
+      // Solicitamos al backend la creación del PaymentIntent para obtener el client_secret
+      const idempotencyKey = crypto.randomUUID();
+      const payload = {
+        bookingId: this.bookingId,
+        amount: this.amount
+      };
+
+      const response = await this.http.post<any>(apiBase() + '/payments/authorize', payload, {
+        headers: { 'Idempotency-Key': idempotencyKey }
+      }).toPromise();
+
+      if (!response?.clientSecret) {
+        throw new Error('El servidor no retornó el clientSecret para la pasarela.');
+      }
+
+      this.clientSecret = response.clientSecret;
+
+      // Configuración de apariencia de Stripe Elements acorde al diseño Notion/Clean de SkillBridge
+      const appearance = {
+        theme: 'stripe' as const,
+        variables: {
+          colorPrimary: '#111111',
+          colorBackground: '#ffffff',
+          colorText: '#111111',
+          colorDanger: '#9F2F2D',
+          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+          spacingUnit: '4px',
+          borderRadius: '6px'
         }
-        formatted += input[i];
-      }
-      setTimeout(() => this.cardData.cardNumber = formatted);
-    } else {
-      setTimeout(() => this.cardData.cardNumber = value.substring(0, 19));
+      };
+
+      this.elements = this.stripe.elements({
+        clientSecret: this.clientSecret,
+        appearance
+      });
+
+      this.paymentElement = this.elements.create('payment', {
+        layout: 'tabs'
+      });
+
+      this.stripeAvailable = true;
+      this.initializingStripe = false;
+
+      // Montamos el elemento en el DOM después de que Angular refresque la vista
+      setTimeout(() => {
+        if (this.paymentElementRef && this.paymentElement) {
+          this.paymentElement.mount(this.paymentElementRef.nativeElement);
+        }
+      }, 50);
+
+    } catch (err: any) {
+      console.warn('[PaymentModal] No se pudo inicializar Stripe Elements:', err.message || err);
+      // Fallback elegante al formulario simulado si falla la API de Stripe
+      this.stripeAvailable = false;
+      this.initializingStripe = false;
     }
   }
 
-  formatExpiry(value: string) {
-    const isOnlyNumbersAndSlash = /^[0-9\/]*$/.test(value);
-    
-    let input = value.replace(/\//g, '');
-    input = input.substring(0, 4);
-
-    if (isOnlyNumbersAndSlash) {
-      if (input.length > 2) {
-        input = input.substring(0, 2) + '/' + input.substring(2);
-      }
-      setTimeout(() => this.cardData.expiryDate = input);
-    } else {
-      setTimeout(() => this.cardData.expiryDate = value.substring(0, 5));
-    }
-  }
-
-  formatCvv(value: string) {
-    let input = value.substring(0, 3);
-    setTimeout(() => this.cardData.cvv = input);
-  }
-
-  // Valida lógica de negocio de la tarjeta y envía el payload a la pasarela (backend)
-  submitPayment() {
+  /**
+   * Ejecuta el pago mediante Stripe Elements o mediante el modo simulado.
+   */
+  async submitPayment() {
     this.loading = true;
     this.errorMsg = '';
 
-    // Validar fecha de expiración lógicamente
+    if (this.stripeAvailable && this.stripe && this.elements) {
+      // Flujo Real con Stripe Elements
+      try {
+        const { error, paymentIntent } = await this.stripe.confirmPayment({
+          elements: this.elements,
+          confirmParams: {
+            // En caso de redirección (ej. 3D Secure) Stripe redirige al origen actual
+            return_url: window.location.href
+          },
+          redirect: 'if_required'
+        });
+
+        if (error) {
+          this.loading = false;
+          this.errorMsg = error.message || 'El pago no pudo ser procesado. Intenta de nuevo.';
+          return;
+        }
+
+        if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
+          this.loading = false;
+          this.paymentSuccess.emit();
+        } else {
+          this.loading = false;
+          this.errorMsg = 'El estado de la transacción es: ' + (paymentIntent?.status || 'desconocido');
+        }
+      } catch (err: any) {
+        this.loading = false;
+        this.errorMsg = 'Error al comunicar con la pasarela: ' + (err.message || 'desconocido');
+      }
+
+    } else {
+      // Flujo de Respaldo Simulado
+      this.submitSimulatedPayment();
+    }
+  }
+
+  /**
+   * Lógica de respaldo para el modo de prueba simulado.
+   */
+  private submitSimulatedPayment() {
     if (this.cardData.expiryDate.length === 5) {
       const parts = this.cardData.expiryDate.split('/');
       const month = parseInt(parts[0], 10);
@@ -98,7 +208,7 @@ export class PaymentModal {
       }
     }
 
-        if (this.cardData.cvv === '000') {
+    if (this.cardData.cvv === '000') {
       setTimeout(() => {
         this.errorMsg = "Pago rechazado: Por políticas de seguridad, los códigos de verificación (CVV) con valor '000' no son admitidos.";
         this.loading = false;
@@ -107,7 +217,6 @@ export class PaymentModal {
     }
 
     const idempotencyKey = crypto.randomUUID();
-
     const payload = {
       bookingId: this.bookingId,
       amount: this.amount,
@@ -117,9 +226,7 @@ export class PaymentModal {
     };
 
     this.http.post<any>(apiBase() + '/payments/authorize', payload, {
-      headers: {
-        'Idempotency-Key': idempotencyKey
-      }
+      headers: { 'Idempotency-Key': idempotencyKey }
     }).subscribe({
       next: (response) => {
         this.loading = false;
@@ -141,5 +248,36 @@ export class PaymentModal {
       }
     });
   }
-}
 
+  // Métodos auxiliares para formateo en modo simulado
+  formatCardNumber(value: string) {
+    const isOnlyNumbersAndSpaces = /^[0-9\s]*$/.test(value);
+    let input = value.replace(/\s/g, '').substring(0, 16);
+    if (isOnlyNumbersAndSpaces) {
+      let formatted = '';
+      for (let i = 0; i < input.length; i++) {
+        if (i > 0 && i % 4 === 0) formatted += ' ';
+        formatted += input[i];
+      }
+      setTimeout(() => this.cardData.cardNumber = formatted);
+    } else {
+      setTimeout(() => this.cardData.cardNumber = value.substring(0, 19));
+    }
+  }
+
+  formatExpiry(value: string) {
+    const isOnlyNumbersAndSlash = /^[0-9\/]*$/.test(value);
+    let input = value.replace(/\//g, '').substring(0, 4);
+    if (isOnlyNumbersAndSlash) {
+      if (input.length > 2) input = input.substring(0, 2) + '/' + input.substring(2);
+      setTimeout(() => this.cardData.expiryDate = input);
+    } else {
+      setTimeout(() => this.cardData.expiryDate = value.substring(0, 5));
+    }
+  }
+
+  formatCvv(value: string) {
+    let input = value.substring(0, 3);
+    setTimeout(() => this.cardData.cvv = input);
+  }
+}
