@@ -80,6 +80,11 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
       MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_API_URL: ${STRIPE_API_URL:-https://api.stripe.com}
+      STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-stripe}
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,6 +109,9 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        API_URL: /api
+        STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
     depends_on:
       backend:
         condition: service_healthy

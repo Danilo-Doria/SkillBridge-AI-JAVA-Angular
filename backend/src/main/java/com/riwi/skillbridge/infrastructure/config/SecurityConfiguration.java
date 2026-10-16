@@ -71,7 +71,7 @@ public class SecurityConfiguration {
                 .csrfTokenRequestHandler(csrfHandler)
                 .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy())
                 .requireCsrfProtectionMatcher(cookieAuthenticatedUnsafeRequests)
-                .ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/logout")
+                .ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/logout", "/api/webhooks/**")
                 .ignoringRequestMatchers(bearerRequests))
             .cors(cors -> {
             })
@@ -81,6 +81,7 @@ public class SecurityConfiguration {
                 .accessDeniedHandler(accessDeniedHandler))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/logout",
+                    "/api/webhooks/**",
                     "/actuator/health", "/actuator/health/**", "/v3/api-docs/**",
                     "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/offerings").permitAll()
@@ -102,7 +103,7 @@ public class SecurityConfiguration {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).filter(s -> !s.isBlank()).toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-XSRF-TOKEN", "Idempotency-Key"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-XSRF-TOKEN", "Idempotency-Key", "Stripe-Signature"));
         config.setExposedHeaders(List.of("X-XSRF-TOKEN"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

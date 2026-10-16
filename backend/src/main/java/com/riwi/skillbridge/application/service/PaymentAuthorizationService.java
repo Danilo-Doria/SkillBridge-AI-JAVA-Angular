@@ -41,9 +41,11 @@ public class PaymentAuthorizationService implements AuthorizePaymentUseCase {
 
         if (result.status() == PaymentStatus.APPROVED) {
             eventPublisherPort.publishApproved(new PaymentApproved(result.bookingId()));
-        } else {
+        } else if (result.status() == PaymentStatus.DECLINED) {
             eventPublisherPort.publishRejected(new PaymentRejected(result.bookingId(), result.message()));
         }
+        // Nota: Si el estado es PENDING (como en Stripe PaymentIntent en espera de confirmación del cliente),
+        // no emitimos eventos aún; el Webhook asíncrono emitirá la aprobación o rechazo definitivo.
 
         return result;
     }
