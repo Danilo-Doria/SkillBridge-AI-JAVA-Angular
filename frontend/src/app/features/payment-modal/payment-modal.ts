@@ -31,6 +31,8 @@ export class PaymentModal implements OnInit, OnDestroy {
   // Estado del componente
   initializingStripe = true;
   stripeAvailable = false;
+  /** Evita que un error de Stripe Elements active por accidente el formulario simulado. */
+  stripeConfigured = false;
   loading = false;
   errorMsg = '';
 
@@ -68,6 +70,7 @@ export class PaymentModal implements OnInit, OnDestroy {
     this.errorMsg = '';
 
     const publishableKey = this.stripeService.getPublishableKey();
+    this.stripeConfigured = Boolean(publishableKey);
     if (!publishableKey) {
       // Si no se proporcionó la clave pública de Stripe, caemos al modo simulado transparente
       console.info('[PaymentModal] STRIPE_PUBLISHABLE_KEY no encontrada. Activando modo simulado.');
@@ -134,9 +137,12 @@ export class PaymentModal implements OnInit, OnDestroy {
 
     } catch (err: any) {
       console.warn('[PaymentModal] No se pudo inicializar Stripe Elements:', err.message || err);
-      // Fallback elegante al formulario simulado si falla la API de Stripe
+      // El modo simulado solo es válido cuando Stripe no fue configurado. Si hay
+      // una clave pública, intentar el formulario simulado crearía un segundo
+      // PaymentIntent pendiente y lo mostraría erróneamente como un rechazo.
       this.stripeAvailable = false;
       this.initializingStripe = false;
+      this.errorMsg = 'No se pudo cargar Stripe Elements: ' + (err?.message || 'revisa la conexión con js.stripe.com y vuelve a intentarlo.');
     }
   }
 
@@ -177,9 +183,12 @@ export class PaymentModal implements OnInit, OnDestroy {
         this.errorMsg = 'Error al comunicar con la pasarela: ' + (err.message || 'desconocido');
       }
 
-    } else {
+    } else if (!this.stripeConfigured) {
       // Flujo de Respaldo Simulado
       this.submitSimulatedPayment();
+    } else {
+      this.loading = false;
+      this.errorMsg = 'Stripe Elements no está disponible. Cierra esta ventana, recarga la página e inténtalo de nuevo.';
     }
   }
 
