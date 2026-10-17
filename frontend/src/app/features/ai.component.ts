@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -9,234 +9,248 @@ import { apiBase } from '../core/api';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <section class="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-12 sm:px-6 lg:py-20 relative">
+    <section class="min-h-[calc(100vh-4rem)] bg-[#FBFBFA] px-4 py-16 sm:px-6 lg:py-24">
       <div class="mx-auto max-w-3xl">
-        <div class="mb-8 text-center">
-          <span class="mb-4 inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-blue-800">
-            Inteligencia Artificial
-          </span>
-          <h1 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Asistente de Carreras
-          </h1>
-          <p class="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-500 sm:text-base">
+
+        <header class="enter-rise">
+          <h1 class="font-display text-5xl text-[#111111] sm:text-6xl">Asistente de Carreras</h1>
+          <p class="mt-5 max-w-xl text-lg leading-8 text-[#2F3437]">
             Cuéntanos qué quieres aprender o muéstranos tu experiencia. Nuestra IA te guiará hacia el mejor camino.
           </p>
-        </div>
+        </header>
 
-        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
-          <div class="space-y-4">
-            <label class="block text-sm font-semibold text-slate-800">
-              ¿Cuál es tu objetivo o experiencia?
-            </label>
+        <!-- Compositor: un solo bloque, texto arriba, herramientas abajo -->
+        <div class="enter-rise mt-12 rounded-xl border border-[#EAEAEA] bg-white transition-colors duration-150 focus-within:border-[#111111]" style="animation-delay: 70ms">
+          <label class="sr-only" for="goal">¿Cuál es tu objetivo o experiencia?</label>
+          <textarea
+            id="goal"
+            [(ngModel)]="goal"
+            rows="5"
+            [disabled]="!!selectedFile || recording"
+            placeholder="¿Cuál es tu objetivo o experiencia? Ej: Quiero prepararme para una entrevista backend Java..."
+            class="block w-full resize-none rounded-t-xl bg-transparent px-6 pb-3 pt-6 text-base leading-7 text-[#111111] outline-none placeholder:text-[#9B9A97] disabled:cursor-not-allowed disabled:text-[#9B9A97]"
+          ></textarea>
 
-            <!-- Text Area -->
-            <textarea
-              [(ngModel)]="goal"
-              rows="4"
-              [disabled]="!!selectedFile || recording"
-              placeholder="Ej: Quiero prepararme para una entrevista backend Java..."
-              class="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition duration-200 placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-800 focus:ring-4 focus:ring-blue-800/10 disabled:bg-slate-50 disabled:text-slate-400"
-            ></textarea>
+          @if (selectedFile) {
+            <div class="enter-modal mx-6 mb-3 flex w-fit items-center gap-2 rounded-md bg-[#F1F0ED] py-1 pl-3 pr-1 text-sm text-[#111111]">
+              <span class="max-w-[220px] truncate font-medium">{{ selectedFile.name }}</span>
+              <button type="button" (click)="clearSelection()" title="Quitar archivo" aria-label="Quitar archivo"
+                      class="cursor-pointer rounded p-1 text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-white hover:text-[#111111] active:scale-[0.92] motion-reduce:active:scale-100">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                  <path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z"/>
+                </svg>
+              </button>
+            </div>
+          }
 
-            <!-- Multimedia controls -->
-            <div class="flex flex-wrap items-center gap-3">
-              <button 
-                type="button" 
-                (click)="toggleRecording()" 
-                [class.bg-red-50]="recording"
-                [class.text-red-700]="recording"
-                [class.border-red-200]="recording"
-                [class.animate-pulse]="recording"
-                class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200"
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-[#EAEAEA] px-4 py-3">
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                (click)="toggleRecording()"
+                [class]="recording ? 'bg-[#FDEBEC] text-[#9F2F2D] animate-pulse' : ''"
+                class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100"
               >
                 @if (recording) {
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-red-600">
-                    <path fill-rule="evenodd" d="M4.5 7.5a3 3 0 0 1 3-3h9a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9Z" clip-rule="evenodd" />
+                  <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                    <path d="M200 48H56a8 8 0 0 0-8 8v144a8 8 0 0 0 8 8h144a8 8 0 0 0 8-8V56a8 8 0 0 0-8-8Z"/>
                   </svg>
                   Detener grabación
                 } @else {
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-blue-600">
-                    <path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v8.25a3.75 3.75 0 1 1-7.5 0V4.5Z" />
-                    <path d="M6 10.5a.75.75 0 0 1 .75.75v1.5a5.25 5.25 0 1 0 10.5 0v-1.5a.75.75 0 0 1 1.5 0v1.5a6.751 6.751 0 0 1-6 6.709v2.291h3a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5h3v-2.291a6.751 6.751 0 0 1-6-6.709v-1.5A.75.75 0 0 1 6 10.5Z" />
+                  <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                    <path d="M128 176a48.05 48.05 0 0 0 48-48V64a48 48 0 0 0-96 0v64a48.05 48.05 0 0 0 48 48Zm80-48a8 8 0 0 0-16 0 64 64 0 0 1-128 0 8 8 0 0 0-16 0 80.11 80.11 0 0 0 72 79.6V232a8 8 0 0 0 16 0v-24.4A80.11 80.11 0 0 0 208 128Z"/>
                   </svg>
-                  Grabar Voz
+                  Grabar voz
                 }
               </button>
 
-              <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-indigo-600">
-                  <path fill-rule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clip-rule="evenodd" />
+              <label class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100 focus-within:outline-2 focus-within:outline-[#111111]">
+                <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                  <path d="M216 40H40a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16Zm0 16v102.75l-26.07-26.06a16 16 0 0 0-22.63 0l-20 20-44-44a16 16 0 0 0-22.62 0L40 149.37V56ZM40 172l52-52 80 80H40Zm176 28h-21.37l-36-36 20-20L216 181.38V200ZM144 100a12 12 0 1 1 12 12 12 12 0 0 1-12-12Z"/>
                 </svg>
-                Subir Imagen
-                <input type="file" accept="image/jpeg,image/png,image/webp" (change)="selectFile($event, 'image')" class="hidden" />
+                Subir imagen
+                <input type="file" accept="image/jpeg,image/png,image/webp" (change)="selectFile($event, 'image')" class="sr-only" />
               </label>
-
-              @if (selectedFile) {
-                <div class="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 text-sm text-blue-800 border border-blue-100">
-                  <span class="truncate max-w-[200px] font-medium">{{ selectedFile.name }}</span>
-                  <button type="button" (click)="clearSelection()" class="text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-full p-0.5 transition" title="Quitar archivo">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-                      <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-                    </svg>
-                  </button>
-                </div>
-              }
             </div>
-            
-            <p class="text-xs text-slate-400 mt-1">
-              Puedes escribir un texto, grabar un audio explicando tu situación, o subir una imagen (ej. tu CV).
-            </p>
-          </div>
 
-          <!-- Submit Button -->
-          <div class="mt-8 border-t border-slate-100 pt-6">
             <button
               type="button"
               [disabled]="loading || (!goal.trim() && !selectedFile)"
               (click)="ask()"
-              class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-900/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-[#111111] px-4 py-2.5 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
             >
               @if (loading) {
-                <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg class="h-4 w-4 animate-spin [animation-duration:600ms]" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                 </svg>
                 Analizando con IA...
               } @else {
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-                  <path fill-rule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5ZM18 1.5a.75.75 0 0 1 .728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 0 1 0 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 0 1-1.456 0l-.258-1.036a2.625 2.625 0 0 0-1.91-1.91l-1.036-.258a.75.75 0 0 1 0-1.456l1.036-.258a2.625 2.625 0 0 0 1.91-1.91l.258-1.036A.75.75 0 0 1 18 1.5ZM16.5 15a.75.75 0 0 1 .712.513l.394 1.183c.15.447.5.799.948.948l1.183.395a.75.75 0 0 1 0 1.422l-1.183.395c-.447.15-.799.5-.948.948l-.395 1.183a.75.75 0 0 1-1.422 0l-.395-1.183a1.5 1.5 0 0 0-.948-.948l-1.183-.395a.75.75 0 0 1 0-1.422l1.183-.395c.447-.15.799-.5.948-.948l.395-1.183A.75.75 0 0 1 16.5 15Z" clip-rule="evenodd" />
-                </svg>
                 Pedir recomendación
               }
             </button>
           </div>
-
-          <!-- Error Message -->
-          @if (error) {
-            <div class="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <div class="font-medium">Ocurrió un error:</div>
-              <div class="mt-1">{{ error }}</div>
-            </div>
-          }
         </div>
+
+        <p class="mt-4 text-sm leading-6 text-[#787774]">
+          Puedes escribir un texto, grabar un audio explicando tu situación, o subir una imagen (ej. tu CV).
+        </p>
+
+        @if (error) {
+          <div role="alert" class="enter-rise mt-6 rounded-lg bg-[#FDEBEC] px-4 py-3 text-sm text-[#9F2F2D]">
+            <span class="font-medium">Ocurrió un error.</span> {{ error }}
+          </div>
+        }
+      </div>
+    </section>
+
+    <!-- Resultado: panel lateral, mismo patrón que Gestionar servicios -->
+    <div (click)="closeModal()"
+         class="fixed inset-0 z-40 bg-[#111111]/20 transition-opacity duration-300 ease-out"
+         [class.opacity-100]="showModal" [class.opacity-0]="!showModal"
+         [class.pointer-events-auto]="showModal" [class.pointer-events-none]="!showModal"></div>
+
+    <aside class="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-[#EAEAEA] bg-white shadow-[0_8px_40px_rgba(0,0,0,0.06)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+           [class.translate-x-0]="showModal" [class.translate-x-full]="!showModal"
+           [attr.inert]="showModal ? null : ''" [attr.aria-hidden]="!showModal"
+           (keydown.escape)="closeModal()" role="dialog" aria-modal="true" aria-label="Recomendación personalizada">
+
+      <div class="flex items-center justify-between px-8 pb-2 pt-8">
+        <h2 class="font-display text-3xl text-[#111111]">Recomendación personalizada</h2>
+        <button (click)="closeModal()" aria-label="Cerrar"
+                class="cursor-pointer rounded-md p-2 text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.94] motion-reduce:active:scale-100">
+          <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+            <path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z"/>
+          </svg>
+        </button>
       </div>
 
-      <!-- MODAL RESULTADO -->
-      @if (showModal) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm transition-opacity">
-          <!-- Modal content -->
-          <div class="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
-            
-            <!-- Close button -->
-            <button (click)="closeModal()" class="absolute top-4 right-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <div class="mb-6 flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
-                  <path fill-rule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5ZM18 1.5a.75.75 0 0 1 .728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 0 1 0 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 0 1-1.456 0l-.258-1.036a2.625 2.625 0 0 0-1.91-1.91l-1.036-.258a.75.75 0 0 1 0-1.456l1.036-.258a2.625 2.625 0 0 0 1.91-1.91l.258-1.036A.75.75 0 0 1 18 1.5ZM16.5 15a.75.75 0 0 1 .712.513l.394 1.183c.15.447.5.799.948.948l1.183.395a.75.75 0 0 1 0 1.422l-1.183.395c-.447.15-.799.5-.948.948l-.395 1.183a.75.75 0 0 1-1.422 0l-.395-1.183a1.5 1.5 0 0 0-.948-.948l-1.183-.395a.75.75 0 0 1 0-1.422l1.183-.395c.447-.15.799-.5.948-.948l.395-1.183A.75.75 0 0 1 16.5 15Z" clip-rule="evenodd" />
-                </svg>
-              </div>
-              <h2 class="text-xl font-bold text-slate-900">
-                Recomendación Personalizada
-              </h2>
-            </div>
-
-            <!-- Transcription display if audio or image was used -->
-            @if (sourceText && resultInputType !== 'TEXT') {
-              <div class="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <h3 class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Lo que la IA detectó:</h3>
-                <p class="text-sm italic text-slate-600">"{{ sourceText }}"</p>
-              </div>
-            }
-
-            <!-- Main Explanation -->
-            <div class="whitespace-pre-line text-sm leading-relaxed text-slate-700">
-              {{ answer }}
-            </div>
-
-            <!-- Recommended Courses / Offerings -->
-            @if (recommendations.length > 0) {
-              <div class="mt-8">
-                <h3 class="mb-4 text-sm font-bold text-slate-800">Cursos Sugeridos para ti:</h3>
-                <div class="space-y-4">
-                  @for (item of recommendations; track item.offeringId) {
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-xl border border-blue-100 bg-white p-4 shadow-sm transition hover:shadow-md hover:border-blue-200">
-                      <div class="flex-1">
-                        <p class="text-sm text-slate-600">{{ item.reason }}</p>
-                        <span class="mt-2 inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700 border border-green-200">
-                          Relevancia: {{ (item.score * 100).toFixed(0) }}%
-                        </span>
-                      </div>
-                      <button 
-                        (click)="goToBooking(item.offeringId)"
-                        class="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      >
-                        Agendar cita
-                      </button>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
+      <div class="flex-1 overflow-y-auto px-8 py-6">
+        @if (sourceText && resultInputType !== 'TEXT') {
+          <div class="rounded-lg bg-[#F7F6F3] p-4">
+            <h3 class="text-sm font-medium text-[#787774]">Lo que la IA detectó</h3>
+            <p class="mt-1 text-sm italic leading-6 text-[#2F3437]">"{{ sourceText }}"</p>
           </div>
+        }
+
+        <div class="whitespace-pre-line text-base leading-7 text-[#2F3437]" [class.mt-6]="sourceText && resultInputType !== 'TEXT'">
+          {{ answer }}
         </div>
-      }
-    </section>
+
+        @if (answer) {
+          <button
+            type="button"
+            (click)="toggleAudio()"
+            [disabled]="audioLoading"
+            [class]="audioPlaying ? 'bg-[#F1F0ED] text-[#111111]' : ''"
+            class="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+          >
+            @if (audioLoading) {
+              <svg class="h-4 w-4 animate-spin [animation-duration:600ms]" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              Generando audio...
+            } @else if (audioPlaying) {
+              <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                <path d="M200 48H56a8 8 0 0 0-8 8v144a8 8 0 0 0 8 8h144a8 8 0 0 0 8-8V56a8 8 0 0 0-8-8Z"/>
+              </svg>
+              Detener audio
+            } @else {
+              <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                <path d="M155.51 24.81a8 8 0 0 0-8.42.88L77.25 80H32a16 16 0 0 0-16 16v64a16 16 0 0 0 16 16h45.25l69.84 54.31A8 8 0 0 0 160 224V32a8 8 0 0 0-4.49-7.19ZM32 96h40v64H32Zm112 111.64-56-43.55V91.91l56-43.55Zm54-106.08a40 40 0 0 1 0 52.88 8 8 0 0 1-12-10.58 24 24 0 0 0 0-31.72 8 8 0 0 1 12-10.58Z"/>
+              </svg>
+              Escuchar respuesta
+            }
+          </button>
+
+          @if (audioError) {
+            <p role="alert" class="mt-2 text-sm text-[#9F2F2D]">{{ audioError }}</p>
+          }
+        }
+
+        @if (recommendations.length > 0) {
+          <h3 class="mt-12 text-sm font-medium text-[#111111]">Cursos sugeridos para ti</h3>
+          <ul class="mt-3 border-t border-[#EAEAEA]">
+            @for (item of recommendations; track item.offeringId; let i = $index) {
+              <li class="flex flex-col gap-4 border-b border-[#EAEAEA] py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm leading-6 text-[#111111]">{{ item.reason }}</p>
+                  <span class="mt-2 inline-block rounded-md bg-[#EDF3EC] px-2 py-0.5 text-xs font-medium text-[#346538] tabular-nums">
+                    Relevancia: {{ (item.score * 100).toFixed(0) }}%
+                  </span>
+                </div>
+                <button
+                  (click)="goToBooking(item.offeringId)"
+                  class="shrink-0 cursor-pointer rounded-md bg-[#111111] px-4 py-2 text-sm font-medium text-white transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.03] active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+                >
+                  Agendar cita
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </aside>
   `
 })
-export class AiComponent {
+export class AiComponent implements OnDestroy {
   goal = '';
   answer = '';
   error = '';
   selectedFile: File | null = null;
   selectedType: 'voice' | 'image' | null = null;
-  
-  resultInputType = ''; 
-  sourceText = ''; 
+
+  resultInputType = '';
+  sourceText = '';
   recommendations: { offeringId: string; score: number; reason: string }[] = [];
-  
+
   loading = false;
-  recording = false; 
+  recording = false;
   showModal = false;
-  private recorder: MediaRecorder | null = null; 
+  private recorder: MediaRecorder | null = null;
   private chunks: Blob[] = [];
+
+  // Audio (ElevenLabs TTS)
+  audioLoading = false;
+  audioPlaying = false;
+  audioError = '';
+  private audio: HTMLAudioElement | null = null;
+  private audioUrl: string | null = null;
+  private audioForText = '';
 
   constructor(private http: HttpClient, private router: Router) {}
 
-  async toggleRecording() { 
-    if (this.recording) { 
-      this.recorder?.stop(); 
-      return; 
-    } 
-    try { 
-      const stream = await navigator.mediaDevices.getUserMedia({audio: true}); 
-      this.chunks = []; 
-      this.recorder = new MediaRecorder(stream); 
-      this.recorder.ondataavailable = e => this.chunks.push(e.data); 
-      this.recorder.onstop = () => { 
-        const file = new File([new Blob(this.chunks, {type: this.recorder?.mimeType || 'audio/webm'})], 'nota-de-voz.webm', {type: this.recorder?.mimeType || 'audio/webm'}); 
-        this.selectedFile = file; 
-        this.selectedType = 'voice'; 
-        this.recording = false; 
-        stream.getTracks().forEach(t => t.stop()); 
-      }; 
-      this.recorder.start(); 
-      this.recording = true; 
-    } catch { 
-      this.error = 'No fue posible acceder al micrófono. Verifica los permisos de tu navegador.'; 
-    } 
+  async toggleRecording() {
+    if (this.recording) {
+      this.recorder?.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      this.chunks = [];
+      this.recorder = new MediaRecorder(stream);
+      this.recorder.ondataavailable = e => this.chunks.push(e.data);
+      this.recorder.onstop = () => {
+        const file = new File([new Blob(this.chunks, {type: this.recorder?.mimeType || 'audio/webm'})], 'nota-de-voz.webm', {type: this.recorder?.mimeType || 'audio/webm'});
+        this.selectedFile = file;
+        this.selectedType = 'voice';
+        this.recording = false;
+        stream.getTracks().forEach(t => t.stop());
+      };
+      this.recorder.start();
+      this.recording = true;
+    } catch {
+      this.error = 'No fue posible acceder al micrófono. Verifica los permisos de tu navegador.';
+    }
   }
 
-  selectFile(event: Event, type: 'voice' | 'image') { 
-    const file = (event.target as HTMLInputElement).files?.[0] ?? null; 
-    this.selectedFile = file; 
-    this.selectedType = file ? type : null; 
+  selectFile(event: Event, type: 'voice' | 'image') {
+    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+    this.selectedFile = file;
+    this.selectedType = file ? type : null;
   }
-  
+
   clearSelection() {
     this.selectedFile = null;
     this.selectedType = null;
@@ -245,6 +259,7 @@ export class AiComponent {
 
   closeModal() {
     this.showModal = false;
+    this.stopAudio(); // el audio no sigue sonando al cerrar el panel
   }
 
   goToBooking(offeringId: string) {
@@ -252,33 +267,35 @@ export class AiComponent {
     this.router.navigate(['/book'], { queryParams: { offeringId } });
   }
 
-  private formData() { 
-    const data = new FormData(); 
-    data.append('file', this.selectedFile!); 
-    return data; 
+  private formData() {
+    const data = new FormData();
+    data.append('file', this.selectedFile!);
+    return data;
   }
 
   ask() {
     this.error = '';
-    this.answer = ''; 
-    this.sourceText = ''; 
+    this.answer = '';
+    this.sourceText = '';
     this.recommendations = [];
     this.showModal = false;
+    this.clearAudio();
+    this.audioError = '';
     this.loading = true;
 
-    const url = this.selectedFile 
-      ? `${apiBase()}/ai/recommendations/${this.selectedType}` 
+    const url = this.selectedFile
+      ? `${apiBase()}/ai/recommendations/${this.selectedType}`
       : `${apiBase()}/ai/recommendations`;
-      
-    const payload = this.selectedFile 
-      ? this.formData() 
+
+    const payload = this.selectedFile
+      ? this.formData()
       : { goal: this.goal };
 
     this.http.post<any>(url, payload).subscribe({
       next: (r) => {
-        this.answer = r.explanation; 
-        this.resultInputType = r.inputType; 
-        this.sourceText = r.sourceText; 
+        this.answer = r.explanation;
+        this.resultInputType = r.inputType;
+        this.sourceText = r.sourceText;
         this.recommendations = r.recommendations ?? [];
         this.loading = false;
         this.showModal = true;
@@ -288,5 +305,61 @@ export class AiComponent {
         this.loading = false;
       }
     });
+  }
+
+  toggleAudio() {
+    if (this.audioPlaying) {
+      this.stopAudio();
+      return;
+    }
+    if (!this.answer) return;
+    this.audioError = '';
+
+    // Si ya generamos el audio de esta misma respuesta, lo reutilizamos (no se vuelve a cobrar)
+    if (this.audioUrl && this.audioForText === this.answer) {
+      this.playUrl(this.audioUrl);
+      return;
+    }
+
+    this.audioLoading = true;
+    this.http.post(`${apiBase()}/ai/tts`, { text: this.answer }, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        this.clearAudio();
+        this.audioUrl = URL.createObjectURL(blob);
+        this.audioForText = this.answer;
+        this.audioLoading = false;
+        this.playUrl(this.audioUrl);
+      },
+      error: () => {
+        // Con responseType 'blob' el cuerpo del error también llega como Blob, por eso el mensaje es fijo
+        this.audioError = 'No se pudo generar el audio. Intenta de nuevo.';
+        this.audioLoading = false;
+      }
+    });
+  }
+
+  private playUrl(url: string) {
+    this.audio = new Audio(url);
+    this.audio.onended = () => (this.audioPlaying = false);
+    this.audio.play()
+      .then(() => (this.audioPlaying = true))
+      .catch(() => (this.audioError = 'El navegador bloqueó la reproducción.'));
+  }
+
+  private stopAudio() {
+    this.audio?.pause();
+    this.audio = null;
+    this.audioPlaying = false;
+  }
+
+  private clearAudio() {
+    this.stopAudio();
+    if (this.audioUrl) URL.revokeObjectURL(this.audioUrl);
+    this.audioUrl = null;
+    this.audioForText = '';
+  }
+
+  ngOnDestroy() {
+    this.clearAudio();
   }
 }

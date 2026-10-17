@@ -1,157 +1,170 @@
-﻿<!-- Overlay de fondo -->
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
-  <!-- Contenedor del Modal -->
-  <div class="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-    
-    <!-- Encabezado -->
-    <div class="mb-4 flex items-center justify-between">
-      <h3 class="text-xl font-bold text-slate-900">
-        Pagar reserva
-      </h3>
-      <button 
-        type="button" 
-        (click)="close.emit()" 
-        class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-500"
+﻿<!-- Scrim -->
+<div class="enter-fade fixed inset-0 z-50 flex items-center justify-center bg-[#111111]/30 p-4 backdrop-blur-[2px]">
+  <!-- Panel: modal centrado con scroll interno y límites responsivos -->
+  <div class="enter-modal relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl border border-[#EAEAEA] bg-white text-left shadow-[0_12px_48px_rgba(0,0,0,0.12)]">
+
+    <!-- Encabezado (Sticky arriba) -->
+    <div class="flex items-start justify-between border-b border-[#F1F0ED] px-6 py-5">
+      <div>
+        <h3 class="font-display text-2xl font-semibold text-[#111111]">Pagar reserva</h3>
+        <div *ngIf="stripeAvailable" class="mt-1 flex items-center gap-1.5 text-xs text-[#787774]">
+          <span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
+          <span>Pago seguro procesado por Stripe</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        (click)="close.emit()"
+        aria-label="Cerrar"
+        class="-mr-2 -mt-1 cursor-pointer rounded-md p-2 text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.94] motion-reduce:active:scale-100"
       >
-        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+        <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z"/>
         </svg>
       </button>
     </div>
 
-    <div class="mb-6 rounded-lg bg-blue-50 p-4 border border-blue-100">
-      <div class="flex">
-        <div class="flex-shrink-0">
-          <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <div class="ml-3 flex-1 md:flex md:justify-between">
-          <p class="text-sm text-blue-700">
-            <strong>Política de cancelación.</strong> Puedes cancelar la reserva y obtener un reembolso completo hasta 24 horas antes de iniciar la sesión.
-          </p>
-        </div>
-      </div>
-    </div>
+    <!-- Formulario completo que envuelve el cuerpo y los botones -->
+    <form (ngSubmit)="submitPayment()" #paymentForm="ngForm" class="flex flex-1 flex-col overflow-hidden">
+      
+      <!-- Cuerpo con Scroll Seguro -->
+      <div class="flex-1 overflow-y-auto px-6 py-5">
+        <p class="text-xs leading-5 text-[#787774]">
+          <span class="font-medium text-[#111111]">Política de cancelación.</span> Puedes cancelar la reserva y obtener un reembolso completo hasta 24 horas antes de iniciar la sesión.
+        </p>
 
-    <ng-container *ngIf="errorMsg">
-      <div class="mb-4 rounded-lg bg-red-50 p-4 border border-red-100">
-        <p class="text-sm text-red-700">{{ errorMsg }}</p>
-      </div>
-    </ng-container>
+        <!-- Alerta de Error -->
+        <ng-container *ngIf="errorMsg">
+          <div role="alert" class="enter-rise mt-4 rounded-lg bg-[#FDEBEC] px-4 py-3">
+            <p class="text-xs font-medium text-[#9F2F2D]">{{ errorMsg }}</p>
+          </div>
+        </ng-container>
 
-    <form (ngSubmit)="submitPayment()" #paymentForm="ngForm">
-      <div class="space-y-4">
-        
-        <!-- Amount (readonly) -->
-        <div>
-          <label class="block text-sm font-medium text-slate-700">Monto a pagar</label>
-          <div class="mt-1">
-            <input 
-              type="text" 
-              disabled 
-              [value]="'$' + (amount | number)" 
-              class="block w-full rounded-lg border-slate-300 bg-slate-100 py-2.5 px-3 text-slate-700 sm:text-sm"
+        <!-- Indicador de Inicialización de Stripe -->
+        <div *ngIf="initializingStripe" class="my-8 flex flex-col items-center justify-center space-y-3 py-6">
+          <div class="h-6 w-6 animate-spin rounded-full border-2 border-[#111111] border-t-transparent"></div>
+          <p class="text-xs text-[#787774]">Cargando pasarela de pago segura...</p>
+        </div>
+
+        <div *ngIf="!initializingStripe" class="mt-4 space-y-4">
+
+          <!-- Monto (solo lectura) -->
+          <div>
+            <label class="mb-1.5 block text-xs font-medium text-[#787774]">Monto a pagar</label>
+            <input
+              type="text"
+              disabled
+              [value]="'$' + (amount | number)"
+              class="block w-full cursor-not-allowed rounded-md border border-[#EAEAEA] bg-[#F7F6F3] px-3 py-2 text-sm font-semibold text-[#111111] tabular-nums"
             >
           </div>
-        </div>
 
-        <!-- Card Number -->
-        <div>
-          <label class="block text-sm font-medium text-slate-700">Número de tarjeta</label>
-          <div class="mt-1 relative">
-            <input 
-              type="text" 
-              name="cardNumber" 
-              #cardInput="ngModel"
-              [ngModel]="cardData.cardNumber"
-              (ngModelChange)="formatCardNumber($event)"
-              placeholder="0000 0000 0000 0000"
-              minlength="19"
-              maxlength="19"
-              pattern="^[0-9 ]+$"
-              inputmode="numeric"
-              required
-              class="block w-full rounded-lg py-2.5 px-3 shadow-sm sm:text-sm"
-              [ngClass]="!(cardInput.dirty || cardInput.touched) ? 'border-slate-300 focus:border-blue-500 focus:ring-blue-500' : (cardInput.invalid ? 'border-red-500 ring-red-500 ring-1 focus:border-red-500 focus:ring-red-500' : 'border-green-500 ring-green-500 ring-1 focus:border-green-500 focus:ring-green-500')"
-            >
-            <p *ngIf="cardInput.errors?.['pattern'] && (cardInput.dirty || cardInput.touched)" class="mt-1 text-xs text-red-600">
-              Solo se aceptan números.
-            </p>
+          <!-- CASO 1: Contenedor Oficial de Stripe Elements -->
+          <div *ngIf="stripeAvailable">
+            <label class="mb-1.5 block text-xs font-medium text-[#787774]">Información de la tarjeta</label>
+            <!-- Contenedor donde Stripe monta su iframe protegido -->
+            <div #paymentElementContainer id="payment-element" class="rounded-md border border-[#EAEAEA] p-3 bg-white"></div>
           </div>
-        </div>
 
-        <div class="flex gap-4">
-          <!-- Expiry -->
-          <div class="w-1/2">
-            <label class="block text-sm font-medium text-slate-700">Vencimiento</label>
-            <div class="mt-1 relative">
-              <input 
-                type="text" 
-                name="expiryDate" 
-                #expiryInput="ngModel"
-                [ngModel]="cardData.expiryDate"
-                (ngModelChange)="formatExpiry($event)"
-                placeholder="MM/YY"
-                minlength="5"
-                maxlength="5"
-                pattern="^(0[1-9]|1[0-2])\/[0-9]{2}$"
-                inputmode="numeric"
-                required
-                class="block w-full rounded-lg py-2.5 px-3 shadow-sm sm:text-sm"
-                [ngClass]="!(expiryInput.dirty || expiryInput.touched) ? 'border-slate-300 focus:border-blue-500 focus:ring-blue-500' : (expiryInput.invalid ? 'border-red-500 ring-red-500 ring-1 focus:border-red-500 focus:ring-red-500' : 'border-green-500 ring-green-500 ring-1 focus:border-green-500 focus:ring-green-500')"
-              >
-              <p *ngIf="expiryInput.errors?.['pattern'] && (expiryInput.dirty || expiryInput.touched)" class="mt-1 text-xs text-red-600">
-                Formato inválido. Usa MM/YY.
-              </p>
+          <!-- CASO 2: Inputs nativos para modo de prueba simulado (fallback cuando no hay STRIPE_PUBLISHABLE_KEY) -->
+          <ng-container *ngIf="!stripeAvailable">
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-[#787774]">Número de tarjeta (Modo Simulado)</label>
+              <div class="relative">
+                <input
+                  type="text"
+                  name="cardNumber"
+                  #cardInput="ngModel"
+                  [ngModel]="cardData.cardNumber"
+                  (ngModelChange)="formatCardNumber($event)"
+                  placeholder="0000 0000 0000 0000"
+                  minlength="19"
+                  maxlength="19"
+                  pattern="^[0-9 ]+$"
+                  inputmode="numeric"
+                  required
+                  class="block w-full rounded-md border bg-white px-3 py-2 text-sm text-[#111111] tabular-nums outline-none transition-colors duration-150 placeholder:text-[#9B9A97]"
+                  [ngClass]="!(cardInput.dirty || cardInput.touched) ? 'border-[#EAEAEA] hover:border-[#C9C8C4] focus:border-[#111111]' : (cardInput.invalid ? 'border-[#9F2F2D]' : 'border-[#346538]')"
+                >
+                <p *ngIf="cardInput.errors?.['pattern'] && (cardInput.dirty || cardInput.touched)" class="mt-1 text-xs text-[#9F2F2D]">
+                  Solo se aceptan números.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <!-- CVV -->
-          <div class="w-1/2">
-            <label class="block text-sm font-medium text-slate-700">CVV</label>
-            <div class="mt-1 relative">
-              <input 
-                type="password" 
-                name="cvv" 
-                #cvvInput="ngModel"
-                [ngModel]="cardData.cvv"
-                (ngModelChange)="formatCvv($event)"
-                placeholder="***"
-                minlength="3"
-                maxlength="3"
-                pattern="^[0-9]+$"
-                inputmode="numeric"
-                required
-                class="block w-full rounded-lg py-2.5 px-3 shadow-sm sm:text-sm"
-                [ngClass]="!(cvvInput.dirty || cvvInput.touched) ? 'border-slate-300 focus:border-blue-500 focus:ring-blue-500' : (cvvInput.invalid ? 'border-red-500 ring-red-500 ring-1 focus:border-red-500 focus:ring-red-500' : 'border-green-500 ring-green-500 ring-1 focus:border-green-500 focus:ring-green-500')"
-              >
-              <p *ngIf="cvvInput.errors?.['pattern'] && (cvvInput.dirty || cvvInput.touched)" class="mt-1 text-xs text-red-600">
-                Solo números.
-              </p>
+            <div class="flex gap-3">
+              <div class="w-1/2">
+                <label class="mb-1.5 block text-xs font-medium text-[#787774]">Vencimiento</label>
+                <div class="relative">
+                  <input
+                    type="text"
+                    name="expiryDate"
+                    #expiryInput="ngModel"
+                    [ngModel]="cardData.expiryDate"
+                    (ngModelChange)="formatExpiry($event)"
+                    placeholder="MM/YY"
+                    minlength="5"
+                    maxlength="5"
+                    pattern="^(0[1-9]|1[0-2])\/[0-9]{2}$"
+                    inputmode="numeric"
+                    required
+                    class="block w-full rounded-md border bg-white px-3 py-2 text-sm text-[#111111] tabular-nums outline-none transition-colors duration-150 placeholder:text-[#9B9A97]"
+                    [ngClass]="!(expiryInput.dirty || expiryInput.touched) ? 'border-[#EAEAEA] hover:border-[#C9C8C4] focus:border-[#111111]' : (expiryInput.invalid ? 'border-[#9F2F2D]' : 'border-[#346538]')"
+                  >
+                  <p *ngIf="expiryInput.errors?.['pattern'] && (expiryInput.dirty || expiryInput.touched)" class="mt-1 text-xs text-[#9F2F2D]">
+                    Usa MM/YY.
+                  </p>
+                </div>
+              </div>
+
+              <div class="w-1/2">
+                <label class="mb-1.5 block text-xs font-medium text-[#787774]">CVV</label>
+                <div class="relative">
+                  <input
+                    type="password"
+                    name="cvv"
+                    #cvvInput="ngModel"
+                    [ngModel]="cardData.cvv"
+                    (ngModelChange)="formatCvv($event)"
+                    placeholder="***"
+                    minlength="3"
+                    maxlength="3"
+                    pattern="^[0-9]+$"
+                    inputmode="numeric"
+                    required
+                    class="block w-full rounded-md border bg-white px-3 py-2 text-sm text-[#111111] outline-none transition-colors duration-150 placeholder:text-[#9B9A97]"
+                    [ngClass]="!(cvvInput.dirty || cvvInput.touched) ? 'border-[#EAEAEA] hover:border-[#C9C8C4] focus:border-[#111111]' : (cvvInput.invalid ? 'border-[#9F2F2D]' : 'border-[#346538]')"
+                  >
+                  <p *ngIf="cvvInput.errors?.['pattern'] && (cvvInput.dirty || cvvInput.touched)" class="mt-1 text-xs text-[#9F2F2D]">
+                    Solo números.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          </ng-container>
+
         </div>
-        
       </div>
 
-      <div class="mt-6 flex justify-end gap-3">
-        <button 
-          type="button" 
-          (click)="close.emit()" 
-          class="cursor-pointer rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none"
+      <!-- Pie del Modal (Sticky abajo, siempre visible en pantalla) -->
+      <div class="flex items-center justify-end gap-2 border-t border-[#F1F0ED] bg-[#FAFAF9] px-6 py-4">
+        <button
+          type="button"
+          (click)="close.emit()"
+          class="cursor-pointer rounded-md px-4 py-2 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100"
         >
           Cancelar
         </button>
-        <button 
-          type="submit" 
-          [disabled]="loading || !paymentForm.valid"
-          class="cursor-pointer inline-flex justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-900 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+        <button
+          type="submit"
+          [disabled]="loading || initializingStripe || (!stripeAvailable && !paymentForm.valid)"
+          class="cursor-pointer rounded-md bg-[#111111] px-5 py-2 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100"
         >
           {{ loading ? 'Procesando...' : 'Confirmar pago' }}
         </button>
       </div>
+
     </form>
+
   </div>
 </div>
-

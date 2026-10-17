@@ -10,225 +10,194 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
   standalone: true,
   imports: [FormsModule, CurrencyPipe],
   template: `
-    <section class="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-7xl">
-        <!-- Header con mejor jerarquía -->
-        <div class="mb-8 flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <span class="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
-              Gestión de catálogo
-            </span>
-          </div>
-          <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            {{ isAdmin ? 'Todos los servicios (Admin)' : 'Mis servicios' }}
-          </h1>
-          <p class="max-w-2xl text-sm text-slate-500">
-            Crea y administra servicios usando las categorías disponibles con una experiencia fluida y organizada.
-          </p>
-        </div>
+    <section class="min-h-screen bg-[#FBFBFA] px-4 py-16 sm:px-6 lg:py-24">
+      <div class="mx-auto max-w-4xl">
 
-        @if (error) {
-          <div role="alert" class="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
-            <svg class="h-5 w-5 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        <!-- Encabezado: una sola idea, una sola acción -->
+        <header class="enter-rise flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 class="font-display text-5xl text-[#111111] sm:text-6xl">
+              {{ isAdmin ? 'Todos los servicios' : 'Mis servicios' }}
+            </h1>
+            <p class="mt-4 text-base text-[#787774]">
+              {{ offerings.length }} {{ offerings.length === 1 ? 'servicio' : 'servicios' }}
+              · {{ activeCount }} {{ activeCount === 1 ? 'activo' : 'activos' }}
+            </p>
+          </div>
+
+          <button type="button" (click)="openNew()"
+                  class="inline-flex cursor-pointer items-center gap-2 self-start rounded-md bg-[#111111] px-4 py-2.5 text-sm font-medium text-white transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111] sm:self-auto">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+              <path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z"/>
             </svg>
-            <span>{{ error }}</span>
+            Nuevo servicio
+          </button>
+        </header>
+
+        @if (error && !panelOpen) {
+          <div role="alert" class="enter-rise mt-8 rounded-lg bg-[#FDEBEC] px-4 py-3 text-sm text-[#9F2F2D]">
+            {{ error }}
           </div>
         }
 
-        <div class="grid items-start gap-8 lg:grid-cols-2">
-          <!-- Columna izquierda: Formularios -->
-          <div class="flex flex-col gap-6">
-            <!-- Formulario de Servicio -->
-            <form class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all hover:shadow-md" (ngSubmit)="save()">
-              <div class="mb-5 border-b border-slate-100 pb-4">
-                <h2 class="text-lg font-bold text-slate-900">
-                  {{ editingId ? 'Editar servicio' : 'Nuevo servicio' }}
-                </h2>
-                <p class="mt-1 text-xs text-slate-500">Completa los campos necesarios para actualizar el catálogo.</p>
+        <!-- Lista editorial: filas separadas por una línea, sin tarjetas -->
+        <ul class="mt-14 border-t border-[#EAEAEA]">
+          @for (o of offerings; track o.id; let i = $index) {
+            <li class="enter-rise flex flex-col gap-4 border-b border-[#EAEAEA] py-6 sm:flex-row sm:items-center sm:gap-8"
+                [style.animation-delay.ms]="(i < 8 ? i : 8) * 40">
+
+              <div class="min-w-0 flex-1 transition-opacity duration-200" [class.opacity-50]="!o.active">
+                <h3 class="truncate text-lg font-medium tracking-[-0.01em] text-[#111111]">{{ o.title }}</h3>
+                <p class="mt-1 truncate text-sm text-[#787774]">{{ o.description }}</p>
               </div>
 
-              @if (isAdmin && !editingId) {
-                <div class="mb-4">
-                  <label class="mb-1.5 block text-xs font-semibold text-slate-700">ID del Proveedor</label>
-                  <input class="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                         name="providerId" [(ngModel)]="form.providerId"
-                         placeholder="UUID del Provider dueño" required>
-                </div>
-              }
+              <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+                <span class="rounded-md bg-[#E1F3FE] px-2 py-0.5 text-xs font-medium text-[#1F6C9F]"
+                      [class.opacity-50]="!o.active">{{ o.category }}</span>
 
-              <div class="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label class="mb-1.5 block text-xs font-semibold text-slate-700">Título del servicio</label>
-                  <input class="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                         name="title" [(ngModel)]="form.title" placeholder="Ej. Asesoría Financiera" required>
-                </div>
+                <span class="w-28 text-sm font-medium text-[#111111] tabular-nums sm:text-right"
+                      [class.opacity-50]="!o.active">
+                  {{ o.price | currency:'COP':'symbol-narrow':'1.0-0' }}
+                </span>
 
-                <!-- Selector personalizado con scroll en las categorías -->
-                <div>
-                  <label class="mb-1.5 block text-xs font-semibold text-slate-700">Categoría</label>
-                  <div class="relative w-full" tabindex="0" (blur)="categoryDropdownOpen = false">
-                    <button type="button" 
-                            (click)="categoryDropdownOpen = !categoryDropdownOpen"
-                            class="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2.5 text-left text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
-                      <span class="{{ form.category ? 'text-slate-900 font-medium' : 'text-slate-400' }}">
-                        {{ form.category || 'Selecciona una categoría' }}
-                      </span>
-                      <svg class="h-4 w-4 text-slate-400 transition-transform duration-200" [class.rotate-180]="categoryDropdownOpen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                      </svg>
-                    </button>
-
-                    @if (categoryDropdownOpen) {
-                      <div class="absolute z-20 mt-1.5 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-                        <div class="cursor-pointer rounded-lg px-3 py-2 text-xs text-slate-400 hover:bg-slate-50"
-                             (click)="form.category = ''; categoryDropdownOpen = false">
-                          Ninguna / Limpiar selección
-                        </div>
-                        @for (category of categories; track category.id) {
-                          <div class="cursor-pointer rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-900"
-                               (click)="form.category = category.name; categoryDropdownOpen = false">
-                            {{ category.name }}
-                          </div>
-                        }
-                      </div>
-                    }
-                  </div>
-                </div>
-              </div>
-
-              @if (categories.length === 0) {
-                <p class="mt-2 text-xs font-medium text-amber-600">
-                  ⚠️ No hay categorías disponibles. Crea una categoría en el bloque inferior.
-                </p>
-              }
-
-              <div class="mt-4">
-                <label class="mb-1.5 block text-xs font-semibold text-slate-700">Descripción detallada</label>
-                <textarea class="min-h-[110px] w-full resize-y rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                          name="description" [(ngModel)]="form.description" placeholder="Describe brevemente lo que incluye el servicio..." required></textarea>
-              </div>
-
-              <div class="mt-4">
-                <label class="mb-1.5 block text-xs font-semibold text-slate-700">Precio (COP)</label>
-                <input class="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                       type="number" min="0" name="price" [(ngModel)]="form.price" placeholder="0" required>
-              </div>
-
-              <div class="mt-6 flex flex-wrap items-center gap-3">
-                <button type="submit" [disabled]="loading || categories.length === 0"
-                        class="cursor-pointer rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-900 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50">
-                  {{ editingId ? 'Guardar cambios' : 'Crear servicio' }}
+                <!-- Interruptor activo / inactivo -->
+                <button type="button" role="switch" (click)="toggle(o)"
+                        [attr.aria-checked]="o.active"
+                        [attr.aria-label]="(o.active ? 'Desactivar ' : 'Activar ') + o.title"
+                        [class]="o.active ? 'bg-[#111111]' : 'bg-[#DADAD7]'"
+                        class="relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]">
+                  <span class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+                        [class.translate-x-4]="o.active"></span>
                 </button>
-                @if (editingId) {
-                  <button type="button" (click)="reset()"
-                          class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                    Cancelar
-                  </button>
-                }
-              </div>
-            </form>
 
-            <!-- Formulario de Categoría -->
-            <form class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all hover:shadow-md" (ngSubmit)="createCategory()">
-              <div class="mb-4">
-                <h2 class="text-base font-bold text-slate-900">Crear nueva categoría</h2>
-                <p class="mt-0.5 text-xs text-slate-500">Quedará disponible de inmediato en el selector superior.</p>
-              </div>
-
-              <div class="flex flex-col gap-3 sm:flex-row">
-                <input class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                       name="newCategory" [(ngModel)]="newCategoryName"
-                       placeholder="Ej. Marketing Digital" maxlength="80" required>
-                <button type="submit" [disabled]="categoryLoading"
-                        class="cursor-pointer rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50">
-                  {{ categoryLoading ? 'Creando...' : 'Crear categoría' }}
+                <button type="button" (click)="edit(o)"
+                        class="cursor-pointer rounded-md px-2.5 py-1.5 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100">
+                  Editar
                 </button>
               </div>
-            </form>
+            </li>
+          } @empty {
+            <li class="py-24 text-center">
+              <p class="font-display text-3xl text-[#111111]">
+                {{ offeringsLoading ? 'Cargando servicios…' : 'Aún no hay servicios' }}
+              </p>
+              @if (!offeringsLoading) {
+                <p class="mx-auto mt-3 max-w-sm text-sm text-[#787774]">Crea el primero y aparecerá aquí, listo para recibir reservas.</p>
+              }
+            </li>
+          }
+        </ul>
+
+        <!-- Categorías: secundario, compacto, al final -->
+        <div class="mt-20">
+          <h2 class="text-sm font-medium text-[#111111]">Categorías</h2>
+
+          <div class="mt-4 flex flex-wrap gap-2">
+            @for (category of categories; track category.id) {
+              <span class="rounded-md bg-[#F1F0ED] px-3 py-1.5 text-sm text-[#2F3437]">{{ category.name }}</span>
+            } @empty {
+              <p class="text-sm text-[#787774]">{{ categoriesLoading ? 'Cargando categorías…' : 'Todavía no hay categorías.' }}</p>
+            }
           </div>
 
-          <!-- Columna derecha: Listados con Scroll optimizado -->
-          <div class="flex flex-col gap-6">
-            <!-- Listado de Servicios -->
-            <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
-              <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-                <h2 class="text-base font-bold text-slate-900">Servicios creados</h2>
-                <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">
-                  {{ offerings.length }}
-                </span>
-              </div>
-
-              <div class="max-h-[520px] space-y-3 overflow-y-auto pr-1">
-                @for (o of offerings; track o.id) {
-                  <article class="flex flex-col gap-3 rounded-xl border border-slate-200/70 bg-slate-50/50 p-4 transition-all hover:bg-white hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
-                           [class.opacity-60]="!o.active">
-                    <div class="min-w-0 flex-1">
-                      <div class="flex flex-wrap items-center gap-2">
-                        <h3 class="font-bold text-slate-900">{{ o.title }}</h3>
-                        <span class="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-blue-800">{{ o.category }}</span>
-                        @if (!o.active) {
-                          <span class="rounded-md bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">Inactivo</span>
-                        }
-                      </div>
-                      <p class="mt-1 line-clamp-2 text-xs text-slate-500">{{ o.description }}</p>
-                      <p class="mt-1.5 text-xs font-bold text-slate-900">{{ o.price | currency:'COP':'symbol-narrow':'1.0-0' }}</p>
-                    </div>
-
-                    <div class="flex shrink-0 gap-2">
-                      <button type="button" (click)="edit(o)"
-                              class="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
-                        Editar
-                      </button>
-                      @if (o.active) {
-                        <button type="button" (click)="toggle(o)"
-                                class="cursor-pointer rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
-                          Desactivar
-                        </button>
-                      } @else {
-                        <button type="button" (click)="toggle(o)"
-                                class="cursor-pointer rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50">
-                          Activar
-                        </button>
-                      }
-                    </div>
-                  </article>
-                } @empty {
-                  <div class="rounded-xl border border-dashed border-slate-200 px-6 py-12 text-center">
-                    <p class="text-sm text-slate-400">No hay servicios registrados todavía.</p>
-                  </div>
-                }
-              </div>
-            </section>
-
-            <!-- Listado de Categorías -->
-            <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
-              <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-                <h2 class="text-base font-bold text-slate-900">Categorías disponibles</h2>
-                <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">
-                  {{ categories.length }}
-                </span>
-              </div>
-
-              <div class="max-h-[240px] space-y-2 overflow-y-auto pr-1">
-                @for (category of categories; track category.id) {
-                  <div class="flex items-center justify-between rounded-xl border border-slate-200/70 bg-slate-50/50 px-4 py-2.5 transition hover:bg-white">
-                    <span class="text-sm font-medium text-slate-800">{{ category.name }}</span>
-                    <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
-                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Activa
-                    </span>
-                  </div>
-                } @empty {
-                  <div class="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center">
-                    <p class="text-xs text-slate-400">No hay categorías registradas.</p>
-                  </div>
-                }
-              </div>
-            </section>
-          </div>
+          <form class="mt-5 flex max-w-sm gap-2" (ngSubmit)="createCategory()">
+            <input class="min-w-0 flex-1 rounded-md border border-[#EAEAEA] bg-white px-3 py-2 text-sm text-[#111111] outline-none transition-colors duration-150 placeholder:text-[#9B9A97] focus:border-[#111111]"
+                   name="newCategory" [(ngModel)]="newCategoryName"
+                   placeholder="Nueva categoría" maxlength="80" required>
+            <button type="submit" [disabled]="categoryLoading"
+                    class="cursor-pointer rounded-md px-3 py-2 text-sm font-medium text-[#111111] transition-[background-color,transform,opacity] duration-150 hover:bg-[#F1F0ED] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100">
+              {{ categoryLoading ? 'Añadiendo…' : 'Añadir' }}
+            </button>
+          </form>
         </div>
       </div>
     </section>
+
+    <!-- Panel lateral: entra y sale por el mismo borde -->
+    <div (click)="closePanel()"
+         class="fixed inset-0 z-40 bg-[#111111]/20 transition-opacity duration-300 ease-out"
+         [class.opacity-100]="panelOpen" [class.opacity-0]="!panelOpen"
+         [class.pointer-events-auto]="panelOpen" [class.pointer-events-none]="!panelOpen"></div>
+
+    <aside class="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-[#EAEAEA] bg-white shadow-[0_8px_40px_rgba(0,0,0,0.06)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+           [class.translate-x-0]="panelOpen" [class.translate-x-full]="!panelOpen"
+           [attr.inert]="panelOpen ? null : ''" [attr.aria-hidden]="!panelOpen"
+           (keydown.escape)="closePanel()" role="dialog" aria-modal="true" aria-label="Formulario de servicio">
+
+      <form class="flex h-full flex-col" (ngSubmit)="save()">
+        <div class="flex items-center justify-between px-8 pb-2 pt-8">
+          <h2 class="font-display text-3xl text-[#111111]">{{ editingId ? 'Editar servicio' : 'Nuevo servicio' }}</h2>
+          <button type="button" (click)="reset()" aria-label="Cerrar"
+                  class="cursor-pointer rounded-md p-2 text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.94] motion-reduce:active:scale-100">
+            <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+              <path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="flex-1 space-y-7 overflow-y-auto px-8 py-6">
+
+          @if (error) {
+            <div role="alert" class="enter-rise rounded-lg bg-[#FDEBEC] px-4 py-3 text-sm text-[#9F2F2D]">{{ error }}</div>
+          }
+
+          @if (isAdmin && !editingId) {
+            <div>
+              <label class="mb-2 block text-sm text-[#787774]">ID del proveedor</label>
+              <input class="w-full rounded-md border border-[#EAEAEA] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none transition-colors duration-150 placeholder:text-[#9B9A97] focus:border-[#111111]"
+                     name="providerId" [(ngModel)]="form.providerId"
+                     placeholder="UUID del proveedor dueño" required>
+            </div>
+          }
+
+          <div>
+            <label class="mb-2 block text-sm text-[#787774]">Título</label>
+            <input class="w-full rounded-md border border-[#EAEAEA] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none transition-colors duration-150 placeholder:text-[#9B9A97] focus:border-[#111111]"
+                   name="title" [(ngModel)]="form.title" placeholder="Ej. Asesoría financiera" required>
+          </div>
+
+          <!-- Categoría: selección directa, sin desplegable -->
+          <div>
+            <label class="mb-2 block text-sm text-[#787774]">Categoría</label>
+            <div class="flex flex-wrap gap-2">
+              @for (category of categories; track category.id) {
+                <button type="button" (click)="form.category = category.name"
+                        [class]="form.category === category.name ? 'bg-[#111111] text-white' : 'bg-[#F1F0ED] text-[#2F3437] hover:bg-[#E9E8E4]'"
+                        class="cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] motion-reduce:active:scale-100">
+                  {{ category.name }}
+                </button>
+              }
+            </div>
+            @if (categories.length === 0) {
+              <p class="mt-2 text-sm text-[#956400]">Crea primero una categoría en la página principal.</p>
+            }
+          </div>
+
+          <div>
+            <label class="mb-2 block text-sm text-[#787774]">Descripción</label>
+            <textarea class="min-h-[110px] w-full resize-y rounded-md border border-[#EAEAEA] bg-white px-3 py-2.5 text-sm leading-6 text-[#111111] outline-none transition-colors duration-150 placeholder:text-[#9B9A97] focus:border-[#111111]"
+                      name="description" [(ngModel)]="form.description" placeholder="Qué incluye el servicio" required></textarea>
+          </div>
+
+          <div>
+            <label class="mb-2 block text-sm text-[#787774]">Precio (COP)</label>
+            <input class="w-full rounded-md border border-[#EAEAEA] bg-white px-3 py-2.5 text-sm text-[#111111] tabular-nums outline-none transition-colors duration-150 placeholder:text-[#9B9A97] focus:border-[#111111]"
+                   type="number" min="0" name="price" [(ngModel)]="form.price" placeholder="0" required>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 border-t border-[#EAEAEA] px-8 py-5">
+          <button type="button" (click)="reset()"
+                  class="cursor-pointer rounded-md px-4 py-2.5 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100">
+            Cancelar
+          </button>
+          <button type="submit" [disabled]="loading || categories.length === 0"
+                  class="cursor-pointer rounded-md bg-[#111111] px-5 py-2.5 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100">
+            {{ loading ? 'Guardando…' : (editingId ? 'Guardar cambios' : 'Crear servicio') }}
+          </button>
+        </div>
+      </form>
+    </aside>
   `,
 })
 export class ProviderOfferingsComponent implements OnInit {
@@ -243,12 +212,18 @@ export class ProviderOfferingsComponent implements OnInit {
   editingId: string | null = null;
   loading = false;
   categoryLoading = false;
+  offeringsLoading = true;
+  categoriesLoading = true;
   error = '';
 
-  // Control de estado para el desplegable con scroll de categorías
+  // Se conserva por compatibilidad (el selector ahora son chips)
   categoryDropdownOpen = false;
 
+  // NUEVO: estado del panel lateral
+  panelOpen = false;
+
   get isAdmin(): boolean { return this.auth.hasRole('ADMIN'); }
+  get activeCount(): number { return this.offerings.filter(o => o.active).length; }
 
   ngOnInit(): void {
     this.load();
@@ -258,15 +233,15 @@ export class ProviderOfferingsComponent implements OnInit {
   load(): void {
     const req = this.isAdmin ? this.service.listAll() : this.service.listMine();
     req.subscribe({
-      next: r => this.offerings = r,
-      error: e => this.fail(e, 'No fue posible cargar los servicios.'),
+      next: r => { this.offerings = r; this.offeringsLoading = false; },
+      error: e => { this.offeringsLoading = false; this.fail(e, 'No fue posible cargar los servicios.'); },
     });
   }
 
   loadCategories(): void {
     this.categoryService.list().subscribe({
-      next: r => this.categories = r,
-      error: e => this.fail(e, 'No fue posible cargar las categorías.'),
+      next: r => { this.categories = r; this.categoriesLoading = false; },
+      error: e => { this.categoriesLoading = false; this.fail(e, 'No fue posible cargar las categorías.'); },
     });
   }
 
@@ -316,9 +291,24 @@ export class ProviderOfferingsComponent implements OnInit {
     });
   }
 
+  // NUEVO: abre el panel en modo creación
+  openNew(): void {
+    this.error = '';
+    this.form = {};
+    this.editingId = null;
+    this.panelOpen = true;
+  }
+
+  // NUEVO: cierra el panel sin tocar el formulario (lo limpia reset())
+  closePanel(): void {
+    this.reset();
+  }
+
   edit(o: Offering): void {
+    this.error = '';
     this.editingId = o.id;
     this.form = { title: o.title, description: o.description, category: o.category, price: o.price };
+    this.panelOpen = true; // NUEVO
   }
 
   toggle(o: Offering): void {
@@ -333,6 +323,7 @@ export class ProviderOfferingsComponent implements OnInit {
   reset(): void {
     this.form = {};
     this.editingId = null;
+    this.panelOpen = false; // NUEVO
   }
 
   private fail(e: HttpErrorResponse, fallback: string): void {

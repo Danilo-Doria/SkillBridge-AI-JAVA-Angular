@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Booking, BookingService } from '../core/booking.service';
@@ -11,133 +11,138 @@ import { PaymentModal } from './payment-modal/payment-modal';
   standalone: true,
   imports: [CommonModule, CurrencyPipe, DatePipe, PaymentModal, RouterLink],
   template: `
-    <section class="min-h-screen bg-slate-50 px-4 py-10 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-7xl">
+    <section class="min-h-screen bg-[#FBFBFA] px-4 py-16 sm:px-6 lg:py-24">
+      <div class="mx-auto max-w-4xl">
+
         <!-- Encabezado -->
-        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <span class="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
-              Mi agenda
-            </span>
-            <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Mis reservas
-            </h1>
-            <p class="mt-1 text-sm text-slate-500">
-              Consulta, paga o gestiona el estado de tus sesiones agendadas.
-            </p>
+        <header class="enter-rise">
+          <h1 class="font-display text-5xl text-[#111111] sm:text-6xl">Mis reservas</h1>
+          <p class="mt-4 max-w-md text-base text-[#787774]">
+            Consulta, paga o gestiona el estado de tus sesiones agendadas.
+          </p>
+        </header>
+
+        <!-- Pestañas de filtro -->
+        @if (!isLoading && !errorMessage && bookings.length > 0) {
+          <div class="enter-rise mt-12 flex gap-6 overflow-x-auto border-b border-[#EAEAEA]" style="animation-delay: 60ms">
+            <button (click)="statusFilter = 'ALL'"
+                    [ngClass]="statusFilter === 'ALL' ? 'border-[#111111] text-[#111111]' : 'border-transparent text-[#787774] hover:text-[#111111]'"
+                    class="-mb-px cursor-pointer whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors duration-150">
+              Todas <span class="ml-1 tabular-nums text-[#787774]">{{ bookings.length }}</span>
+            </button>
+            <button (click)="statusFilter = 'CONFIRMED'"
+                    [ngClass]="statusFilter === 'CONFIRMED' ? 'border-[#111111] text-[#111111]' : 'border-transparent text-[#787774] hover:text-[#111111]'"
+                    class="-mb-px cursor-pointer whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors duration-150">
+              Confirmadas <span class="ml-1 tabular-nums text-[#787774]">{{ getCountByStatus('CONFIRMED') }}</span>
+            </button>
+            <button (click)="statusFilter = 'CREATED'"
+                    [ngClass]="statusFilter === 'CREATED' ? 'border-[#111111] text-[#111111]' : 'border-transparent text-[#787774] hover:text-[#111111]'"
+                    class="-mb-px cursor-pointer whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors duration-150">
+              Pendientes <span class="ml-1 tabular-nums text-[#787774]">{{ getCountByStatus('CREATED') }}</span>
+            </button>
+            <button (click)="statusFilter = 'CANCELLED'"
+                    [ngClass]="statusFilter === 'CANCELLED' ? 'border-[#111111] text-[#111111]' : 'border-transparent text-[#787774] hover:text-[#111111]'"
+                    class="-mb-px cursor-pointer whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors duration-150">
+              Canceladas <span class="ml-1 tabular-nums text-[#787774]">{{ getCountByStatus('CANCELLED') }}</span>
+            </button>
           </div>
-
-          @if (!isLoading && !errorMessage && bookings.length > 0) {
-            
-<div class="flex flex-wrap items-center gap-3">
-  <button (click)="statusFilter = 'ALL'" [class.opacity-50]="statusFilter !== 'ALL'" class="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2 text-center shadow-sm transition hover:opacity-100">
-    <span class="block text-xs font-medium text-slate-400">Total</span>
-    <span class="text-base font-bold text-slate-900">{{ bookings.length }}</span>
-  </button>
-  <button (click)="statusFilter = 'CONFIRMED'" [class.opacity-50]="statusFilter !== 'CONFIRMED'" class="cursor-pointer rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-2 text-center shadow-sm transition hover:opacity-100">
-    <span class="block text-xs font-medium text-emerald-600">Confirmadas</span>
-    <span class="text-base font-bold text-emerald-700">{{ getCountByStatus('CONFIRMED') }}</span>
-  </button>
-  <button (click)="statusFilter = 'CREATED'" [class.opacity-50]="statusFilter !== 'CREATED'" class="cursor-pointer rounded-xl border border-amber-100 bg-amber-50/50 px-4 py-2 text-center shadow-sm transition hover:opacity-100">
-    <span class="block text-xs font-medium text-amber-600">Pendientes</span>
-    <span class="text-base font-bold text-amber-700">{{ getCountByStatus('CREATED') }}</span>
-  </button>
-  <button (click)="statusFilter = 'CANCELLED'" [class.opacity-50]="statusFilter !== 'CANCELLED'" class="cursor-pointer rounded-xl border border-red-100 bg-red-50/50 px-4 py-2 text-center shadow-sm transition hover:opacity-100">
-    <span class="block text-xs font-medium text-red-600">Canceladas</span>
-    <span class="text-base font-bold text-red-700">{{ getCountByStatus('CANCELLED') }}</span>
-  </button>
-</div>
-
-          }
-        </div>
+        }
 
         @if (cancelSuccessMessage) {
-          <div role="alert" class="mb-6 flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
-            <div class="flex items-center gap-2">
-              <svg class="h-5 w-5 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-              </svg>
-              <span>{{ cancelSuccessMessage }}</span>
-            </div>
-            <button (click)="cancelSuccessMessage = ''" class="text-emerald-500 hover:text-emerald-800">&times;</button>
+          <div role="alert" class="enter-rise mt-8 flex items-center justify-between gap-3 rounded-lg bg-[#EDF3EC] px-4 py-3 text-sm text-[#346538]">
+            <span>{{ cancelSuccessMessage }}</span>
+            <button (click)="cancelSuccessMessage = ''" aria-label="Cerrar"
+                    class="cursor-pointer rounded px-2 text-lg leading-none transition-[background-color,transform] duration-150 hover:bg-white/60 active:scale-[0.94]">&times;</button>
           </div>
         }
 
         @if (cancelErrorMessage) {
-          <div role="alert" class="mb-6 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">
-            <div class="flex items-center gap-2">
-              <svg class="h-5 w-5 shrink-0 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span>{{ cancelErrorMessage }}</span>
-            </div>
-            <button (click)="cancelErrorMessage = ''" class="text-red-500 hover:text-red-800">&times;</button>
+          <div role="alert" class="enter-rise mt-8 flex items-center justify-between gap-3 rounded-lg bg-[#FDEBEC] px-4 py-3 text-sm text-[#9F2F2D]">
+            <span>{{ cancelErrorMessage }}</span>
+            <button (click)="cancelErrorMessage = ''" aria-label="Cerrar"
+                    class="cursor-pointer rounded px-2 text-lg leading-none transition-[background-color,transform] duration-150 hover:bg-white/60 active:scale-[0.94]">&times;</button>
           </div>
         }
 
-        @if (isLoading) {
-          <div class="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-            <div class="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600"></div>
-            <p class="text-sm font-medium text-slate-600">Cargando tus reservas...</p>
+        @if (paymentStatusMessage) {
+          <div role="status" aria-live="polite" class="enter-rise mt-8 rounded-lg bg-[#FBF3DB] px-4 py-3 text-sm text-[#795A00]">
+            {{ paymentStatusMessage }}
           </div>
-        } @else if (errorMessage) {
-          <div class="rounded-2xl border border-red-200 bg-red-50 p-6 sm:p-8">
-            <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        }
+
+        <div class="mt-2">
+          @if (isLoading) {
+            <div class="flex flex-col items-center justify-center py-28">
+              <div class="mb-4 h-6 w-6 animate-spin rounded-full border-2 border-[#EAEAEA] border-t-[#111111] [animation-duration:600ms]"></div>
+              <p class="text-sm text-[#787774]">Cargando tus reservas...</p>
+            </div>
+          } @else if (errorMessage) {
+            <div class="enter-rise mt-10 flex flex-col gap-5 rounded-xl border border-[#EAEAEA] bg-white p-8 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div class="mb-1 flex items-center gap-2">
-                  <span class="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-600">!</span>
-                  <h2 class="font-semibold text-red-900">Error de conexión</h2>
-                </div>
-                <p class="text-sm text-red-700">{{ errorMessage }}</p>
+                <h2 class="font-display text-2xl text-[#111111]">Error de conexión</h2>
+                <p class="mt-1 text-sm text-[#9F2F2D]">{{ errorMessage }}</p>
               </div>
               <button
                 type="button"
                 (click)="fetchMyBookings()"
-                class="inline-flex cursor-pointer items-center justify-center rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+                class="cursor-pointer rounded-md bg-[#111111] px-4 py-2.5 text-sm font-medium text-white transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] active:scale-[0.98] motion-reduce:active:scale-100"
               >
                 Reintentar
               </button>
             </div>
-          </div>
-        } @else if (bookings.length === 0) {
-          <div class="flex min-h-80 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
-            <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-              <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3.75 9.75h16.5M5.25 4.5h13.5a1.5 1.5 0 011.5 1.5v13.5a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5z" />
-              </svg>
+          } @else if (bookings.length === 0) {
+            <div class="enter-rise py-28 text-center">
+              <h2 class="font-display text-4xl text-[#111111]">No tienes reservas activas</h2>
+              <p class="mx-auto mt-4 max-w-sm text-sm leading-6 text-[#787774]">Aún no has agendado ninguna sesión. Explora los servicios disponibles para comenzar.</p>
+              <a routerLink="/"
+                 class="mt-8 inline-block rounded-md bg-[#111111] px-5 py-2.5 text-sm font-medium text-white transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] motion-reduce:active:scale-100">
+                Explorar servicios
+              </a>
             </div>
-            <h2 class="text-lg font-semibold text-slate-900">No tienes reservas activas</h2>
-            <p class="mt-1 max-w-md text-sm text-slate-500">Aún no has agendado ninguna sesión. Explora los servicios disponibles para comenzar.</p>
-            <a routerLink="/" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-900">
-              Explorar servicios
-            </a>
-          </div>
-        } @else if (filteredBookings.length === 0) {
-  <div class="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
-    <h2 class="text-lg font-semibold text-slate-900">No hay reservas</h2>
-    <p class="mt-1 max-w-md text-sm text-slate-500">No se encontraron reservas con el estado seleccionado.</p>
-    <button (click)="statusFilter = 'ALL'" class="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
-      Ver todas
-    </button>
-  </div>
-} @else {
-  <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-    @for (booking of filteredBookings; track booking.id) {
-              @let offering = getOffering(booking.offeringId);
+          } @else if (filteredBookings.length === 0) {
+            <div class="enter-rise py-24 text-center">
+              <h2 class="font-display text-3xl text-[#111111]">No hay reservas</h2>
+              <p class="mx-auto mt-3 max-w-sm text-sm text-[#787774]">No se encontraron reservas con el estado seleccionado.</p>
+              <button (click)="statusFilter = 'ALL'"
+                      class="mt-6 cursor-pointer rounded-md px-4 py-2.5 text-sm font-medium text-[#111111] transition-[background-color,transform] duration-150 hover:bg-[#F1F0ED] active:scale-[0.97] motion-reduce:active:scale-100">
+                Ver todas
+              </button>
+            </div>
+          } @else {
+            <ul>
+              @for (booking of filteredBookings; track booking.id; let i = $index) {
+                @let offering = getOffering(booking.offeringId);
 
-              <article class="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl">
-                <div>
-                  <div class="mb-4 flex items-center justify-between gap-2">
-                    <span class="rounded-lg bg-blue-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-blue-800">
+                <li class="enter-rise flex flex-col gap-5 border-b border-[#EAEAEA] py-7 sm:flex-row sm:items-center sm:gap-8"
+                    [style.animation-delay.ms]="(i < 8 ? i : 8) * 40">
+
+                  <!-- Fecha -->
+                  <div class="shrink-0 sm:w-40">
+                    <p class="font-display text-2xl text-[#111111]">{{ booking.scheduledAt | date:'d MMM y' }}</p>
+                    <p class="mt-0.5 text-sm text-[#787774] tabular-nums">{{ booking.scheduledAt | date:'shortTime' }}</p>
+                  </div>
+
+                  <!-- Servicio -->
+                  <div class="min-w-0 flex-1">
+                    <h3 class="truncate text-lg font-medium tracking-[-0.01em] text-[#111111]">
+                      {{ offering?.title || 'Reserva #' + booking.id.substring(0, 8) }}
+                    </h3>
+                    <p class="mt-1 text-sm text-[#787774]">
                       {{ offering?.category || 'Servicio' }}
-                    </span>
+                      @if (booking.status === 'CONFIRMED') {
+                        <span> · {{ canCancel(booking.scheduledAt) ? 'Reembolso del 100% hasta 24 h antes' : 'Plazo de cancelación vencido' }}</span>
+                      }
+                    </p>
+                  </div>
 
+                  <!-- Estado, precio y acciones -->
+                  <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
                     <span
-                      class="rounded-full px-3 py-1 text-xs font-semibold"
+                      class="rounded-md px-2 py-0.5 text-xs font-medium"
                       [ngClass]="{
-                        'bg-amber-50 text-amber-700 border border-amber-200/60': booking.status === 'CREATED',
-                        'bg-emerald-50 text-emerald-700 border border-emerald-200/60': booking.status === 'CONFIRMED' || booking.status === 'COMPLETED',
-                        'bg-red-50 text-red-700 border border-red-200/60': booking.status === 'CANCELLED'
+                        'bg-[#FBF3DB] text-[#956400]': booking.status === 'CREATED',
+                        'bg-[#EDF3EC] text-[#346538]': booking.status === 'CONFIRMED' || booking.status === 'COMPLETED',
+                        'bg-[#FDEBEC] text-[#9F2F2D]': booking.status === 'CANCELLED'
                       }"
                     >
                       {{
@@ -147,102 +152,67 @@ import { PaymentModal } from './payment-modal/payment-modal';
                         booking.status === 'CANCELLED' ? 'Cancelada' : booking.status
                       }}
                     </span>
-                  </div>
 
-                  <h3 class="text-lg font-bold text-slate-900 transition group-hover:text-blue-900">
-                    {{ offering?.title || 'Reserva #' + booking.id.substring(0, 8) }}
-                  </h3>
+                    <span class="w-24 text-sm font-medium text-[#111111] tabular-nums sm:text-right">
+                      {{ getOfferingPrice(booking.offeringId) | currency: "COP" : "symbol-narrow" : "1.0-0" }}
+                    </span>
 
-                  <div class="my-4 rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-                    <div class="flex items-center gap-3">
-                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-xs">
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Fecha agendada</p>
-                        <p class="text-xs font-bold text-slate-800">
-                          {{ booking.scheduledAt | date:'medium' }}
-                        </p>
-                      </div>
+                    <div class="flex min-w-[8.5rem] justify-end">
+                      @if (booking.status === 'CREATED') {
+                        <button
+                          (click)="openPaymentModal(booking)"
+                          class="cursor-pointer rounded-md bg-[#111111] px-4 py-2 text-sm font-medium text-white transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] motion-reduce:active:scale-100"
+                        >
+                          Pagar reserva
+                        </button>
+                      }
+
+                      @if (booking.status === 'CONFIRMED') {
+                        @if (canCancel(booking.scheduledAt)) {
+                          <button
+                            (click)="openCancelModal(booking)"
+                            [disabled]="isCancelingId === booking.id"
+                            class="cursor-pointer rounded-md px-3 py-2 text-sm font-medium text-[#9F2F2D] transition-[background-color,transform,opacity] duration-150 hover:bg-[#FDEBEC] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 motion-reduce:active:scale-100"
+                          >
+                            {{ isCancelingId === booking.id ? 'Cancelando...' : 'Cancelar reserva' }}
+                          </button>
+                        } @else {
+                          <span class="cursor-not-allowed px-3 py-2 text-sm font-medium text-[#B8B7B3]" title="No se puede cancelar faltando menos de 24 horas">
+                            Cancelar reserva
+                          </span>
+                        }
+                      }
                     </div>
                   </div>
-                </div>
-
-                <div class="mt-4 border-t border-slate-100 pt-4">
-                  <div class="mb-4 flex items-baseline justify-between">
-                    <span class="text-xs font-medium text-slate-400">Monto total</span>
-                    <strong class="text-lg font-bold text-slate-900">
-                      {{ getOfferingPrice(booking.offeringId) | currency: "COP" : "symbol-narrow" : "1.0-0" }}
-                    </strong>
-                  </div>
-
-                  <div class="space-y-2">
-                    @if (booking.status === 'CREATED') {
-                      <button
-                        (click)="openPaymentModal(booking)"
-                        class="w-full cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-900 active:scale-[0.99]"
-                      >
-                        Pagar reserva
-                      </button>
-                    }
-
-                    @if (booking.status === 'CONFIRMED') {
-                      @if (canCancel(booking.scheduledAt)) {
-                        <button
-                          (click)="openCancelModal(booking)"
-                          [disabled]="isCancelingId === booking.id"
-                          class="w-full cursor-pointer rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-300 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {{ isCancelingId === booking.id ? 'Cancelando...' : 'Cancelar reserva' }}
-                        </button>
-                        <p class="text-[10px] text-center text-slate-400">Reembolso del 100% aplicable</p>
-                      } @else {
-                        <div class="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-center text-sm font-semibold text-slate-400" title="No se puede cancelar faltando menos de 24 horas">
-                          Cancelar reserva
-                        </div>
-                        <p class="text-[10px] text-center text-slate-400">Expiró el plazo límite (24h de anticipación)</p>
-                      }
-                    }
-                  </div>
-                </div>
-              </article>
-            }
-          </div>
-        }
+                </li>
+              }
+            </ul>
+          }
+        </div>
       </div>
     </section>
 
-    <!-- Modal de confirmación para cancelar reserva -->
+    <!-- Modal de confirmación para cancelar -->
     @if (bookingToCancel) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-        <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl transition-all">
-          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
+      <div class="enter-fade fixed inset-0 z-50 flex items-center justify-center bg-[#111111]/25 p-4">
+        <div class="enter-modal w-full max-w-md rounded-xl border border-[#EAEAEA] bg-white p-7 shadow-[0_8px_40px_rgba(0,0,0,0.08)]">
+          <h3 class="font-display text-3xl text-[#111111]">¿Cancelar esta reserva?</h3>
+          <p class="mt-3 text-sm leading-6 text-[#2F3437]">
+            Esta acción cancelará tu sesión agendada y procesará la solicitud de reembolso. ¿Estás seguro de continuar?
+          </p>
 
-          <div class="mt-4 text-center">
-            <h3 class="text-lg font-bold text-slate-900">¿Cancelar esta reserva?</h3>
-            <p class="mt-2 text-sm text-slate-500">
-              Esta acción cancelará tu sesión agendada y procesará la solicitud de reembolso. ¿Estás seguro de continuar?
-            </p>
-          </div>
-
-          <div class="mt-6 flex gap-3">
+          <div class="mt-8 flex justify-end gap-2">
             <button
               type="button"
               (click)="bookingToCancel = null"
-              class="w-full cursor-pointer rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              class="cursor-pointer rounded-md px-4 py-2.5 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100"
             >
               Volver
             </button>
             <button
               type="button"
               (click)="confirmCancelBooking()"
-              class="w-full cursor-pointer rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+              class="cursor-pointer rounded-md bg-[#9F2F2D] px-4 py-2.5 text-sm font-medium text-white transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#862624] active:scale-[0.98] motion-reduce:active:scale-100"
             >
               Sí, cancelar
             </button>
@@ -261,7 +231,7 @@ import { PaymentModal } from './payment-modal/payment-modal';
     }
   `
 })
-export class MyBookingsComponent implements OnInit {
+export class MyBookingsComponent implements OnInit, OnDestroy {
   statusFilter: string = 'ALL';
   
   get filteredBookings(): Booking[] {
@@ -286,12 +256,68 @@ export class MyBookingsComponent implements OnInit {
   isCancelingId: string | null = null;
   cancelSuccessMessage = '';
   cancelErrorMessage = '';
+  paymentStatusMessage = '';
+  private paymentPollingTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.fetchMyBookings();
+    this.handleStripeReturn();
     this.offeringService.list().subscribe({
       next: (data) => (this.offerings = data),
       error: () => console.warn('No se pudieron cargar las especificaciones de servicios.')
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.paymentPollingTimer) {
+      clearTimeout(this.paymentPollingTimer);
+    }
+  }
+
+  private handleStripeReturn(): void {
+    const params = new URLSearchParams(window.location.search);
+    const bookingId = params.get('payment_booking_id');
+    const paymentIntent = params.get('payment_intent');
+    if (!bookingId || !paymentIntent) return;
+
+    // El client secret de Stripe puede venir en la URL de retorno; quitar los
+    // parámetros de pago del historial del navegador tan pronto como se lean.
+    window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+
+    const redirectStatus = params.get('redirect_status');
+    if (redirectStatus === 'failed') {
+      this.paymentStatusMessage = 'Stripe no pudo completar el pago. Puedes intentarlo nuevamente.';
+      return;
+    }
+
+    this.paymentStatusMessage = 'Pago autorizado. Estamos confirmando tu reserva...';
+    this.pollBookingStatus(bookingId, 20);
+  }
+
+  private pollBookingStatus(bookingId: string, attemptsRemaining: number): void {
+    this.bookingService.getMyBookings().subscribe({
+      next: (data) => {
+        this.bookings = data;
+        const booking = data.find((item) => item.id === bookingId);
+        if (booking?.status === 'CONFIRMED' || booking?.status === 'COMPLETED') {
+          this.paymentStatusMessage = 'Pago confirmado y reserva actualizada.';
+          return;
+        }
+
+        if (attemptsRemaining <= 1) {
+          this.paymentStatusMessage = 'El pago fue autorizado y Stripe aún está notificando la confirmación. Esta página seguirá mostrando el estado actualizado al volver a cargar.';
+          return;
+        }
+
+        this.paymentPollingTimer = setTimeout(() => this.pollBookingStatus(bookingId, attemptsRemaining - 1), 1500);
+      },
+      error: () => {
+        if (attemptsRemaining > 1) {
+          this.paymentPollingTimer = setTimeout(() => this.pollBookingStatus(bookingId, attemptsRemaining - 1), 1500);
+        } else {
+          this.paymentStatusMessage = 'No pudimos consultar el estado todavía. Recarga la página en unos segundos.';
+        }
+      }
     });
   }
 
