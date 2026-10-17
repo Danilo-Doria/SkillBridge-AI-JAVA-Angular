@@ -31,6 +31,7 @@ import { AuthService } from './core/auth.service';
             <a routerLink="/book" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Reservar</a>
             <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">IA</a>
             <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis reservas</a>
+            <a routerLink="/mentorships/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis mentorías</a>
 
             @if (auth.hasRole('PROVIDER', 'ADMIN')) {
               <a routerLink="/provider/offerings" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">
@@ -101,6 +102,7 @@ import { AuthService } from './core/auth.service';
           <a routerLink="/book" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Reservar</a>
           <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">IA</a>
           <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Mis reservas</a>
+          <a routerLink="/mentorships/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Mis mentorías</a>
 
           @if (auth.hasRole('PROVIDER', 'ADMIN')) {
             <a routerLink="/provider/offerings" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">
