@@ -28,7 +28,13 @@ export class StripeService {
         console.warn('[StripeService] STRIPE_PUBLISHABLE_KEY no está configurada en window.__env');
         return Promise.resolve(null);
       }
-      this.stripePromise = loadStripe(key);
+      this.stripePromise = loadStripe(key, {
+        developerTools: {
+          assistant: {
+            enabled: false
+          }
+        }
+      });
     }
     return this.stripePromise;
   }
