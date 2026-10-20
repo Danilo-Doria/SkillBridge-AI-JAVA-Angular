@@ -81,7 +81,7 @@ import { BookingService } from '../core/booking.service';
 
             <button type="button"
                     class="w-full cursor-pointer rounded-md bg-[#111111] px-4 py-3 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
-                    [disabled]="loading" (click)="book()">
+                    [disabled]="loading"  [routerLink]="['/bookings/me']">
               {{ loading ? 'Creando reserva...' : 'Crear reserva' }}
             </button>
           </div>
