@@ -1,8 +1,8 @@
 # SkillBridge AI
 
-> Proyecto integrador profesional para practicar **Java 21 + Spring Boot + Angular + Arquitectura Hexagonal + PostgreSQL + Redis + RabbitMQ + Nginx + IA + observabilidad + Docker + CI/CD + despliegue cloud**.
+> Proyecto integrador profesional para practicar **Java 21 + Spring Boot + Angular + Arquitectura Hexagonal + PostgreSQL + MongoDB + Redis + RabbitMQ + Apache Kafka + Stripe + Nginx + IA (Gemini, OpenAI, Groq, ElevenLabs) + observabilidad + Docker + CI/CD + despliegue cloud**.
 
-SkillBridge AI es una plataforma de mentorías y servicios profesionales. Los proveedores pueden publicar servicios y los usuarios pueden descubrirlos, autenticarse, reservar una sesión y pedir a un asistente de IA recomendaciones basadas únicamente en el catálogo existente.
+SkillBridge AI es una plataforma de mentorías y servicios profesionales. Los proveedores pueden publicar servicios y los usuarios pueden descubrirlos, autenticarse, reservar una sesión, pagar con Stripe, pedir a un asistente de IA recomendaciones basadas en el catálogo existente e interactuar por voz (Speech-to-Text y Text-to-Speech).
 
 El objetivo principal no es el dominio de negocio: el dominio fue escogido para que cada tecnología tenga un **caso de uso real** y para que el proyecto pueda crecer hacia una solución distribuida más compleja.
 
@@ -16,23 +16,30 @@ Este repositorio sirve como punto de partida para trabajar:
 - DDD táctico básico y separación de responsabilidades.
 - Principios SOLID.
 - APIs REST con Spring Boot.
-- Spring Security + JWT + RBAC.
+- Spring Security + JWT + RBAC + CSRF cookies.
 - Persistencia con Spring Data JPA y PostgreSQL.
 - Migraciones con Flyway.
 - Cache-Aside con Redis.
 - Eventos asíncronos con RabbitMQ.
 - Eventos de negocio persistentes (Auditoría/Analytics) con Apache Kafka (ver [Documentación Kafka](docs/kafka.md)).
+- Microservicio de auditoría con Spring Data MongoDB.
 - Retry + Dead Letter Queue.
-- Integración de IA desde Java sin exponer API keys en Angular.
-- Angular standalone.
+- Integración de IA desde Java con Spring AI (Gemini, OpenAI).
+- Speech-to-Text con Gemini y Groq.
+- Text-to-Speech con ElevenLabs.
+- Pagos con Stripe (backend SDK + frontend Stripe.js + webhooks).
+- Notificaciones por email con Spring Mail y Mailpit.
+- Correlation ID para trazabilidad de requests.
+- Angular standalone con Tailwind CSS.
 - Nginx como servidor de estáticos y reverse proxy.
 - Dockerfiles multi-stage.
 - Docker Compose para levantar todo el entorno.
 - Health checks.
 - Spring Boot Actuator + Micrometer.
 - Prometheus + Grafana.
-- JUnit + Mockito + JaCoCo.
+- JUnit + Mockito + JaCoCo + Testcontainers.
 - CI con GitHub Actions.
+- Análisis estático con Qodana (JetBrains).
 - Despliegue en plataformas gratuitas para laboratorio.
 
 ---
@@ -59,7 +66,7 @@ El flujo inicial implementado es:
 Usuario
   |
   v
-Angular
+Angular (Tailwind CSS + Stripe.js)
   |
   v
 Nginx
@@ -73,7 +80,15 @@ Spring Boot
   |
   +----------> RabbitMQ
   |
-  +----------> Gemini API
+  +----------> Apache Kafka -----> Audit Service (MongoDB)
+  |
+  +----------> Gemini API / OpenAI
+  |
+  +----------> Groq (STT) / ElevenLabs (TTS)
+  |
+  +----------> Stripe API
+  |
+  +----------> SMTP (Mailpit local)
 ```
 
 ### Flujo: consultar catálogo
@@ -169,8 +184,8 @@ Además, el prompt solo envía el objetivo escrito por el usuario y el catálogo
                      |                                 |
                      v                                 v
                   Angular                           /api/**
-                                                       |
-                                                       v
+              (Tailwind CSS)                           |
+              (Stripe.js)                              v
                                              +------------------+
                                              |   Spring Boot    |
                                              |------------------|
@@ -178,19 +193,38 @@ Además, el prompt solo envía el objetivo escrito por el usuario y el catálogo
                                              | Security + JWT   |
                                              | Validation       |
                                              | RFC 7807         |
+                                             | Spring AI        |
+                                             | Spring Cloud     |
                                              +--------+---------+
                                                       |
-                   +----------------------------------+-------------------------------+
-                   |                  |                    |                          |
-                   v                  v                    v                          v
-              PostgreSQL           Redis               RabbitMQ                   Gemini
-              System of            Cache               Events                     AI
-               Record
-                                                          |
-                                                          v
-                                                   Async Consumers
+       +----------------+----------------+------------+----------+-----------+
+       |                |                |            |          |           |
+       v                v                v            v          v           v
+  PostgreSQL          Redis          RabbitMQ       Gemini    Stripe      SMTP
+  System of           Cache          Events        OpenAI   Payments    Mailpit
+   Record                                          Groq
+                                        |         ElevenLabs
+                                        v
+                                 Async Consumers
+                                        |
+                         +--------------+---------------+
+                         |                              |
+                         v                              v
+                   Notification                   Kafka Producer
+                    Consumer                            |
+                                                        v
+                                                  Apache Kafka
+                                                        |
+                                                        v
+                                              +-------------------+
+                                              |  Audit Service    |
+                                              |  (Spring Boot)    |
+                                              +--------+----------+
+                                                       |
+                                                       v
+                                                    MongoDB
 
-                         Observability
+                          Observability
 
 Spring Boot --> Actuator --> Micrometer --> Prometheus --> Grafana
 ```
@@ -264,47 +298,77 @@ Esto permite reemplazar Gemini por otro proveedor sin modificar el caso de uso.
 
 # 5. Tecnologías
 
-## Backend
+## Backend (SkillBridge API)
 
-- Java 21
-- Spring Boot 3.5.x
-- Spring MVC
-- Spring Security
-- Spring Data JPA
-- Spring Data Redis
-- Spring AMQP
-- Bean Validation
-- Flyway
-- PostgreSQL
-- JWT
-- Spring Boot Actuator
-- Micrometer Prometheus
-- Springdoc OpenAPI
-- JUnit 5
-- Mockito
-- Testcontainers preparado como dependencia
-- JaCoCo
+- **Lenguaje y Entorno:** Java 21 (Eclipse Temurin JDK)
+- **Framework Principal:** Spring Boot 3.5.6
+- **Web & REST:** Spring MVC, Bean Validation (Jakarta Validation)
+- **Seguridad:** Spring Security, JJWT (io.jsonwebtoken 0.12.6), CsrfCookieFilter, HttpOnly cookies, RBAC
+- **Persistencia & ORM:** Spring Data JPA, Hibernate (`ddl-auto: validate`), HikariCP
+- **Base de Datos Principal:** PostgreSQL 17
+- **Migraciones:** Flyway (`flyway-core` + `flyway-database-postgresql` con scripts V1 a V7)
+- **Caché:** Spring Data Redis, Redis 8 (Cache-Aside pattern con TTL configurable)
+- **Mensajería Asíncrona (Colas):** Spring AMQP, RabbitMQ 4 (con retry exponential backoff y Dead Letter Queue - DLQ)
+- **Streaming de Eventos (Pub/Sub):** Spring Kafka, Apache Kafka 7.8.0 (KRaft mode)
+- **Framework de Inteligencia Artificial:** Spring AI 1.1.8 (BOM), `spring-ai-starter-model-google-genai`, `spring-ai-starter-model-openai`
+- **Clientes HTTP Declarativos:** Spring Cloud OpenFeign 4.2.0 (usado para APIs externas y Stripe)
+- **Pasarela de Pagos:** Stripe Java SDK 28.3.0 (verificación criptográfica de webhooks y procesamiento de PaymentIntents)
+- **Email & Notificaciones:** Spring Boot Starter Mail (`JavaMailSender`), integración con servidor SMTP (Mailpit)
+- **Trazabilidad & Observabilidad:** Spring Boot Actuator, Micrometer Prometheus, Correlation ID Filter (`MDC`)
+- **Documentación de API:** Springdoc OpenAPI 2.8.13 (Swagger UI en `/swagger-ui.html`)
+- **Productividad:** Project Lombok
+- **Testing:** JUnit 5, Mockito, Spring Security Test, Spring Kafka Test, Testcontainers 1.21.4 (PostgreSQL, RabbitMQ, MongoDB), JaCoCo 0.8.13
 
-## Frontend
+## Frontend (SkillBridge Web)
 
-- Angular 20
-- Standalone Components
-- HttpClient
-- Functional Interceptor
-- Angular Router
-- Runtime configuration mediante `env.js`
-- Nginx para la imagen Docker de producción
+- **Framework:** Angular 20.3.x (Standalone Components, sin NgModules)
+- **Lenguaje:** TypeScript 5.9.x (ES2022, strict mode habilitado)
+- **Estilos & UI:** Tailwind CSS 4.3.x (CSS-first engine con `@tailwindcss/postcss`), PostCSS 8.5.x
+- **Pagos en Cliente:** Stripe.js (`@stripe/stripe-js` 10.1.x) con modal de pago interactivo
+- **Reactividad:** RxJS 7.8.x
+- **Arquitectura Angular:**
+  - Bootstrap funcional con `bootstrapApplication()`
+  - Control flow moderno (`@if`, `@for`, `@switch`)
+  - Interceptores HTTP funcionales (`withInterceptors([authInterceptor])`)
+  - Route Guards funcionales (`authGuard`, `guestGuard`, `roleGuard`)
+- **Configuración en Runtime:** Generación dinámica de variables mediante `scripts/generate-env.mjs` (`window.__env`)
+- **Testing:** Jasmine 5.9.x, Karma 6.4.x, Karma Coverage
+- **Servidor Web Producción:** Nginx (stable-alpine) con compresión gzip, cabeceras de seguridad y fallback SPA (`try_files`)
 
-## Infraestructura
+## Microservicio de Auditoría (Audit Service)
 
-- Docker
-- Docker Compose
-- PostgreSQL 17
-- Redis 8
-- RabbitMQ 4 Management
-- Nginx
-- Prometheus
-- Grafana
+- **Backend:** Spring Boot 3.5.6 independiente (`audit-service/backend`)
+- **Base de Datos de Auditoría:** MongoDB 7 (Spring Data MongoDB)
+- **Consumo de Eventos:** Spring Kafka Consumer en tiempo real desde tópicos Kafka (`booking-events`)
+- **Frontend de Auditoría:** Aplicación Angular 20 (`audit-service/frontend`) con Tailwind CSS v3
+
+## Proveedores de IA & Audio
+
+- **Google Gemini:** Modelo `gemini-3.8-flash` (recomendaciones contextuales del catálogo, STT multimodal)
+- **OpenAI:** Modelos `gpt-4-turbo`, `gpt-3.5-turbo` (proveedor alternativo vía Spring AI)
+- **Groq:** Speech-to-Text de ultra baja latencia con Whisper
+- **ElevenLabs:** Text-to-Speech multilingüe de alta fidelidad (`eleven_multilingual_v2`)
+
+## Infraestructura & DevOps (Docker Compose - 12 Servicios)
+
+- **PostgreSQL 17-alpine:** Base de datos relacional transaccional (puerto host: 5433)
+- **Redis 8-alpine:** Caché en memoria con persistencia appendonly (puerto: 6379)
+- **RabbitMQ 4-management-alpine:** Broker AMQP con panel de administración web (puertos: 5672, 15672)
+- **Apache Kafka 7.8.0 (Confluent):** Motor de streaming de eventos en modo KRaft (puertos: 9092, 29092)
+- **MongoDB 7:** Base de datos NoSQL de documentos para logs de auditoría (puerto: 27018)
+- **Mailpit:** Servidor SMTP de desarrollo y cliente Webmail (puertos: 1025, 8025)
+- **Prometheus v3.5.0:** Recolección de métricas de rendimiento (puerto: 9090)
+- **Grafana 12.1.1:** Tableros de observabilidad aprovisionados automáticamente (puerto: 3000)
+- **Nginx (stable-alpine):** Reverse proxy y entrega de estáticos (puertos: 8088 y 8090)
+- **Backend API:** Contenedor Eclipse Temurin 21 JRE multi-stage (puerto: 8080)
+- **Audit Backend:** Contenedor Eclipse Temurin 21 JRE multi-stage (puerto: 8081)
+- **Docker Compose:** Orquestación completa con healthchecks interconectados por red interna
+
+## Calidad de Código & Linters
+
+- **Qodana (JetBrains):** Análisis estático continuo de calidad, dependencias y seguridad vía GitHub Actions (`qodana_code_quality.yml`)
+- **EditorConfig:** Estandarización de formato de archivos (UTF-8, LF, sangrías consistentes)
+- **JaCoCo:** Umbrales y reportes de cobertura de código automatizados
 
 ## Cloud gratuito sugerido para laboratorio
 
@@ -314,6 +378,8 @@ Backend        -> Render Free Web Service
 PostgreSQL     -> Neon Free
 Redis          -> Upstash Redis Free
 RabbitMQ       -> CloudAMQP Little Lemur Free
+Kafka          -> Upstash Kafka / Confluent Cloud Free
+MongoDB        -> MongoDB Atlas Free (M0)
 IA             -> Gemini Developer API Free Tier
 Repositorio    -> GitHub
 CI             -> GitHub Actions
@@ -417,14 +483,21 @@ Todos los servicios principales deberían estar `running`/`healthy`.
 
 ## URLs locales
 
-| Servicio | URL |
-|---|---|
-| Aplicación Angular vía Nginx | http://localhost:8088 |
-| Backend directo | http://localhost:8080 |
-| Swagger | http://localhost:8080/swagger-ui.html |
-| Health | http://localhost:8080/actuator/health |
-| RabbitMQ Management | http://localhost:15672 |
-| PostgreSQL | localhost:5432 |
+| Servicio | URL | Credenciales / Notas |
+|---|---|---|
+| Aplicación Angular vía Nginx | http://localhost:8088 | SPA cliente con Tailwind CSS |
+| Backend directo | http://localhost:8080 | API Spring Boot principal |
+| Swagger UI | http://localhost:8080/swagger-ui.html | Documentación interactiva OpenAPI |
+| Health Checks | http://localhost:8080/actuator/health | Liveness & Readiness probes |
+| RabbitMQ Management | http://localhost:15672 | `guest` / `guest` |
+| PostgreSQL | localhost:5433 | `skillbridge` / `skillbridge_dev` (mapeado a 5433) |
+| Apache Kafka | localhost:9092 | Broker KRaft (interno 29092) |
+| Mailpit Web UI | http://localhost:8025 | Interfaz web para visualizar emails locales (SMTP: 1025) |
+| Audit Service Backend | http://localhost:8081 | API de auditoría con MongoDB |
+| Audit Service Frontend | http://localhost:8090 | Panel Angular de auditoría |
+| MongoDB (Auditoría) | localhost:27018 | Base de datos documental |
+| Prometheus | http://localhost:9090 | Profile `observability` |
+| Grafana | http://localhost:3000 | Profile `observability` (`admin` / `admin`) |
 
 RabbitMQ local:
 
@@ -633,13 +706,22 @@ SkillBridge soporta múltiples proveedores de IA sin cambio de código. El prove
 - **Modelo**: `gemini-3.8-flash`
 - **Latencia**: ~1350ms
 - **Costo**: ~$0.000035 por request
-- **Característica**: Ideal para desarrollo (free tier disponible)
+- **Característica**: Ideal para desarrollo (free tier disponible). Soporta recomendaciones de texto y procesamiento multimodal (voz e imágenes).
 
 #### OpenAI
 - **Modelo**: `gpt-4-turbo` (recomendado) o `gpt-3.5-turbo` (económico)
 - **Latencia**: ~1050ms (22% más rápido que Gemini)
 - **Costo**: ~$0.0039 (GPT-4) o ~$0.000195 (GPT-3.5) por request
-- **Característica**: Mejor calidad, más consistente
+- **Característica**: Mejor calidad y consistencia en prompts estructurados.
+
+#### Groq (Speech-to-Text)
+- **Modelo**: Whisper en Groq LPU
+- **Latencia**: Ultra baja (< 300ms)
+- **Característica**: Transcripción de audio a texto para solicitudes por voz mediante `GroqSpeechToTextAdapter`.
+
+#### ElevenLabs (Text-to-Speech)
+- **Modelo**: `eleven_multilingual_v2`
+- **Característica**: Síntesis de voz realista para lectura de recomendaciones mediante `ElevenLabsTextToSpeechAdapter`.
 
 **Para más detalles**, ve a `docs/AI_PROVIDER_COMPARISON.md`.
 
@@ -731,11 +813,24 @@ const API_KEY = 'secret'; // ❌ NO
 
 El navegador es un entorno no confiable: cualquier secreto incluido en el bundle frontend puede ser inspeccionado con DevTools.
 
-## 10.4 Endpoint
+## 10.4 Endpoint y Soporte Multimodal
+
+El backend expone endpoints inteligentes con validación de archivos:
 
 ```text
-POST /api/ai/recommendations
+POST /api/ai/recommendations       # Recomendaciones de servicios (Texto, Audio o Imagen)
+POST /api/ai/text-to-speech       # Síntesis de voz con ElevenLabs
 ```
+
+### Recomendaciones Multimodales (HU-23)
+
+El asistente acepta **texto**, **archivos de audio** (transcritos con Gemini o Groq) e **imágenes** directamente en `/api/ai/recommendations`.
+
+- Todo el procesamiento de IA ocurre exclusivamente en Spring Boot; el frontend jamás manipula API keys ni secretos.
+- Parámetros de validación configurables en el entorno:
+  - `AI_MEDIA_MAX_AUDIO_BYTES` (por defecto: 10 MB)
+  - `AI_MEDIA_MAX_IMAGE_BYTES` (por defecto: 5 MB)
+  - `AI_MULTIPART_MAX_FILE_SIZE` / `AI_MULTIPART_MAX_REQUEST_SIZE` (10 MB)
 
 Ejemplo:
 
@@ -783,6 +878,45 @@ Cada prueba verifica:
 | Máxima calidad | OpenAI 4-turbo | Mejor reasoning (+8% calidad) |
 
 ---
+
+---
+
+# 10.7 Pasarela de Pagos (Stripe)
+
+SkillBridge implementa un flujo completo de pagos para la confirmación de reservas de mentorías:
+
+```text
+Angular (Stripe.js)
+        |
+        v  1. Crear PaymentIntent
+PaymentController (/api/payments/intent)
+        |
+        +-----> StripePaymentAdapter (Stripe Java SDK + OpenFeign)
+        |
+        +-----> Stripe API
+        |
+        v  2. Confirmación de pago en cliente
+Stripe Webhook (/api/payments/webhook)
+        |
+        +-----> Verificación criptográfica de firma (STRIPE_WEBHOOK_SECRET)
+        |
+        +-----> Publicar evento de pago confirmado en Kafka / RabbitMQ
+```
+
+### Configuración de Pagos:
+- Proveedor parametrizable: `PAYMENT_PROVIDER=stripe` o `PAYMENT_PROVIDER=simulated` (para pruebas locales sin internet).
+- Frontend integra un modal interactivo (`PaymentModal`) con elementos de tarjeta protegidos vía Stripe.js.
+- En el backend, las claves `STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET` se inyectan únicamente por entorno.
+
+---
+
+# 10.8 Notificaciones y Servidor de Email (Mailpit)
+
+El sistema soporta envío de confirmaciones y alertas transaccionales:
+
+- **Modo Simulado (`NOTIFICATIONS_SENDER=simulated`):** Registra los correos en logs estructurados con MDC Correlation ID.
+- **Modo Email (`NOTIFICATIONS_SENDER=email`):** Envía correos SMTP reales vía `Spring Boot Starter Mail` (`JavaMailSender`).
+- **Mailpit Local:** Para desarrollo local, Docker Compose levanta un servidor Mailpit en `localhost:1025` (SMTP) con una interfaz web en `http://localhost:8025` para inspeccionar emails enviados sin necesidad de cuentas reales.
 
 # 11. Nginx
 
@@ -946,42 +1080,44 @@ backend/target/site/jacoco/index.html
 
 El proyecto incluye un ejemplo de prueba de `OfferingService` que demuestra que cuando existe cache hit el repositorio no debe consultarse.
 
-## Siguiente nivel recomendado
+## Pruebas de Integración con Testcontainers
 
-Agregar Testcontainers para probar:
+El proyecto cuenta con suites de pruebas de integración reales usando **Testcontainers 1.21.4**:
 
-- PostgreSQL real.
-- Flyway migrations.
-- repositorios JPA.
-- Redis.
-- RabbitMQ.
+- `BookingCancellationIT` y `JpaOfferingRepositoryTest`: Prueban persistencia real contra un contenedor efímero de **PostgreSQL 17**.
+- `NotificationFlowIT`: Prueba el flujo extremo a extremo de publicación, colas de retry y DLQ contra un contenedor efímero de **RabbitMQ 4**.
+- `AuditRepositoryIT`: Prueba persistencia documental contra un contenedor efímero de **MongoDB 7** en el servicio de auditoría.
+- `StripeWebhookControllerTest` y `GroqSpeechToTextAdapterTest`: Pruebas de integración con clientes simulados y webhooks seguros.
 
 ---
 
-# 16. CI con GitHub Actions
+# 16. CI con GitHub Actions & Calidad de Código (Qodana)
 
-Existe:
+El repositorio incluye dos flujos de trabajo automatizados:
 
-```text
-.github/workflows/ci.yml
-```
-
-En cada Pull Request ejecuta:
-
+### 1. `ci.yml` (Integración Continua Principal)
+Se ejecuta en cada Push y Pull Request hacia `main` y `develop`:
 ```text
 Backend
-  -> Java 21
-  -> mvn clean verify
+  -> Java 21 (Temurin)
+  -> mvn clean verify (Tests unitarios, integración y reporte JaCoCo)
 
 Frontend
   -> Node 22
-  -> npm install
-  -> npm run build
+  -> npm ci
+  -> npm run test (Karma en modo ChromeHeadless)
+  -> npm run build (Build de producción con Tailwind CSS)
 
 Docker
-  -> build backend image
-  -> build frontend image
+  -> docker/setup-buildx-action
+  -> docker/build-push-action v6 (Verificación de construcción de imágenes backend y frontend)
 ```
+
+### 2. `qodana_code_quality.yml` (Análisis Estático JetBrains Qodana)
+Analiza el código en cada commit y Pull Request:
+- Linter: `qodana-jvm`
+- Perfil: `qodana.recommended`
+- Verificaciones: Detección de vulnerabilidades, dependencias obsoletas, licencias prohibidas (`CheckDependencyLicenses`) y buenas prácticas Java/Spring.
 
 Para una cohorte real recomiendo que después de ejecutar una vez `npm install` se confirme el `package-lock.json` al repositorio y se cambien los comandos a `npm ci` para builds completamente reproducibles.
 
@@ -1323,30 +1459,62 @@ Si quieres demostrar Nginx también en cloud, puedes desplegar `frontend/Dockerf
 
 ---
 
-# 25. Variables de producción
+# 25. Variables de producción y entorno
 
-## Backend
+## Backend Principal (`backend`)
+
+| Variable | Propósito | Valor por Defecto / Ejemplo |
+|---|---|---|
+| `DATABASE_URL` | Conexión JDBC PostgreSQL | `jdbc:postgresql://postgres:5432/skillbridge` |
+| `DATABASE_USER` | Usuario de base de datos | `skillbridge` |
+| `DATABASE_PASSWORD` | Contraseña de base de datos | `skillbridge_dev` |
+| `DB_POOL_SIZE` | Tamaño máximo pool HikariCP | `5` |
+| `REDIS_URL` | Conexión Redis (local o TLS cloud) | `redis://redis:6379` o `rediss://...` |
+| `OFFERINGS_CACHE_TTL_MINUTES` | TTL en minutos de la caché de catálogo | `10` |
+| `RABBITMQ_URL` | Conexión AMQP RabbitMQ | `amqp://guest:guest@rabbitmq:5672` |
+| `KAFKA_BOOTSTRAP_SERVERS` | Servidores Apache Kafka | `kafka:29092` |
+| `KAFKA_TOPIC_BOOKING_EVENTS` | Nombre del tópico de eventos de reservas | `booking-events` |
+| `KAFKA_CONSUMER_GROUP` | Grupo consumidor de Kafka | `skillbridge-main-group` |
+| `JWT_SECRET` | Clave secreta para firma HMAC de JWT | Mínimo 32 caracteres seguros |
+| `JWT_EXPIRATION_MINUTES` | Duración del token JWT en minutos | `120` |
+| `CORS_ALLOWED_ORIGINS` | Orígenes permitidos (separados por coma) | `http://localhost:8088,http://localhost:4200` |
+| `AI_PROVIDER` | Proveedor activo de IA (`gemini` o `openai`) | `gemini` |
+| `GEMINI_API_KEY` | Clave de Google AI Studio | Clave privada |
+| `GEMINI_MODEL` | Modelo de Google Gemini | `gemini-3.8-flash` |
+| `OPENAI_API_KEY` | Clave de OpenAI | `sk-...` |
+| `OPENAI_MODEL` | Modelo de OpenAI | `gpt-4-turbo` |
+| `GROQ_API_KEY` | Clave de Groq para Speech-to-Text | Clave privada Groq |
+| `AI_AUDIO_PROVIDER` | Proveedor para transcripción de audio | `gemini` o `groq` |
+| `AI_MEDIA_MAX_AUDIO_BYTES` | Límite máximo de audio para IA (bytes) | `10485760` (10 MB) |
+| `AI_MEDIA_MAX_IMAGE_BYTES` | Límite máximo de imagen para IA (bytes) | `5242880` (5 MB) |
+| `TTS_ENABLED` | Activar o desactivar síntesis de voz | `false` / `true` |
+| `ELEVENLABS_API_KEY` | Clave de ElevenLabs para TTS | Clave privada |
+| `ELEVENLABS_VOICE_ID` | Identificador de voz en ElevenLabs | ID de voz |
+| `ELEVENLABS_MODEL_ID` | Modelo TTS de ElevenLabs | `eleven_multilingual_v2` |
+| `PAYMENT_PROVIDER` | Modo de pagos (`stripe` o `simulated`) | `stripe` |
+| `STRIPE_SECRET_KEY` | Clave secreta de Stripe | `sk_test_...` |
+| `STRIPE_WEBHOOK_SECRET` | Secreto para validar firma de webhook | `whsec_...` |
+| `STRIPE_CURRENCY` | Moneda de cobros | `usd` |
+| `NOTIFICATIONS_SENDER` | Modo de envío (`simulated` o `email`) | `simulated` |
+| `NOTIFICATIONS_EMAIL_FROM` | Dirección de remitente de correos | `no-reply@skillbridge.local` |
+| `MAIL_HOST` | Host SMTP (Mailpit o proveedor cloud) | `mailpit` |
+| `MAIL_PORT` | Puerto SMTP | `1025` |
+
+## Microservicio de Auditoría (`audit-backend`)
+
+| Variable | Propósito | Ejemplo |
+|---|---|---|
+| `PORT` | Puerto de escucha del servicio | `8081` |
+| `KAFKA_BOOTSTRAP_SERVERS` | Servidores Kafka | `kafka:29092` |
+| `AUDIT_MONGO_URI` | Cadena de conexión MongoDB | `mongodb://audit-mongo:27017/audit` |
+| `AUDIT_MONGO_DB` | Base de datos de logs de auditoría | `audit` |
+
+## Frontend (`frontend`)
 
 | Variable | Propósito |
 |---|---|
-| `DATABASE_URL` | JDBC PostgreSQL |
-| `DATABASE_USER` | usuario DB |
-| `DATABASE_PASSWORD` | password DB |
-| `REDIS_URL` | Redis local/cloud |
-| `RABBITMQ_URL` | AMQP/AMQPS |
-| `JWT_SECRET` | firma JWT |
-| `JWT_EXPIRATION_MINUTES` | expiración del token |
-| `GEMINI_API_KEY` | key IA |
-| `GEMINI_MODEL` | modelo IA |
-| `CORS_ALLOWED_ORIGINS` | orígenes frontend |
-| `OFFERINGS_CACHE_TTL_MINUTES` | TTL de catálogo |
-| `DB_POOL_SIZE` | Hikari pool |
-
-## Frontend
-
-| Variable | Propósito |
-|---|---|
-| `API_URL` | URL pública del backend + `/api` |
+| `API_URL` | URL pública de la API Spring Boot (ej. `/api` o `https://tu-api.onrender.com/api`) |
+| `STRIPE_PUBLISHABLE_KEY` | Clave pública de Stripe para inicializar el cliente Stripe Elements |
 
 ---
 
@@ -1354,15 +1522,16 @@ Si quieres demostrar Nginx también en cloud, puedes desplegar `frontend/Dockerf
 
 El starter implementa:
 
-- password BCrypt;
-- JWT firmado;
-- API stateless;
-- rutas públicas y autenticadas;
-- CORS parametrizable;
-- validación de requests;
-- secretos por variables de entorno;
-- usuario no-root en el contenedor Java;
-- headers básicos en Nginx.
+- Contraseñas protegidas mediante hash BCrypt (Spring Security Crypto).
+- JWT firmado digitalmente con clave simétrica secreta (JJWT 0.12.6).
+- Doble soporte de transporte de sesión: Cabecera `Authorization: Bearer <token>` y Cookie `access_token` (`HttpOnly`, `SameSite=None`, `Secure`).
+- Protección CSRF mediante `CsrfCookieFilter` con cookie `XSRF-TOKEN` y cabecera `X-XSRF-TOKEN`.
+- Trazabilidad y correlación distribuida con `CorrelationIdFilter` (`X-Correlation-Id` en cabeceras y `MDC` en logs).
+- Verificación criptográfica obligatoria de firmas de webhooks de Stripe (`Stripe-Signature`).
+- API stateless y autorización basada en roles (RBAC: `ADMIN`, `PROVIDER`, `USER`).
+- Validación estricta de payloads con Jakarta Bean Validation y validadores personalizados de archivos multimedia.
+- Contenedores Docker configurados con usuarios no-root (`spring` UID 10001).
+- Headers de seguridad en Nginx (`X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`).
 
 ## Los estudiantes deben agregar
 
@@ -1850,9 +2019,3 @@ La evaluación no debería limitarse a "funciona". La célula debe poder **expli
 ## Licencia de uso educativo
 
 Este starter puede ser adaptado libremente como material de formación. Las credenciales de proveedores externos y los límites de sus planes son responsabilidad de cada equipo.
-# SkillBridge-AI-JAVA-Angular
-# SkillBridge-AI-JAVA-Angular
-
-### Recomendaciones multimodales
-
-El asistente acepta texto, archivos de voz e imágenes en `/api/ai/recommendations`. Todo el procesamiento Gemini ocurre en Spring Boot; el frontend no contiene API keys. Configura `GEMINI_API_KEY`, `GEMINI_MODEL`, `AI_MEDIA_MAX_AUDIO_BYTES` y `AI_MEDIA_MAX_IMAGE_BYTES` en el entorno del backend.
