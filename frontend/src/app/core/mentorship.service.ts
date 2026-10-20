@@ -6,7 +6,7 @@ import { apiBase } from './api';
 export type MentorshipMode = 'ASYNCHRONOUS' | 'LIVE';
 export type MentorshipStatus = 'PENDING_PAYMENT' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED' | 'NO_SHOW';
 export interface Mentorship { id: string; mode: MentorshipMode; status: MentorshipStatus; accessStartsAt: string; accessEndsAt: string; progressPercent: number; }
-export interface MentorshipAccess { mode: MentorshipMode; accessEndsAt: string; liveRoomUrl: string; }
+export interface MentorshipAccess { mode: MentorshipMode; accessEndsAt: string; liveRoomUrl: string; zoomMeetingId?: string; zoomPasscode?: string; zoomSdkKey?: string; zoomSignature?: string; }
 export interface MentorshipResource { id: string; title: string; resourceType: 'VIDEO' | 'DOCUMENT' | 'LINK'; url: string; }
 @Injectable({providedIn: 'root'})
 export class MentorshipService {

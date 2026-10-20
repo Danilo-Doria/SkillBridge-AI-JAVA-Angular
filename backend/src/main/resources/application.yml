@@ -153,3 +153,10 @@ stripe:
   secret-key: ${STRIPE_SECRET_KEY:}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
   currency: ${STRIPE_CURRENCY:usd}
+
+zoom:
+  account-id: ${ZOOM_ACCOUNT_ID:}
+  client-id: ${ZOOM_CLIENT_ID:}
+  client-secret: ${ZOOM_CLIENT_SECRET:}
+  sdk-key: ${ZOOM_SDK_KEY:}
+  sdk-secret: ${ZOOM_SDK_SECRET:}

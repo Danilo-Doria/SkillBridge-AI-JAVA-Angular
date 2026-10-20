@@ -20,6 +20,7 @@
     "@angular/router": "^20.3.0",
     "@stripe/stripe-js": "^10.1.0",
     "@tailwindcss/postcss": "^4.3.3",
+    "@zoom/meetingsdk": "^6.5.0",
     "postcss": "^8.5.28",
     "rxjs": "~7.8.2",
     "tailwindcss": "^4.3.3",

@@ -85,6 +85,11 @@ services:
       STRIPE_API_URL: ${STRIPE_API_URL:-https://api.stripe.com}
       STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
       PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-stripe}
+      ZOOM_ACCOUNT_ID: ${ZOOM_ACCOUNT_ID:-}
+      ZOOM_CLIENT_ID: ${ZOOM_CLIENT_ID:-}
+      ZOOM_CLIENT_SECRET: ${ZOOM_CLIENT_SECRET:-}
+      ZOOM_SDK_KEY: ${ZOOM_SDK_KEY:-}
+      ZOOM_SDK_SECRET: ${ZOOM_SDK_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy

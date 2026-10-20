@@ -19,6 +19,8 @@ public class MentorshipAssignmentEntity {
     @Column(name = "access_ends_at", nullable = false) private Instant accessEndsAt;
     @Column(name = "progress_percent", nullable = false) private int progressPercent;
     @Column(name = "live_room_url") private String liveRoomUrl;
+    @Column(name = "zoom_meeting_id") private String zoomMeetingId;
+    @Column(name = "zoom_passcode") private String zoomPasscode;
     @Column(name = "completed_at") private Instant completedAt;
     @Version private long version;
 
@@ -28,5 +30,7 @@ public class MentorshipAssignmentEntity {
     }
     public UUID getId(){return id;} public UUID getBookingId(){return bookingId;} public UUID getCustomerId(){return customerId;} public UUID getOfferingId(){return offeringId;}
     public MentorshipMode getMode(){return mode;} public MentorshipStatus getStatus(){return status;} public Instant getAccessStartsAt(){return accessStartsAt;} public Instant getAccessEndsAt(){return accessEndsAt;} public int getProgressPercent(){return progressPercent;} public String getLiveRoomUrl(){return liveRoomUrl;} public Instant getCompletedAt(){return completedAt;}
+    public String getZoomMeetingId(){return zoomMeetingId;} public String getZoomPasscode(){return zoomPasscode;}
+    public void setZoomMeeting(String meetingId, String passcode, String joinUrl){this.zoomMeetingId=meetingId; this.zoomPasscode=passcode; this.liveRoomUrl=joinUrl;}
     public void update(MentorshipStatus status, int progressPercent, Instant completedAt) { this.status=status; this.progressPercent=progressPercent; this.completedAt=completedAt; }
 }

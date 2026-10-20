@@ -13,6 +13,7 @@ import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.Jp
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaMentorshipAssignmentRepository;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaOfferingRepository;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaMentorshipResourceRepository;
+import com.riwi.skillbridge.infrastructure.adapter.out.zoom.ZoomMeetingClient;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -29,8 +30,9 @@ public class MentorshipController {
     private final JpaBookingRepository bookings;
     private final JpaOfferingRepository offerings;
     private final JpaMentorshipResourceRepository resources;
+    private final ZoomMeetingClient zoom;
     private final UserRepositoryPort users;
-    public MentorshipController(JpaMentorshipAssignmentRepository assignments, JpaBookingRepository bookings, JpaOfferingRepository offerings, JpaMentorshipResourceRepository resources, UserRepositoryPort users) { this.assignments=assignments; this.bookings=bookings; this.offerings=offerings; this.resources=resources; this.users=users; }
+    public MentorshipController(JpaMentorshipAssignmentRepository assignments, JpaBookingRepository bookings, JpaOfferingRepository offerings, JpaMentorshipResourceRepository resources, ZoomMeetingClient zoom, UserRepositoryPort users) { this.assignments=assignments; this.bookings=bookings; this.offerings=offerings; this.resources=resources; this.zoom=zoom; this.users=users; }
 
     @GetMapping("/me")
     public List<MentorshipAssignmentEntity> mine(Authentication auth) {
@@ -64,12 +66,27 @@ public class MentorshipController {
         return assignments.save(assignment);
     }
 
+    @PostMapping("/{id}/zoom-meeting")
+    @Transactional
+    public MentorshipAssignmentEntity createZoomMeeting(@PathVariable UUID id, Authentication auth) {
+        var assignment = assignments.findById(id).orElseThrow(() -> new DomainNotFoundException("Mentoría no encontrada"));
+        if (assignment.getMode() != MentorshipMode.LIVE) throw new BusinessRuleException("Solo las mentorías en vivo pueden crear una reunión Zoom");
+        requireAssignmentOwner(assignment, auth);
+        if (assignment.getZoomMeetingId() != null) return assignment;
+        var offering = offerings.findById(assignment.getOfferingId()).orElseThrow(() -> new DomainNotFoundException("Servicio no encontrado"));
+        var meeting = zoom.create(offering.getTitle(), assignment.getAccessStartsAt(), assignment.getAccessEndsAt());
+        assignment.setZoomMeeting(meeting.meetingId(), meeting.passcode(), meeting.joinUrl());
+        return assignments.save(assignment);
+    }
+
     @GetMapping("/{id}/access")
     public Map<String,Object> access(@PathVariable UUID id, Authentication auth) {
         var assignment = owned(id, auth); Instant now = Instant.now();
         if (assignment.getStatus() == MentorshipStatus.COMPLETED || assignment.getStatus() == MentorshipStatus.CANCELLED || assignment.getStatus() == MentorshipStatus.NO_SHOW || !now.isBefore(assignment.getAccessEndsAt())) throw new ForbiddenOperationException("El acceso a esta mentoría ya no está habilitado");
         if (now.isBefore(assignment.getAccessStartsAt())) throw new ForbiddenOperationException("La mentoría aún no está disponible");
-        return Map.of("assignmentId", assignment.getId(), "mode", assignment.getMode(), "accessEndsAt", assignment.getAccessEndsAt(), "liveRoomUrl", assignment.getMode() == MentorshipMode.LIVE && assignment.getLiveRoomUrl() != null ? assignment.getLiveRoomUrl() : "");
+        Map<String,Object> access = new LinkedHashMap<>(); access.put("assignmentId", assignment.getId()); access.put("mode", assignment.getMode()); access.put("accessEndsAt", assignment.getAccessEndsAt()); access.put("liveRoomUrl", assignment.getMode() == MentorshipMode.LIVE && assignment.getLiveRoomUrl() != null ? assignment.getLiveRoomUrl() : "");
+        if (assignment.getMode() == MentorshipMode.LIVE && assignment.getZoomMeetingId() != null) { access.put("zoomMeetingId", assignment.getZoomMeetingId()); access.put("zoomPasscode", assignment.getZoomPasscode()); access.put("zoomSdkKey", zoom.sdkKey()); access.put("zoomSignature", zoom.participantSignature(assignment.getZoomMeetingId())); }
+        return access;
     }
     @GetMapping("/{id}/resources")
     public List<MentorshipResourceEntity> resources(@PathVariable UUID id, Authentication auth) {
@@ -78,6 +95,7 @@ public class MentorshipController {
         return resources.findByOfferingIdOrderByCreatedAtAsc(assignment.getOfferingId());
     }
     private MentorshipAssignmentEntity owned(UUID id, Authentication auth) { var a=assignments.findById(id).orElseThrow(() -> new DomainNotFoundException("Mentoría no encontrada")); if (!a.getCustomerId().equals(currentUser(auth).id())) throw new DomainNotFoundException("Mentoría no encontrada"); return a; }
+    private void requireAssignmentOwner(MentorshipAssignmentEntity assignment, Authentication auth) { UserAccount actor=currentUser(auth); if (actor.role() == Role.ADMIN) return; var offering=offerings.findById(assignment.getOfferingId()).orElseThrow(() -> new DomainNotFoundException("Servicio no encontrado")); if (actor.role() != Role.PROVIDER || !offering.getProviderId().equals(actor.id())) throw new ForbiddenOperationException("No puedes crear la sala de esta mentoría"); }
     private UserAccount currentUser(Authentication auth) { return users.findByEmail(auth.getName()).orElseThrow(() -> new DomainNotFoundException("Usuario no encontrado")); }
     private void requireStaff(Authentication auth) { if (auth.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_PROVIDER") || a.getAuthority().equals("ROLE_ADMIN"))) throw new ForbiddenOperationException("Solo un Provider o Admin puede asignar mentorías"); }
 }
