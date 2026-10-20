@@ -8,9 +8,11 @@ import com.riwi.skillbridge.application.port.out.UserRepositoryPort;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.MentorshipAssignmentRequest;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.ProgressRequest;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.MentorshipAssignmentEntity;
+import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.MentorshipResourceEntity;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingRepository;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaMentorshipAssignmentRepository;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaOfferingRepository;
+import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaMentorshipResourceRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -26,8 +28,9 @@ public class MentorshipController {
     private final JpaMentorshipAssignmentRepository assignments;
     private final JpaBookingRepository bookings;
     private final JpaOfferingRepository offerings;
+    private final JpaMentorshipResourceRepository resources;
     private final UserRepositoryPort users;
-    public MentorshipController(JpaMentorshipAssignmentRepository assignments, JpaBookingRepository bookings, JpaOfferingRepository offerings, UserRepositoryPort users) { this.assignments=assignments; this.bookings=bookings; this.offerings=offerings; this.users=users; }
+    public MentorshipController(JpaMentorshipAssignmentRepository assignments, JpaBookingRepository bookings, JpaOfferingRepository offerings, JpaMentorshipResourceRepository resources, UserRepositoryPort users) { this.assignments=assignments; this.bookings=bookings; this.offerings=offerings; this.resources=resources; this.users=users; }
 
     @GetMapping("/me")
     public List<MentorshipAssignmentEntity> mine(Authentication auth) {
@@ -67,6 +70,12 @@ public class MentorshipController {
         if (assignment.getStatus() == MentorshipStatus.COMPLETED || assignment.getStatus() == MentorshipStatus.CANCELLED || assignment.getStatus() == MentorshipStatus.NO_SHOW || !now.isBefore(assignment.getAccessEndsAt())) throw new ForbiddenOperationException("El acceso a esta mentoría ya no está habilitado");
         if (now.isBefore(assignment.getAccessStartsAt())) throw new ForbiddenOperationException("La mentoría aún no está disponible");
         return Map.of("assignmentId", assignment.getId(), "mode", assignment.getMode(), "accessEndsAt", assignment.getAccessEndsAt(), "liveRoomUrl", assignment.getMode() == MentorshipMode.LIVE && assignment.getLiveRoomUrl() != null ? assignment.getLiveRoomUrl() : "");
+    }
+    @GetMapping("/{id}/resources")
+    public List<MentorshipResourceEntity> resources(@PathVariable UUID id, Authentication auth) {
+        var assignment = owned(id, auth); Instant now = Instant.now();
+        if (assignment.getStatus() == MentorshipStatus.COMPLETED || assignment.getStatus() == MentorshipStatus.CANCELLED || assignment.getStatus() == MentorshipStatus.NO_SHOW || now.isBefore(assignment.getAccessStartsAt()) || !now.isBefore(assignment.getAccessEndsAt())) throw new ForbiddenOperationException("Los recursos no están disponibles para esta mentoría");
+        return resources.findByOfferingIdOrderByCreatedAtAsc(assignment.getOfferingId());
     }
     private MentorshipAssignmentEntity owned(UUID id, Authentication auth) { var a=assignments.findById(id).orElseThrow(() -> new DomainNotFoundException("Mentoría no encontrada")); if (!a.getCustomerId().equals(currentUser(auth).id())) throw new DomainNotFoundException("Mentoría no encontrada"); return a; }
     private UserAccount currentUser(Authentication auth) { return users.findByEmail(auth.getName()).orElseThrow(() -> new DomainNotFoundException("Usuario no encontrado")); }

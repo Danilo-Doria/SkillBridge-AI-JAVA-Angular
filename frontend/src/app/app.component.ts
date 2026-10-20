@@ -50,6 +50,10 @@ import { AuthService } from './core/auth.service';
               Ingresar
             </a>
           } @else {
+            <div class="hidden max-w-48 text-right md:block">
+              <p class="truncate text-xs font-medium text-[#111111]">{{ auth.email() }}</p>
+              <p class="text-[11px] uppercase tracking-wide text-[#787774]">{{ roleLabel() }}</p>
+            </div>
             <button type="button" (click)="auth.logout()"
                     class="cursor-pointer rounded-md px-4 py-2 text-sm font-medium text-[#111111] transition-[background-color,transform] duration-150 hover:bg-[#F1F0ED] active:scale-[0.97] motion-reduce:active:scale-100">
               Salir
@@ -123,6 +127,10 @@ import { AuthService } from './core/auth.service';
             Ingresar
           </a>
         } @else {
+          <div class="mb-4 rounded-md bg-[#F1F0ED] px-3 py-2.5">
+            <p class="truncate text-sm font-medium text-[#111111]">{{ auth.email() }}</p>
+            <p class="mt-0.5 text-xs uppercase tracking-wide text-[#787774]">{{ roleLabel() }}</p>
+          </div>
           <button type="button" (click)="handleLogout()"
                   class="w-full cursor-pointer rounded-md border border-[#EAEAEA] px-4 py-3 text-center text-sm font-medium text-[#111111] transition-[background-color,transform] duration-150 hover:bg-[#F1F0ED] active:scale-[0.98] motion-reduce:active:scale-100">
             Cerrar sesión
@@ -146,6 +154,15 @@ export class AppComponent {
 
   closeMenu(): void {
     this.isMenuOpen = false;
+  }
+
+  roleLabel(): string {
+    switch (this.auth.role()) {
+      case 'ADMIN': return 'Administrador';
+      case 'PROVIDER': return 'Provider';
+      case 'CUSTOMER': return 'Usuario';
+      default: return '';
+    }
   }
 
   handleLogout(): void {
