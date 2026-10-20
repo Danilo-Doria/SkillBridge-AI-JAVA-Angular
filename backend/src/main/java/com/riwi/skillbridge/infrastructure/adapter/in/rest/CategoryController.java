@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/categorias")
+@RequestMapping("/api/categories")
 @Tag(name = "Categories", description = "Consulta y gestión de categorías de servicios")
 public class CategoryController {
     private final ListCategoriesUseCase listCategories;
