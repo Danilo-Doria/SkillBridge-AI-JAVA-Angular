@@ -307,6 +307,22 @@ export class AiComponent implements OnDestroy {
     });
   }
 
+  // Arma el texto que se lee en voz alta: explicación + cursos sugeridos (razón y relevancia).
+  // Se limita a las 3 mejores recomendaciones para no pasar el límite de caracteres del TTS.
+  private buildSpeechText(): string {
+    const parts: string[] = [this.answer];
+
+    if (this.recommendations.length > 0) {
+      parts.push('Cursos sugeridos para ti.');
+      for (const r of this.recommendations.slice(0, 3)) {
+        const pct = Math.round(r.score * 100);
+        parts.push(`${r.reason} Relevancia: ${pct} por ciento.`);
+      }
+    }
+
+    return parts.join(' ');
+  }
+
   toggleAudio() {
     if (this.audioPlaying) {
       this.stopAudio();
@@ -315,18 +331,20 @@ export class AiComponent implements OnDestroy {
     if (!this.answer) return;
     this.audioError = '';
 
-    // Si ya generamos el audio de esta misma respuesta, lo reutilizamos (no se vuelve a cobrar)
-    if (this.audioUrl && this.audioForText === this.answer) {
+    const speechText = this.buildSpeechText();
+
+    // Si ya generamos el audio de este mismo texto, lo reutilizamos (no se vuelve a cobrar)
+    if (this.audioUrl && this.audioForText === speechText) {
       this.playUrl(this.audioUrl);
       return;
     }
 
     this.audioLoading = true;
-    this.http.post(`${apiBase()}/ai/tts`, { text: this.answer }, { responseType: 'blob' }).subscribe({
+    this.http.post(`${apiBase()}/ai/tts`, { text: speechText }, { responseType: 'blob' }).subscribe({
       next: (blob) => {
         this.clearAudio();
         this.audioUrl = URL.createObjectURL(blob);
-        this.audioForText = this.answer;
+        this.audioForText = speechText;
         this.audioLoading = false;
         this.playUrl(this.audioUrl);
       },

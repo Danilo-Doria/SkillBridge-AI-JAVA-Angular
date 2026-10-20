@@ -44,7 +44,7 @@ spring:
             max-output-tokens: ${GEMINI_MAX_OUTPUT_TOKENS:2048}
     tts:
       enabled: ${TTS_ENABLED:false}
-      max-chars: ${TTS_MAX_CHARS:1000}
+      max-chars: ${TTS_MAX_CHARS:2000}
       elevenlabs:
         api-key: ${ELEVENLABS_API_KEY:}
         voice-id: ${ELEVENLABS_VOICE_ID:}

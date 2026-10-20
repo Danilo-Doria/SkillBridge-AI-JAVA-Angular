@@ -13,7 +13,7 @@ public class TextToSpeechService implements SynthesizeSpeechUseCase {
     private final int maxChars;
 
     public TextToSpeechService(TextToSpeechPort port,
-                               @Value("${app.ai.tts.max-chars:1000}") int maxChars) {
+                               @Value("${app.ai.tts.max-chars:2000}") int maxChars) {
         this.port = port;
         this.maxChars = maxChars;
     }
