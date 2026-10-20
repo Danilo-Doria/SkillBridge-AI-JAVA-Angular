@@ -67,7 +67,7 @@
           </div>
 
           <!-- CASO 2: Inputs nativos para modo de prueba simulado (fallback cuando no hay STRIPE_PUBLISHABLE_KEY) -->
-          <ng-container *ngIf="!stripeAvailable">
+          <ng-container *ngIf="!stripeAvailable && !stripeConfigured">
             <div>
               <label class="mb-1.5 block text-xs font-medium text-[#787774]">Número de tarjeta (Modo Simulado)</label>
               <div class="relative">
@@ -157,7 +157,7 @@
         </button>
         <button
           type="submit"
-          [disabled]="loading || initializingStripe || (!stripeAvailable && !paymentForm.valid)"
+          [disabled]="loading || initializingStripe || (stripeConfigured && !stripeAvailable) || (!stripeAvailable && !stripeConfigured && !paymentForm.valid)"
           class="cursor-pointer rounded-md bg-[#111111] px-5 py-2 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100"
         >
           {{ loading ? 'Procesando...' : 'Confirmar pago' }}
