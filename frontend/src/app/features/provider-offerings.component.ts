@@ -34,7 +34,7 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
           </button>
         </header>
 
-        @if (error && !panelOpen) {
+        @if (error && !panelOpen && !deleteModalOpen) {
           <div role="alert" class="enter-rise mt-8 rounded-lg bg-[#FDEBEC] px-4 py-3 text-sm text-[#9F2F2D]">
             {{ error }}
           </div>
@@ -94,26 +94,48 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
 
           <div class="mt-4 flex flex-wrap gap-2">
             @for (category of categories; track category.id) {
-              <span class="rounded-md bg-[#F1F0ED] px-3 py-1.5 text-sm text-[#2F3437]">{{ category.name }}</span>
+              <div class="group inline-flex items-center gap-1.5 rounded-md bg-[#F1F0ED] px-3 py-1.5 text-sm text-[#2F3437] transition-colors duration-150 hover:bg-[#E9E8E4]">
+                <span>{{ category.name }}</span>
+                <button type="button" (click)="startEditCategory(category)" aria-label="Editar categoría"
+                        class="cursor-pointer rounded p-0.5 text-[#787774] transition-colors duration-150 hover:bg-[#DFDEDA] hover:text-[#111111]">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                    <path d="M227.31 73.37l-44.68-44.68a16 16 0 0 0-22.63 0L36.69 152.69a16 16 0 0 0-4.69 11.31V208a16 16 0 0 0 16 16h44a16 16 0 0 0 11.31-4.69l123.68-123.68a16 16 0 0 0 0-22.62zM68.68 192H48v-20.68l96-96L164.68 96z"/>
+                  </svg>
+                </button>
+                <button type="button" (click)="promptDeleteCategory(category)" aria-label="Eliminar categoría"
+                        class="cursor-pointer rounded p-0.5 text-[#787774] transition-colors duration-150 hover:bg-[#FDEBEC] hover:text-[#9F2F2D]">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                    <path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z"/>
+                  </svg>
+                </button>
+              </div>
             } @empty {
               <p class="text-sm text-[#787774]">{{ categoriesLoading ? 'Cargando categorías…' : 'Todavía no hay categorías.' }}</p>
             }
           </div>
 
-          <form class="mt-5 flex max-w-sm gap-2" (ngSubmit)="createCategory()">
+          <form class="mt-5 flex max-w-sm gap-2" (ngSubmit)="saveCategory()">
             <input class="min-w-0 flex-1 rounded-md border border-[#EAEAEA] bg-white px-3 py-2 text-sm text-[#111111] outline-none transition-colors duration-150 placeholder:text-[#9B9A97] focus:border-[#111111]"
                    name="newCategory" [(ngModel)]="newCategoryName"
-                   placeholder="Nueva categoría" maxlength="80" required>
+                   [placeholder]="editingCategoryId ? 'Actualizar categoría' : 'Nueva categoría'" maxlength="80" required>
+            
+            @if (editingCategoryId) {
+              <button type="button" (click)="cancelEditCategory()"
+                      class="cursor-pointer rounded-md px-3 py-2 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100">
+                Cancelar
+              </button>
+            }
+
             <button type="submit" [disabled]="categoryLoading"
-                    class="cursor-pointer rounded-md px-3 py-2 text-sm font-medium text-[#111111] transition-[background-color,transform,opacity] duration-150 hover:bg-[#F1F0ED] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100">
-              {{ categoryLoading ? 'Añadiendo…' : 'Añadir' }}
+                    class="cursor-pointer rounded-md px-4 py-2 text-sm font-medium text-[#111111] transition-[background-color,transform,opacity] duration-150 hover:bg-[#F1F0ED] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100">
+              {{ categoryLoading ? 'Guardando…' : (editingCategoryId ? 'Actualizar' : 'Añadir') }}
             </button>
           </form>
         </div>
       </div>
     </section>
 
-    <!-- Panel lateral: entra y sale por el mismo borde -->
+    <!-- Panel lateral de servicios -->
     <div (click)="closePanel()"
          class="fixed inset-0 z-40 bg-[#111111]/20 transition-opacity duration-300 ease-out"
          [class.opacity-100]="panelOpen" [class.opacity-0]="!panelOpen"
@@ -156,7 +178,6 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
                    name="title" [(ngModel)]="form.title" placeholder="Ej. Asesoría financiera" required>
           </div>
 
-          <!-- Categoría: selección directa, sin desplegable -->
           <div>
             <label class="mb-2 block text-sm text-[#787774]">Categoría</label>
             <div class="flex flex-wrap gap-2">
@@ -198,6 +219,34 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
         </div>
       </form>
     </aside>
+
+    <!-- Modal de confirmación de eliminación (A medida del diseño) -->
+    <div (click)="closeDeleteModal()"
+         class="fixed inset-0 z-40 bg-[#111111]/20 transition-opacity duration-300 ease-out"
+         [class.opacity-100]="deleteModalOpen" [class.opacity-0]="!deleteModalOpen"
+         [class.pointer-events-auto]="deleteModalOpen" [class.pointer-events-none]="!deleteModalOpen"></div>
+
+    @if (deleteModalOpen) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="enter-modal pointer-events-auto w-full max-w-sm rounded-xl border border-[#EAEAEA] bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.06)]">
+          <h3 class="font-display text-3xl text-[#111111]">Eliminar categoría</h3>
+          <p class="mt-3 text-sm text-[#787774] leading-relaxed">
+            ¿Estás seguro de que deseas eliminar <span class="font-medium text-[#111111]">"{{ categoryToDeleteName }}"</span>? Esta acción no se puede deshacer.
+          </p>
+
+          <div class="mt-7 flex items-center justify-end gap-2">
+            <button type="button" (click)="closeDeleteModal()"
+                    class="cursor-pointer rounded-md px-4 py-2.5 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100">
+              Cancelar
+            </button>
+            <button type="button" (click)="executeDeleteCategory()"
+                    class="cursor-pointer rounded-md bg-[#9F2F2D] px-5 py-2.5 text-sm font-medium text-white transition-[background-color,transform,opacity] duration-150 hover:bg-[#822523] active:scale-[0.98] motion-reduce:active:scale-100">
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class ProviderOfferingsComponent implements OnInit {
@@ -210,16 +259,19 @@ export class ProviderOfferingsComponent implements OnInit {
   form: Partial<OfferingPayload> = {};
   newCategoryName = '';
   editingId: string | null = null;
+  editingCategoryId: string | null = null;
+  
+  // Estados para el modal de eliminación
+  deleteModalOpen = false;
+  categoryToDeleteId: string | null = null;
+  categoryToDeleteName = '';
+
   loading = false;
   categoryLoading = false;
   offeringsLoading = true;
   categoriesLoading = true;
   error = '';
 
-  // Se conserva por compatibilidad (el selector ahora son chips)
-  categoryDropdownOpen = false;
-
-  // NUEVO: estado del panel lateral
   panelOpen = false;
 
   get isAdmin(): boolean { return this.auth.hasRole('ADMIN'); }
@@ -234,14 +286,89 @@ export class ProviderOfferingsComponent implements OnInit {
     const req = this.isAdmin ? this.service.listAll() : this.service.listMine();
     req.subscribe({
       next: r => { this.offerings = r; this.offeringsLoading = false; },
-      error: e => { this.offeringsLoading = false; this.fail(e, 'No fue posible cargar los servicios.'); },
+      error: (e: HttpErrorResponse) => { this.offeringsLoading = false; this.fail(e, 'No fue posible cargar los servicios.'); },
     });
   }
 
   loadCategories(): void {
     this.categoryService.list().subscribe({
       next: r => { this.categories = r; this.categoriesLoading = false; },
-      error: e => { this.categoriesLoading = false; this.fail(e, 'No fue posible cargar las categorías.'); },
+      error: (e: HttpErrorResponse) => { this.categoriesLoading = false; this.fail(e, 'No fue posible cargar las categorías.'); },
+    });
+  }
+
+  saveCategory(): void {
+    this.error = '';
+    const name = this.newCategoryName.trim();
+    if (!name) {
+      this.error = 'Escribe el nombre de la categoría.';
+      return;
+    }
+
+    this.categoryLoading = true;
+
+    if (this.editingCategoryId) {
+      this.categoryService.update(this.editingCategoryId, { name }).subscribe({
+        next: updated => {
+          this.categories = this.categories.map(c => c.id === updated.id ? updated : c).sort((a, b) => a.name.localeCompare(b.name));
+          this.cancelEditCategory();
+          this.categoryLoading = false;
+        },
+        error: (e: HttpErrorResponse) => {
+          this.categoryLoading = false;
+          this.fail(e, 'No fue posible actualizar la categoría.');
+        }
+      });
+    } else {
+      this.categoryService.create({ name }).subscribe({
+        next: category => {
+          this.categories = [...this.categories, category].sort((a, b) => a.name.localeCompare(b.name));
+          this.newCategoryName = '';
+          this.categoryLoading = false;
+        },
+        error: (e: HttpErrorResponse) => {
+          this.categoryLoading = false;
+          this.fail(e, 'No fue posible crear la categoría.');
+        },
+      });
+    }
+  }
+
+  startEditCategory(cat: Category): void {
+    this.editingCategoryId = cat.id;
+    this.newCategoryName = cat.name;
+  }
+
+  cancelEditCategory(): void {
+    this.editingCategoryId = null;
+    this.newCategoryName = '';
+  }
+
+  promptDeleteCategory(cat: Category): void {
+    this.categoryToDeleteId = cat.id;
+    this.categoryToDeleteName = cat.name;
+    this.deleteModalOpen = true;
+  }
+
+  closeDeleteModal(): void {
+    this.deleteModalOpen = false;
+    this.categoryToDeleteId = null;
+    this.categoryToDeleteName = '';
+  }
+
+  executeDeleteCategory(): void {
+    if (!this.categoryToDeleteId) return;
+
+    const id = this.categoryToDeleteId;
+    this.categoryService.delete(id).subscribe({
+      next: () => {
+        this.categories = this.categories.filter(c => c.id !== id);
+        this.closeDeleteModal();
+      },
+      error: (e: HttpErrorResponse) => {
+        this.closeDeleteModal();
+        this.fail(e, 'No fue posible eliminar la categoría.');
+      }
     });
   }
 
@@ -261,37 +388,13 @@ export class ProviderOfferingsComponent implements OnInit {
         this.reset();
         this.load();
       },
-      error: e => {
+      error: (e: HttpErrorResponse) => {
         this.loading = false;
         this.fail(e, 'No fue posible guardar el servicio.');
       },
     });
   }
 
-  createCategory(): void {
-    this.error = '';
-    const name = this.newCategoryName.trim();
-    if (!name) {
-      this.error = 'Escribe el nombre de la categoría.';
-      return;
-    }
-
-    this.categoryLoading = true;
-    this.categoryService.create({ name }).subscribe({
-      next: category => {
-        this.categories = [...this.categories, category].sort((a, b) => a.name.localeCompare(b.name));
-        this.form.category = category.name;
-        this.newCategoryName = '';
-        this.categoryLoading = false;
-      },
-      error: e => {
-        this.categoryLoading = false;
-        this.fail(e, 'No fue posible crear la categoría.');
-      },
-    });
-  }
-
-  // NUEVO: abre el panel en modo creación
   openNew(): void {
     this.error = '';
     this.form = {};
@@ -299,7 +402,6 @@ export class ProviderOfferingsComponent implements OnInit {
     this.panelOpen = true;
   }
 
-  // NUEVO: cierra el panel sin tocar el formulario (lo limpia reset())
   closePanel(): void {
     this.reset();
   }
@@ -308,7 +410,7 @@ export class ProviderOfferingsComponent implements OnInit {
     this.error = '';
     this.editingId = o.id;
     this.form = { title: o.title, description: o.description, category: o.category, price: o.price };
-    this.panelOpen = true; // NUEVO
+    this.panelOpen = true;
   }
 
   toggle(o: Offering): void {
@@ -316,14 +418,14 @@ export class ProviderOfferingsComponent implements OnInit {
     const req = o.active ? this.service.deactivate(o.id) : this.service.activate(o.id);
     req.subscribe({
       next: () => this.load(),
-      error: e => this.fail(e, 'No fue posible cambiar el estado.'),
+      error: (e: HttpErrorResponse) => this.fail(e, 'No fue posible cambiar el estado.'),
     });
   }
 
   reset(): void {
     this.form = {};
     this.editingId = null;
-    this.panelOpen = false; // NUEVO
+    this.panelOpen = false;
   }
 
   private fail(e: HttpErrorResponse, fallback: string): void {

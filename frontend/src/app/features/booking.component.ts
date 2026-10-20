@@ -1,12 +1,13 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Offering, OfferingService } from '../core/offering.service';
 import { BookingService } from '../core/booking.service';
 
 @Component({
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   template: `
     <section class="min-h-screen bg-[#FBFBFA] px-4 py-16 sm:px-6 lg:py-24">
       <div class="mx-auto grid max-w-5xl gap-12 lg:grid-cols-[1fr_26rem] lg:gap-20">
@@ -79,9 +80,9 @@ import { BookingService } from '../core/booking.service';
                      class="w-full rounded-md border border-[#EAEAEA] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none transition-colors duration-150 hover:border-[#C9C8C4] focus:border-[#111111]">
             </div>
 
-            <button type="button"
+            <button type="button" (click)="book()"
                     class="w-full cursor-pointer rounded-md bg-[#111111] px-4 py-3 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
-                    [disabled]="loading" (click)="book()">
+                    [disabled]="loading">
               {{ loading ? 'Creando reserva...' : 'Crear reserva' }}
             </button>
           </div>
@@ -112,7 +113,6 @@ export class BookingComponent implements OnInit {
         this.offerings = list;
         this.offeringsLoading = false;
 
-        // Lee el Query Parameter 'offeringId' si viene desde Home
         const paramOfferingId = this.route.snapshot.queryParamMap.get('offeringId');
         if (paramOfferingId) {
           const matched = this.offerings.find((o) => o.id === paramOfferingId);
@@ -154,7 +154,7 @@ export class BookingComponent implements OnInit {
           this.scheduledLocal = '';
           this.loading = false;
         },
-        error: (e) => {
+        error: (e: HttpErrorResponse) => {
           this.error = e?.error?.detail || 'No fue posible crear la reserva. Inicia sesión y verifica la fecha.';
           this.loading = false;
         }
