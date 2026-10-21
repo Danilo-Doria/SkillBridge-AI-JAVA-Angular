@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { Booking, BookingService } from '../core/booking.service';
 import { Offering, OfferingService } from '../core/offering.service';
 import { AuthService } from '../core/auth.service';
-import { PaymentModal } from './payment-modal/payment-modal';
+import { PaymentModal } from './payment-modal.component';
 
 @Component({
   selector: 'app-my-bookings',
