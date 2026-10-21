@@ -5,6 +5,7 @@ import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.exception.ForbiddenOperationException;
 import com.riwi.skillbridge.domain.model.*;
 import com.riwi.skillbridge.application.port.out.UserRepositoryPort;
+import com.riwi.skillbridge.application.service.MentorshipProvisioningService;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.MentorshipAssignmentRequest;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.ProgressRequest;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.MentorshipAssignmentEntity;
@@ -31,12 +32,14 @@ public class MentorshipController {
     private final JpaOfferingRepository offerings;
     private final JpaMentorshipResourceRepository resources;
     private final ZoomMeetingClient zoom;
+    private final MentorshipProvisioningService provisioning;
     private final UserRepositoryPort users;
-    public MentorshipController(JpaMentorshipAssignmentRepository assignments, JpaBookingRepository bookings, JpaOfferingRepository offerings, JpaMentorshipResourceRepository resources, ZoomMeetingClient zoom, UserRepositoryPort users) { this.assignments=assignments; this.bookings=bookings; this.offerings=offerings; this.resources=resources; this.zoom=zoom; this.users=users; }
+    public MentorshipController(JpaMentorshipAssignmentRepository assignments, JpaBookingRepository bookings, JpaOfferingRepository offerings, JpaMentorshipResourceRepository resources, ZoomMeetingClient zoom, MentorshipProvisioningService provisioning, UserRepositoryPort users) { this.assignments=assignments; this.bookings=bookings; this.offerings=offerings; this.resources=resources; this.zoom=zoom; this.provisioning=provisioning; this.users=users; }
 
     @GetMapping("/me")
     public List<MentorshipAssignmentEntity> mine(Authentication auth) {
-        return assignments.findByCustomerIdOrderByAccessStartsAtDesc(currentUser(auth).id());
+        var user=currentUser(auth); provisioning.provisionPaidBookingsForCustomer(user.id());
+        return assignments.findByCustomerIdOrderByAccessStartsAtDesc(user.id());
     }
 
     @PostMapping

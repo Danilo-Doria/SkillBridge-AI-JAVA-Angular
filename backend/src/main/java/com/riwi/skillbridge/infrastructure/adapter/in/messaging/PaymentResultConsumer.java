@@ -1,6 +1,7 @@
 package com.riwi.skillbridge.infrastructure.adapter.in.messaging;
 
 import com.riwi.skillbridge.application.port.in.PaymentResultUseCase;
+import com.riwi.skillbridge.application.service.MentorshipProvisioningService;
 import com.riwi.skillbridge.domain.event.PaymentApproved;
 import com.riwi.skillbridge.domain.event.PaymentRejected;
 import org.slf4j.Logger;
@@ -16,9 +17,11 @@ public class PaymentResultConsumer {
     
     private static final Logger log = LoggerFactory.getLogger(PaymentResultConsumer.class);
     private final PaymentResultUseCase paymentResultUseCase;
+    private final MentorshipProvisioningService mentorshipProvisioningService;
 
-    public PaymentResultConsumer(PaymentResultUseCase paymentResultUseCase) {
+    public PaymentResultConsumer(PaymentResultUseCase paymentResultUseCase, MentorshipProvisioningService mentorshipProvisioningService) {
         this.paymentResultUseCase = paymentResultUseCase;
+        this.mentorshipProvisioningService = mentorshipProvisioningService;
     }
 
     @RabbitListener(bindings = @QueueBinding(
@@ -30,6 +33,7 @@ public class PaymentResultConsumer {
         log.info("Received PaymentApproved event for bookingId={}", event.bookingId());
         try {
             paymentResultUseCase.processPaymentApproved(event.bookingId());
+            mentorshipProvisioningService.provisionForPaidBooking(event.bookingId());
         } catch (Exception e) {
             log.error("Failed to process payment approval for bookingId={}: {}", event.bookingId(), e.getMessage());
         }
