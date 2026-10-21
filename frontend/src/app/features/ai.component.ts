@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -219,29 +219,68 @@ export class AiComponent implements OnDestroy {
   private audioUrl: string | null = null;
   private audioForText = '';
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
+  ) {}
 
   async toggleRecording() {
     if (this.recording) {
-      this.recorder?.stop();
+      this.recording = false;
+      if (this.recorder && this.recorder.state !== 'inactive') {
+        this.recorder.stop();
+      }
       return;
     }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       this.chunks = [];
-      this.recorder = new MediaRecorder(stream);
-      this.recorder.ondataavailable = e => this.chunks.push(e.data);
-      this.recorder.onstop = () => {
-        const file = new File([new Blob(this.chunks, {type: this.recorder?.mimeType || 'audio/webm'})], 'nota-de-voz.webm', {type: this.recorder?.mimeType || 'audio/webm'});
-        this.selectedFile = file;
-        this.selectedType = 'voice';
-        this.recording = false;
-        stream.getTracks().forEach(t => t.stop());
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+        ? 'audio/mp4'
+        : '';
+
+      this.recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+
+      this.recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          this.chunks.push(e.data);
+        }
       };
+
+      this.recorder.onstop = () => {
+        this.ngZone.run(() => {
+          const actualMime = this.recorder?.mimeType || mimeType || 'audio/webm';
+          const ext = actualMime.includes('mp4') ? 'mp4' : 'webm';
+
+          const file = new File(
+            [new Blob(this.chunks, { type: actualMime })],
+            `nota-de-voz.${ext}`,
+            { type: actualMime }
+          );
+
+          this.selectedFile = file;
+          this.selectedType = 'voice';
+          this.recording = false;
+
+          stream.getTracks().forEach((track) => track.stop());
+          this.cdr.detectChanges();
+        });
+      };
+
       this.recorder.start();
       this.recording = true;
     } catch {
       this.error = 'No fue posible acceder al micrófono. Verifica los permisos de tu navegador.';
+      this.recording = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -259,7 +298,7 @@ export class AiComponent implements OnDestroy {
 
   closeModal() {
     this.showModal = false;
-    this.stopAudio(); // el audio no sigue sonando al cerrar el panel
+    this.stopAudio();
   }
 
   goToBooking(offeringId: string) {
@@ -307,8 +346,6 @@ export class AiComponent implements OnDestroy {
     });
   }
 
-  // Arma el texto que se lee en voz alta: explicación + cursos sugeridos (razón y relevancia).
-  // Se limita a las 3 mejores recomendaciones para no pasar el límite de caracteres del TTS.
   private buildSpeechText(): string {
     const parts: string[] = [this.answer];
 
@@ -333,7 +370,6 @@ export class AiComponent implements OnDestroy {
 
     const speechText = this.buildSpeechText();
 
-    // Si ya generamos el audio de este mismo texto, lo reutilizamos (no se vuelve a cobrar)
     if (this.audioUrl && this.audioForText === speechText) {
       this.playUrl(this.audioUrl);
       return;
@@ -349,7 +385,6 @@ export class AiComponent implements OnDestroy {
         this.playUrl(this.audioUrl);
       },
       error: () => {
-        // Con responseType 'blob' el cuerpo del error también llega como Blob, por eso el mensaje es fijo
         this.audioError = 'No se pudo generar el audio. Intenta de nuevo.';
         this.audioLoading = false;
       }
