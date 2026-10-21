@@ -160,6 +160,10 @@ public class DemandAnalyticsService implements GetTrendingServicesUseCase {
      *   20% volume signal     (recommendations / maxRecommendations)
      */
     double trendScore(double conversionRate, double growthRate, long recommendations, long maxRecommendations) {
+        if (conversionRate == 0.0 && growthRate == 0.0 && recommendations == 0) {
+            return 0.0;
+        }
+
         double conversionSignal = conversionRate * 100.0 * 0.50;
 
         double clampedGrowth = Math.max(-1.0, Math.min(2.0, growthRate));
