@@ -135,6 +135,7 @@ app:
     audio-provider: ${AI_AUDIO_PROVIDER:gemini}
     groq:
       api-key: ${GROQ_API_KEY:}
+      audio-model: ${GROQ_AUDIO_MODEL:whisper-large-v3-turbo}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:10}
     gemini:
       enabled: ${GEMINI_ENABLED:true}
