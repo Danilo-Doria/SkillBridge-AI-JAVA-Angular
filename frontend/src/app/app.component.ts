@@ -23,13 +23,14 @@ import { AuthService } from './core/auth.service';
         </a>
 
         <!-- Navegación escritorio -->
-        <div class="hidden items-center gap-6 md:flex">
+        <div class="hidden items-center gap-4 lg:gap-6 md:flex">
           <nav class="flex items-center gap-1
                       [&>a]:rounded-md [&>a]:px-3 [&>a]:py-2 [&>a]:text-sm [&>a]:font-medium [&>a]:text-[#787774]
                       [&>a]:transition-colors [&>a]:duration-150 [&>a:hover]:bg-[#F1F0ED] [&>a:hover]:text-[#111111]">
             <a routerLink="/" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" [routerLinkActiveOptions]="{ exact: true }">Servicios</a>
             <a routerLink="/book" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Reservar</a>
             <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">IA</a>
+            <a routerLink="/trending" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Tendencias</a>
             <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis reservas</a>
             <a routerLink="/mentorships/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis mentorías</a>
 
@@ -44,23 +45,23 @@ import { AuthService } from './core/auth.service';
             }
           </nav>
 
-            <a routerLink="/trending" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Tendencias</a>
-
-          @if (!auth.isAuthenticated()) {
-            <a routerLink="/login"
-               class="rounded-md bg-[#111111] px-4 py-2 text-sm font-medium text-white transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] motion-reduce:active:scale-100">
-              Ingresar
-            </a>
-          } @else {
-            <div class="hidden max-w-48 text-right md:block">
-              <p class="truncate text-xs font-medium text-[#111111]">{{ auth.email() }}</p>
-              <p class="text-[11px] uppercase tracking-wide text-[#787774]">{{ roleLabel() }}</p>
-            </div>
-            <button type="button" (click)="auth.logout()"
-                    class="cursor-pointer rounded-md px-4 py-2 text-sm font-medium text-[#111111] transition-[background-color,transform] duration-150 hover:bg-[#F1F0ED] active:scale-[0.97] motion-reduce:active:scale-100">
-              Salir
-            </button>
-          }
+          <div class="flex items-center gap-3 border-l border-[#EAEAEA] pl-4 lg:pl-6">
+            @if (!auth.isAuthenticated()) {
+              <a routerLink="/login"
+                 class="rounded-md bg-[#111111] px-4 py-2 text-sm font-medium text-white transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] motion-reduce:active:scale-100">
+                Ingresar
+              </a>
+            } @else {
+              <div class="hidden max-w-44 text-right xl:block">
+                <p class="truncate text-xs font-medium text-[#111111]">{{ auth.email() }}</p>
+                <p class="text-[11px] uppercase tracking-wide text-[#787774]">{{ roleLabel() }}</p>
+              </div>
+              <button type="button" (click)="auth.logout()"
+                      class="cursor-pointer rounded-md px-3 py-2 text-sm font-medium text-[#111111] transition-[background-color,transform] duration-150 hover:bg-[#F1F0ED] active:scale-[0.97] motion-reduce:active:scale-100">
+                Salir
+              </button>
+            }
+          </div>
         </div>
 
         <!-- Hamburguesa (móvil) -->
