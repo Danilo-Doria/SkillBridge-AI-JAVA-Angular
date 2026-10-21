@@ -34,6 +34,33 @@ export class PaymentModal implements OnInit, OnDestroy {
   loading = false;
   errorMsg = '';
 
+  readonly stripeTestCards = [
+    {
+      number: '4242 4242 4242 4242',
+      outcome: 'Pago exitoso',
+      description: 'La transacción se aprueba sin autenticación adicional.',
+      tone: 'success'
+    },
+    {
+      number: '4000 0000 0000 0002',
+      outcome: 'Tarjeta rechazada',
+      description: 'Stripe responde con un rechazo genérico de la tarjeta.',
+      tone: 'error'
+    },
+    {
+      number: '4000 0000 0000 9995',
+      outcome: 'Fondos insuficientes',
+      description: 'Stripe rechaza el pago por falta de fondos.',
+      tone: 'error'
+    },
+    {
+      number: '4000 0025 0000 3155',
+      outcome: 'Autenticación requerida',
+      description: 'Simula un pago que solicita la validación 3D Secure.',
+      tone: 'warning'
+    }
+  ];
+
   // Datos para fallback simulado (en caso de que no haya clave de Stripe configurada)
   cardData = {
     cardNumber: '',
