@@ -90,6 +90,11 @@ services:
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
       ELEVENLABS_MODEL_ID: ${ELEVENLABS_MODEL_ID:-eleven_multilingual_v2}
+      ZOOM_ACCOUNT_ID: ${ZOOM_ACCOUNT_ID:-}
+      ZOOM_CLIENT_ID: ${ZOOM_CLIENT_ID:-}
+      ZOOM_CLIENT_SECRET: ${ZOOM_CLIENT_SECRET:-}
+      ZOOM_SDK_KEY: ${ZOOM_SDK_KEY:-}
+      ZOOM_SDK_SECRET: ${ZOOM_SDK_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy

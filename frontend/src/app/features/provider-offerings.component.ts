@@ -5,6 +5,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../core/auth.service';
 import { Category, CategoryService } from '../core/category.service';
 import { Offering, OfferingPayload, OfferingService } from '../core/offering.service';
+import { MentorshipResource, MentorshipResourceService, ResourcePayload, ResourceType } from '../core/mentorship-resource.service';
+import { forkJoin } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -74,6 +76,10 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
                         class="cursor-pointer rounded-md px-2.5 py-1.5 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100">
                   Editar
                 </button>
+                <button type="button" (click)="openResources(o)"
+                        class="cursor-pointer rounded-md px-2.5 py-1.5 text-sm font-medium text-[#787774] transition-[background-color,color] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111]">
+                  Recursos
+                </button>
               </div>
             </li>
           } @empty {
@@ -87,6 +93,20 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
             </li>
           }
         </ul>
+
+        @if (resourceOffering) {
+          <section class="mt-12 rounded-lg border border-[#EAEAEA] bg-white p-6">
+            <div class="flex items-start justify-between gap-4"><div><h2 class="font-display text-3xl text-[#111111]">Recursos</h2><p class="mt-1 text-sm text-[#787774]">{{ resourceOffering.title }} · solo estudiantes con mentoría pagada y vigente podrán acceder.</p></div><button type="button" (click)="closeResources()" class="rounded px-2 py-1 text-sm text-[#787774] hover:bg-[#F1F0ED]">Cerrar</button></div>
+            <form class="mt-6 grid gap-3 sm:grid-cols-[1fr_140px_1fr_auto]" (ngSubmit)="addResource()">
+              <input name="resourceTitle" [(ngModel)]="resourceForm.title" class="rounded-md border border-[#EAEAEA] px-3 py-2 text-sm" placeholder="Título del recurso" required>
+              <select name="resourceType" [(ngModel)]="resourceForm.resourceType" class="rounded-md border border-[#EAEAEA] px-3 py-2 text-sm"><option value="VIDEO">Video</option><option value="DOCUMENT">Documento</option><option value="LINK">Enlace</option></select>
+              <input type="url" name="resourceUrl" [(ngModel)]="resourceForm.url" class="rounded-md border border-[#EAEAEA] px-3 py-2 text-sm" placeholder="https://..." required>
+              <button [disabled]="resourceLoading" class="rounded-md bg-[#111] px-4 py-2 text-sm text-white disabled:opacity-40">Añadir</button>
+            </form>
+            @if (resourceError) { <p class="mt-3 text-sm text-[#9F2F2D]">{{ resourceError }}</p> }
+            <ul class="mt-5 divide-y divide-[#EAEAEA]">@for (resource of resources; track resource.id) {<li class="flex items-center justify-between gap-4 py-3"><a [href]="resource.url" target="_blank" rel="noopener" class="min-w-0 truncate text-sm text-[#111] underline">{{ resource.title }}</a><span class="text-xs text-[#787774]">{{ resource.resourceType }}</span><button type="button" (click)="removeResource(resource)" class="text-sm text-[#9F2F2D]">Eliminar</button></li>} @empty {<li class="py-4 text-sm text-[#787774]">Todavía no has añadido recursos.</li>}</ul>
+          </section>
+        }
 
         <!-- Categorías: secundario, compacto, al final -->
         <div class="mt-20">
@@ -178,6 +198,9 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
                    name="title" [(ngModel)]="form.title" placeholder="Ej. Asesoría financiera" required>
           </div>
 
+          @if (!editingId) {
+            <div class="border-t border-[#EAEAEA] pt-6"><label class="mb-2 block text-sm text-[#787774]">Recursos iniciales (opcional)</label><div class="grid gap-2 sm:grid-cols-[1fr_130px_1fr_auto]"><input name="draftTitle" [(ngModel)]="draftResource.title" class="rounded-md border border-[#EAEAEA] px-3 py-2 text-sm" placeholder="Título"><select name="draftType" [(ngModel)]="draftResource.resourceType" class="rounded-md border border-[#EAEAEA] px-2 py-2 text-sm"><option value="VIDEO">Video</option><option value="DOCUMENT">Documento</option><option value="LINK">Enlace</option></select><input type="url" name="draftUrl" [(ngModel)]="draftResource.url" class="rounded-md border border-[#EAEAEA] px-3 py-2 text-sm" placeholder="https://..."><button type="button" (click)="queueResource()" class="rounded-md border px-3 text-sm">Agregar</button></div><ul class="mt-3 space-y-1 text-sm">@for (resource of draftResources; track resource.url) {<li class="flex justify-between gap-2"><span class="truncate">{{ resource.title }} · {{ resource.resourceType }}</span><button type="button" (click)="draftResources.splice($index, 1)" class="text-[#9F2F2D]">Quitar</button></li>}</ul></div>
+          }
           <div>
             <label class="mb-2 block text-sm text-[#787774]">Categoría</label>
             <div class="flex flex-wrap gap-2">
@@ -253,6 +276,7 @@ export class ProviderOfferingsComponent implements OnInit {
   private service = inject(OfferingService);
   private categoryService = inject(CategoryService);
   private auth = inject(AuthService);
+  private resourceService = inject(MentorshipResourceService);
 
   offerings: Offering[] = [];
   categories: Category[] = [];
@@ -271,6 +295,13 @@ export class ProviderOfferingsComponent implements OnInit {
   offeringsLoading = true;
   categoriesLoading = true;
   error = '';
+  resourceOffering: Offering | null = null;
+  resources: MentorshipResource[] = [];
+  resourceForm: ResourcePayload = { title: '', resourceType: 'LINK', url: '' };
+  draftResource: ResourcePayload = { title: '', resourceType: 'LINK', url: '' };
+  draftResources: ResourcePayload[] = [];
+  resourceLoading = false;
+  resourceError = '';
 
   panelOpen = false;
 
@@ -383,10 +414,12 @@ export class ProviderOfferingsComponent implements OnInit {
     this.loading = true;
     const req = this.editingId ? this.service.update(this.editingId, p) : this.service.create(p);
     req.subscribe({
-      next: () => {
-        this.loading = false;
-        this.reset();
-        this.load();
+      next: offering => {
+        const createResources = !this.editingId && this.draftResources.length
+          ? forkJoin(this.draftResources.map(resource => this.resourceService.create(offering.id, resource))) : null;
+        if (createResources) {
+          createResources.subscribe({ next: () => this.finishSave(), error: () => { this.loading = false; this.error = 'El servicio se creó, pero no fue posible guardar todos los recursos.'; this.load(); } });
+        } else this.finishSave();
       },
       error: (e: HttpErrorResponse) => {
         this.loading = false;
@@ -399,6 +432,7 @@ export class ProviderOfferingsComponent implements OnInit {
     this.error = '';
     this.form = {};
     this.editingId = null;
+    this.draftResources = [];
     this.panelOpen = true;
   }
 
@@ -426,7 +460,16 @@ export class ProviderOfferingsComponent implements OnInit {
     this.form = {};
     this.editingId = null;
     this.panelOpen = false;
+    this.draftResources = [];
   }
+
+  openResources(offering: Offering): void { this.resourceOffering = offering; this.resourceError = ''; this.resourceForm = { title: '', resourceType: 'LINK', url: '' }; this.loadResources(); }
+  closeResources(): void { this.resourceOffering = null; this.resources = []; }
+  loadResources(): void { if (!this.resourceOffering) return; this.resourceService.listForOffering(this.resourceOffering.id).subscribe({ next: r => this.resources = r, error: e => this.resourceError = e?.error?.detail || 'No fue posible cargar los recursos.' }); }
+  addResource(): void { if (!this.resourceOffering || !this.resourceForm.title.trim() || !this.resourceForm.url.trim()) return; this.resourceLoading = true; this.resourceError = ''; this.resourceService.create(this.resourceOffering.id, { ...this.resourceForm, title: this.resourceForm.title.trim(), url: this.resourceForm.url.trim() }).subscribe({ next: r => { this.resources = [...this.resources, r]; this.resourceForm = { title: '', resourceType: 'LINK', url: '' }; this.resourceLoading = false; }, error: e => { this.resourceLoading = false; this.resourceError = e?.error?.detail || 'No fue posible añadir el recurso.'; } }); }
+  removeResource(resource: MentorshipResource): void { this.resourceService.delete(resource.id).subscribe({ next: () => this.resources = this.resources.filter(r => r.id !== resource.id), error: e => this.resourceError = e?.error?.detail || 'No fue posible eliminar el recurso.' }); }
+  queueResource(): void { if (!this.draftResource.title.trim() || !this.draftResource.url.trim()) return; this.draftResources = [...this.draftResources, { ...this.draftResource, title: this.draftResource.title.trim(), url: this.draftResource.url.trim() }]; this.draftResource = { title: '', resourceType: 'LINK', url: '' }; }
+  private finishSave(): void { this.loading = false; this.reset(); this.load(); }
 
   private fail(e: HttpErrorResponse, fallback: string): void {
     if (e.status === 403) this.error = 'No tienes permiso para realizar esta acción.';
