@@ -5,8 +5,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../core/auth.service';
 import { Category, CategoryService } from '../core/category.service';
 import { Offering, OfferingPayload, OfferingService } from '../core/offering.service';
-import { MentorshipResource, MentorshipResourceService, ResourcePayload, ResourceType } from '../core/mentorship-resource.service';
-import { forkJoin } from 'rxjs';
+import { MentorshipResource, MentorshipResourceService, ResourcePayload } from '../core/mentorship-resource.service';
+import { firstValueFrom } from 'rxjs';
+
+interface ResourceDraft extends ResourcePayload { id?: string; file?: File; fileName?: string; }
 
 @Component({
   standalone: true,
@@ -76,10 +78,6 @@ import { forkJoin } from 'rxjs';
                         class="cursor-pointer rounded-md px-2.5 py-1.5 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100">
                   Editar
                 </button>
-                <button type="button" (click)="openResources(o)"
-                        class="cursor-pointer rounded-md px-2.5 py-1.5 text-sm font-medium text-[#787774] transition-[background-color,color] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111]">
-                  Recursos
-                </button>
               </div>
             </li>
           } @empty {
@@ -93,20 +91,6 @@ import { forkJoin } from 'rxjs';
             </li>
           }
         </ul>
-
-        @if (resourceOffering) {
-          <section class="mt-12 rounded-lg border border-[#EAEAEA] bg-white p-6">
-            <div class="flex items-start justify-between gap-4"><div><h2 class="font-display text-3xl text-[#111111]">Recursos</h2><p class="mt-1 text-sm text-[#787774]">{{ resourceOffering.title }} · solo estudiantes con mentoría pagada y vigente podrán acceder.</p></div><button type="button" (click)="closeResources()" class="rounded px-2 py-1 text-sm text-[#787774] hover:bg-[#F1F0ED]">Cerrar</button></div>
-            <form class="mt-6 grid gap-3 sm:grid-cols-[1fr_140px_1fr_auto]" (ngSubmit)="addResource()">
-              <input name="resourceTitle" [(ngModel)]="resourceForm.title" class="rounded-md border border-[#EAEAEA] px-3 py-2 text-sm" placeholder="Título del recurso" required>
-              <select name="resourceType" [(ngModel)]="resourceForm.resourceType" class="rounded-md border border-[#EAEAEA] px-3 py-2 text-sm"><option value="VIDEO">Video</option><option value="DOCUMENT">Documento</option><option value="LINK">Enlace</option></select>
-              <input type="url" name="resourceUrl" [(ngModel)]="resourceForm.url" class="rounded-md border border-[#EAEAEA] px-3 py-2 text-sm" placeholder="https://..." required>
-              <button [disabled]="resourceLoading" class="rounded-md bg-[#111] px-4 py-2 text-sm text-white disabled:opacity-40">Añadir</button>
-            </form>
-            @if (resourceError) { <p class="mt-3 text-sm text-[#9F2F2D]">{{ resourceError }}</p> }
-            <ul class="mt-5 divide-y divide-[#EAEAEA]">@for (resource of resources; track resource.id) {<li class="flex items-center justify-between gap-4 py-3"><a [href]="resource.url" target="_blank" rel="noopener" class="min-w-0 truncate text-sm text-[#111] underline">{{ resource.title }}</a><span class="text-xs text-[#787774]">{{ resource.resourceType }}</span><button type="button" (click)="removeResource(resource)" class="text-sm text-[#9F2F2D]">Eliminar</button></li>} @empty {<li class="py-4 text-sm text-[#787774]">Todavía no has añadido recursos.</li>}</ul>
-          </section>
-        }
 
         <!-- Categorías: secundario, compacto, al final -->
         <div class="mt-20">
@@ -176,9 +160,39 @@ import { forkJoin } from 'rxjs';
                    name="title" [(ngModel)]="form.title" placeholder="Ej. Asesoría financiera" required>
           </div>
 
-          @if (!editingId) {
-            <div class="border-t border-[#EAEAEA] pt-6"><label class="mb-2 block text-sm text-[#787774]">Recursos iniciales (opcional)</label><div class="grid gap-2 sm:grid-cols-[1fr_130px_1fr_auto]"><input name="draftTitle" [(ngModel)]="draftResource.title" class="rounded-md border border-[#EAEAEA] px-3 py-2 text-sm" placeholder="Título"><select name="draftType" [(ngModel)]="draftResource.resourceType" class="rounded-md border border-[#EAEAEA] px-2 py-2 text-sm"><option value="VIDEO">Video</option><option value="DOCUMENT">Documento</option><option value="LINK">Enlace</option></select><input type="url" name="draftUrl" [(ngModel)]="draftResource.url" class="rounded-md border border-[#EAEAEA] px-3 py-2 text-sm" placeholder="https://..."><button type="button" (click)="queueResource()" class="rounded-md border px-3 text-sm">Agregar</button></div><ul class="mt-3 space-y-1 text-sm">@for (resource of draftResources; track resource.url) {<li class="flex justify-between gap-2"><span class="truncate">{{ resource.title }} · {{ resource.resourceType }}</span><button type="button" (click)="draftResources.splice($index, 1)" class="text-[#9F2F2D]">Quitar</button></li>}</ul></div>
-          }
+          <fieldset class="space-y-4 border-t border-[#EAEAEA] pt-6" [disabled]="loading || resourceLoading">
+            <legend class="text-sm font-medium">Recursos del servicio</legend>
+            <p class="text-xs text-[#787774]">Archivos del PC (cualquier formato, máximo 10 MB), enlaces a páginas o videos de YouTube y otras plataformas.</p>
+            @if (resourceLoading) { <p role="status" class="text-sm">Cargando recursos…</p> }
+            @if (resourceError) { <p role="alert" class="text-sm text-[#9F2F2D]">{{ resourceError }}</p> }
+            @for (resource of draftResources; track resource; let i = $index) {
+              <div class="space-y-3 rounded-md border border-[#EAEAEA] p-3">
+                <label class="block text-sm">Título del recurso
+                  <input [name]="'resourceTitle' + i" [(ngModel)]="resource.title" maxlength="160" required class="mt-1 w-full rounded-md border px-3 py-2">
+                </label>
+                <label class="block text-sm">Tipo
+                  <select [name]="'resourceType' + i" [(ngModel)]="resource.resourceType" (ngModelChange)="changeResourceType(resource)" class="mt-1 w-full rounded-md border px-3 py-2">
+                    <option value="DOCUMENT">Archivo del PC</option><option value="LINK">Enlace</option><option value="VIDEO">Video</option>
+                  </select>
+                </label>
+                @if (resource.resourceType === 'DOCUMENT') {
+                  @if (resource.fileName) { <p class="break-all text-xs">{{ resource.fileName }}</p> }
+                  @if (!resource.fileName && resource.url) { <p class="break-all text-xs">Documento actual: {{ resource.url }}</p> }
+                  <label class="block text-sm">{{ resource.url || resource.file ? 'Reemplazar archivo' : 'Seleccionar archivo' }}
+                    <input type="file" (change)="selectFile($event, resource)" class="mt-2 block w-full text-xs">
+                  </label>
+                } @else {
+                  <label class="block text-sm">{{ resource.resourceType === 'VIDEO' ? 'Enlace del video o streaming' : 'Enlace a la página' }}
+                    <input type="url" [name]="'resourceUrl' + i" [(ngModel)]="resource.url" placeholder="https://..." maxlength="1500" required class="mt-1 w-full rounded-md border px-3 py-2">
+                  </label>
+                }
+                <button type="button" (click)="removeDraft(i)" class="text-sm text-[#9F2F2D]">Quitar</button>
+              </div>
+            }
+            @if (!draftResources.length && !resourceLoading) { <p class="text-sm text-[#787774]">No hay recursos añadidos.</p> }
+            <button type="button" (click)="addDraft()" class="rounded-md border px-3 py-2 text-sm">Añadir material</button>
+            <p class="text-xs text-[#787774]">Los cambios en los recursos se aplican al guardar el servicio.</p>
+          </fieldset>
 
           <!-- Categoría: selección directa, sin desplegable -->
           <div>
@@ -215,7 +229,7 @@ import { forkJoin } from 'rxjs';
                   class="cursor-pointer rounded-md px-4 py-2.5 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100">
             Cancelar
           </button>
-          <button type="submit" [disabled]="loading || categories.length === 0"
+          <button type="submit" [disabled]="loading || resourceLoading || !!resourceError || categories.length === 0"
                   class="cursor-pointer rounded-md bg-[#111111] px-5 py-2.5 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100">
             {{ loading ? 'Guardando…' : (editingId ? 'Guardar cambios' : 'Crear servicio') }}
           </button>
@@ -240,13 +254,11 @@ export class ProviderOfferingsComponent implements OnInit {
   offeringsLoading = true;
   categoriesLoading = true;
   error = '';
-  resourceOffering: Offering | null = null;
-  resources: MentorshipResource[] = [];
-  resourceForm: ResourcePayload = { title: '', resourceType: 'LINK', url: '' };
-  draftResource: ResourcePayload = { title: '', resourceType: 'LINK', url: '' };
-  draftResources: ResourcePayload[] = [];
+  draftResources: ResourceDraft[] = [];
+  removedResourceIds: string[] = [];
   resourceLoading = false;
   resourceError = '';
+  private resourceLoadVersion = 0;
 
   // Se conserva por compatibilidad (el selector ahora son chips)
   categoryDropdownOpen = false;
@@ -277,29 +289,47 @@ export class ProviderOfferingsComponent implements OnInit {
     });
   }
 
-  save(): void {
+  async save(): Promise<void> {
+    if (this.loading || this.resourceLoading || this.resourceError) return;
     this.error = '';
     const p = this.form as OfferingPayload;
     if (!p.title || !p.description || !p.category || p.price == null) {
       this.error = 'Completa todos los campos obligatorios del servicio.';
       return;
     }
-
+    for (const resource of this.draftResources) {
+      if (!resource.title.trim() || (resource.resourceType === 'DOCUMENT' ? !resource.file && !resource.url : !this.validUrl(resource.url))) {
+        this.error = 'Cada recurso necesita un título y un archivo o un enlace válido (http:// o https://).';
+        return;
+      }
+    }
     this.loading = true;
-    const req = this.editingId ? this.service.update(this.editingId, p) : this.service.create(p);
-    req.subscribe({
-      next: offering => {
-        const createResources = !this.editingId && this.draftResources.length
-          ? forkJoin(this.draftResources.map(resource => this.resourceService.create(offering.id, resource))) : null;
-        if (createResources) {
-          createResources.subscribe({ next: () => this.finishSave(), error: () => { this.loading = false; this.error = 'El servicio se creó, pero no fue posible guardar todos los recursos.'; this.load(); } });
-        } else this.finishSave();
-      },
-      error: e => {
-        this.loading = false;
-        this.fail(e, 'No fue posible guardar el servicio.');
-      },
-    });
+    let serviceSaved = false;
+    try {
+      const offering = await firstValueFrom(this.editingId ? this.service.update(this.editingId, p) : this.service.create(p));
+      this.editingId = offering.id;
+      serviceSaved = true;
+      // Record each successful operation so retrying cannot duplicate resources or the service.
+      for (const resource of this.draftResources) {
+        const saved = await firstValueFrom(this.resourceService.save(offering.id, resource, resource.id, resource.file));
+        Object.assign(resource, saved);
+        resource.file = undefined;
+      }
+      for (const id of [...this.removedResourceIds]) {
+        await firstValueFrom(this.resourceService.delete(id));
+        this.removedResourceIds = this.removedResourceIds.filter(value => value !== id);
+      }
+      this.finishSave();
+    } catch (e) {
+      this.loading = false;
+      this.fail(e as HttpErrorResponse, serviceSaved ? 'El servicio se guardó, pero faltan cambios en los recursos. Puedes volver a guardar para reintentarlo.' : 'No fue posible guardar el servicio.');
+      this.load();
+    }
+  }
+
+  private validUrl(value: string): boolean {
+    try { const url = new URL(value.trim()); return ['http:', 'https:'].includes(url.protocol); }
+    catch { return false; }
   }
 
   createCategory(): void {
@@ -327,6 +357,7 @@ export class ProviderOfferingsComponent implements OnInit {
 
   // NUEVO: abre el panel en modo creación
   openNew(): void {
+    this.reset();
     this.error = '';
     this.form = {};
     this.editingId = null;
@@ -340,10 +371,25 @@ export class ProviderOfferingsComponent implements OnInit {
   }
 
   edit(o: Offering): void {
+    this.reset();
     this.error = '';
     this.editingId = o.id;
     this.form = { title: o.title, description: o.description, category: o.category, price: o.price };
-    this.panelOpen = true; // NUEVO
+    this.panelOpen = true;
+    this.resourceLoading = true;
+    const version = ++this.resourceLoadVersion;
+    this.resourceService.listForOffering(o.id).subscribe({
+      next: resources => {
+        if (version !== this.resourceLoadVersion) return;
+        this.draftResources = resources.map(resource => ({ ...resource }));
+        this.resourceLoading = false;
+      },
+      error: e => {
+        if (version !== this.resourceLoadVersion) return;
+        this.resourceLoading = false;
+        this.resourceError = e?.error?.detail || 'No fue posible cargar los recursos. Cierra y vuelve a abrir el servicio.';
+      },
+    });
   }
 
   toggle(o: Offering): void {
@@ -356,18 +402,40 @@ export class ProviderOfferingsComponent implements OnInit {
   }
 
   reset(): void {
+    if (this.loading) return;
+    this.resourceLoadVersion++;
+    this.resourceLoading = false;
+    this.resourceError = '';
+    this.removedResourceIds = [];
     this.form = {};
     this.editingId = null;
     this.panelOpen = false; // NUEVO
     this.draftResources = [];
   }
 
-  openResources(offering: Offering): void { this.resourceOffering = offering; this.resourceError = ''; this.resourceForm = { title: '', resourceType: 'LINK', url: '' }; this.loadResources(); }
-  closeResources(): void { this.resourceOffering = null; this.resources = []; }
-  loadResources(): void { if (!this.resourceOffering) return; this.resourceService.listForOffering(this.resourceOffering.id).subscribe({ next: r => this.resources = r, error: e => this.resourceError = e?.error?.detail || 'No fue posible cargar los recursos.' }); }
-  addResource(): void { if (!this.resourceOffering || !this.resourceForm.title.trim() || !this.resourceForm.url.trim()) return; this.resourceLoading = true; this.resourceError = ''; this.resourceService.create(this.resourceOffering.id, { ...this.resourceForm, title: this.resourceForm.title.trim(), url: this.resourceForm.url.trim() }).subscribe({ next: r => { this.resources = [...this.resources, r]; this.resourceForm = { title: '', resourceType: 'LINK', url: '' }; this.resourceLoading = false; }, error: e => { this.resourceLoading = false; this.resourceError = e?.error?.detail || 'No fue posible añadir el recurso.'; } }); }
-  removeResource(resource: MentorshipResource): void { this.resourceService.delete(resource.id).subscribe({ next: () => this.resources = this.resources.filter(r => r.id !== resource.id), error: e => this.resourceError = e?.error?.detail || 'No fue posible eliminar el recurso.' }); }
-  queueResource(): void { if (!this.draftResource.title.trim() || !this.draftResource.url.trim()) return; this.draftResources = [...this.draftResources, { ...this.draftResource, title: this.draftResource.title.trim(), url: this.draftResource.url.trim() }]; this.draftResource = { title: '', resourceType: 'LINK', url: '' }; }
+  addDraft(): void { this.draftResources.push({ title: '', resourceType: 'LINK', url: '' }); }
+  removeDraft(index: number): void {
+    const resource = this.draftResources[index];
+    if (resource.id) this.removedResourceIds.push(resource.id);
+    this.draftResources.splice(index, 1);
+  }
+  changeResourceType(resource: ResourceDraft): void {
+    resource.url = ''; resource.file = undefined; resource.fileName = undefined;
+  }
+  selectFile(event: Event, resource: ResourceDraft): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!file.size || file.size > 10 * 1024 * 1024) {
+      this.error = 'El archivo debe tener contenido y pesar máximo 10 MB.';
+      input.value = '';
+      return;
+    }
+    this.error = '';
+    resource.file = file;
+    resource.fileName = file.name;
+    if (!resource.title.trim()) resource.title = file.name.slice(0, 160);
+  }
   private finishSave(): void { this.loading = false; this.reset(); this.load(); }
 
   private fail(e: HttpErrorResponse, fallback: string): void {
