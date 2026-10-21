@@ -8,7 +8,7 @@ import { AuthService } from './core/auth.service';
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <header class="sticky top-0 z-30 border-b border-[#EAEAEA] bg-[#FBFBFA]/85 backdrop-blur-md">
-      <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div class="mx-auto flex h-16 max-w-8xl items-center justify-between px-4 sm:px-6">
 
         <a routerLink="/" (click)="closeMenu()" aria-label="SkillBridge AI, inicio"
            class="flex items-center gap-2.5 transition-opacity duration-150 hover:opacity-70">

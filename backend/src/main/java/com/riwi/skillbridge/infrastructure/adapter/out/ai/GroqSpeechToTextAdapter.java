@@ -2,6 +2,8 @@ package com.riwi.skillbridge.infrastructure.adapter.out.ai;
 
 import com.riwi.skillbridge.application.port.out.SpeechToTextPort;
 import com.riwi.skillbridge.domain.exception.AiProviderException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -21,6 +23,7 @@ import java.util.Map;
 @ConditionalOnProperty(name = "app.ai.audio-provider", havingValue = "groq")
 public class GroqSpeechToTextAdapter implements SpeechToTextPort {
 
+    private static final Logger log = LoggerFactory.getLogger(GroqSpeechToTextAdapter.class);
     private final RestTemplate restTemplate;
     private final String apiKey;
     private final String audioModel;
@@ -37,8 +40,11 @@ public class GroqSpeechToTextAdapter implements SpeechToTextPort {
     @Override
     public String transcribe(byte[] audio, String type, String name) {
         if (apiKey == null || apiKey.isBlank()) {
+            log.error("Groq API key no está configurada (app.ai.groq.api-key)");
             throw new AiProviderException("Groq API key is not configured", AiProviderException.ErrorType.INVALID_INPUT);
         }
+
+        log.info("Iniciando transcripción de audio con Groq Whisper (modelo: {}, archivo: '{}', tamaño: {} bytes)...", audioModel, name, audio != null ? audio.length : 0);
 
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -66,13 +72,17 @@ public class GroqSpeechToTextAdapter implements SpeechToTextPort {
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 String text = (String) response.getBody().get("text");
                 if (text == null || text.isBlank()) {
+                    log.warn("Groq devolvió una transcripción vacía");
                     throw new AiProviderException("Groq returned empty transcription", AiProviderException.ErrorType.INTERNAL_ERROR);
                 }
+                log.info("Transcripción exitosa con Groq Whisper: '{}'", text.trim());
                 return text.trim();
             } else {
+                log.error("Groq devolvió status de error: {}", response.getStatusCode());
                 throw new AiProviderException("Groq returned error status: " + response.getStatusCode(), AiProviderException.ErrorType.INTERNAL_ERROR);
             }
         } catch (Exception e) {
+            log.error("Fallo al transcribir audio con Groq: {}", e.getMessage());
             throw new AiProviderException("Failed to transcribe audio with Groq: " + e.getMessage(), AiProviderException.ErrorType.UNAVAILABLE, e);
         }
     }
