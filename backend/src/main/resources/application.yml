@@ -153,6 +153,7 @@ app:
     topic:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
       audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
+      recommendation-events: ${KAFKA_TOPIC_RECOMMENDATION_EVENTS:recommendation-events}
   payment:
     provider: ${PAYMENT_PROVIDER:stripe}
 

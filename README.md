@@ -2019,3 +2019,104 @@ La evaluación no debería limitarse a "funciona". La célula debe poder **expli
 ## Licencia de uso educativo
 
 Este starter puede ser adaptado libremente como material de formación. Las credenciales de proveedores externos y los límites de sus planes son responsabilidad de cada equipo.
+
+---
+
+## HU-22 — Análisis predictivo de demanda de servicios
+
+### Qué resuelve
+
+Convierte el comportamiento de recomendaciones y reservas en información accionable. La plataforma puede identificar qué servicios están en tendencia, estimar su demanda futura y calcular métricas de conversión.
+
+### Arquitectura del flujo
+
+```text
+POST /api/ai/recommendations
+        │
+        ▼
+AiRecommendationService
+  ├── genera recommendationId único
+  ├── publica RecommendationRequested → Kafka [recommendation-events]
+  ├── llama a Gemini y mide latency_ms
+  └── publica RecommendationGenerated → Kafka [recommendation-events]
+
+POST /api/bookings
+        │
+        ▼
+BookingService
+  └── publica BookingCreated → Kafka [booking-events]
+
+PATCH /api/bookings/{id}/cancel
+        │
+        ▼
+BookingService
+  └── publica BookingCancelled (con offeringId) → Kafka [booking-events]
+
+                    ▼  (consumer group: skillbridge-analytics-group)
+          KafkaAnalyticsConsumer
+            ├── RecommendationGenerated → persiste en recommendation_events
+            │                           → incrementa recommendations en métricas diarias
+            ├── BookingCreated          → incrementa bookings + registra unique user
+            └── BookingCancelled        → incrementa cancellations
+
+                    ▼
+          recommendation_daily_metrics (una fila por offering por día)
+
+                    ▼
+GET /api/ai/trending
+        │
+        ▼
+DemandAnalyticsService
+  ├── lee métricas de los últimos 14 días
+  ├── calcula conversionRate, growthRate, trendScore, forecastNext7Days
+  └── devuelve lista ordenada por trendScore DESC
+
+GET /trending (Angular)
+  └── TrendingComponent → tabla con ranking, barras de progreso, colores semáforo
+```
+
+### Nuevas tablas
+
+```sql
+recommendation_events          -- evento crudo, PK = eventId (idempotencia)
+recommendation_daily_metrics   -- métricas agregadas por (offering_id, date)
+```
+
+### Fórmulas estadísticas
+
+| Métrica | Fórmula |
+|---|---|
+| `conversionRate` | effectiveBookings / recommendations (0 si recs = 0) |
+| `growthRate` | (bookings últimos 7d − bookings 7d prev) / bookings prev |
+| `trendScore` | 50% conversión + 30% crecimiento + 20% volumen (0–100) |
+| `forecastNext7Days` | avgDiario × 7 × (1 + max(0, growthRate)) |
+
+### Endpoint
+
+```http
+GET /api/ai/trending
+Authorization: Bearer <JWT>
+
+[
+  {
+    "offeringId": "11111111-...",
+    "name": "Mentoría Java Backend",
+    "trendScore": 72.5,
+    "forecastNext7Days": 18.0,
+    "recommendations": 45,
+    "bookings": 9,
+    "conversionRate": 0.20,
+    "growthRate": 0.50
+  }
+]
+```
+
+### Consumer groups Kafka
+
+| Consumer group | Topics | Propósito |
+|---|---|---|
+| `skillbridge-audit-group` | `booking-events` | auditoría (preexistente) |
+| `skillbridge-analytics-group` | `booking-events`, `recommendation-events` | métricas HU-22 |
+
+Los dos grupos son independientes: cada uno recibe todos los mensajes sin competir.
+

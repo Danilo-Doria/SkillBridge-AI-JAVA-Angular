@@ -43,6 +43,8 @@ import { AuthService } from './core/auth.service';
             }
           </nav>
 
+            <a routerLink="/trending" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Tendencias</a>
+
           @if (!auth.isAuthenticated()) {
             <a routerLink="/login"
                class="rounded-md bg-[#111111] px-4 py-2 text-sm font-medium text-white transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] motion-reduce:active:scale-100">
@@ -100,6 +102,7 @@ import { AuthService } from './core/auth.service';
           <a routerLink="/" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" [routerLinkActiveOptions]="{ exact: true }" (click)="closeMenu()">Servicios</a>
           <a routerLink="/book" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Reservar</a>
           <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">IA</a>
+          <a routerLink="/trending" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Tendencias</a>
           <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Mis reservas</a>
 
           @if (auth.hasRole('PROVIDER', 'ADMIN')) {
