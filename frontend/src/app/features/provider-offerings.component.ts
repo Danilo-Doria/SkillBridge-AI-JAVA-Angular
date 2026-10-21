@@ -161,7 +161,7 @@ interface ResourceDraft extends ResourcePayload { id?: string; file?: File; file
           </div>
 
           <fieldset class="space-y-4 border-t border-[#EAEAEA] pt-6" [disabled]="loading || resourceLoading">
-            <legend class="text-sm font-medium">Recursos del servicio</legend>
+            <legend class="text-sm font-medium">Editar recursos del servicio</legend>
             <p class="text-xs text-[#787774]">Archivos del PC (cualquier formato, máximo 10 MB), enlaces a páginas o videos de YouTube y otras plataformas.</p>
             @if (resourceLoading) { <p role="status" class="text-sm">Cargando recursos…</p> }
             @if (resourceError) { <p role="alert" class="text-sm text-[#9F2F2D]">{{ resourceError }}</p> }

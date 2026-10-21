@@ -28,19 +28,21 @@ import { AuthService } from './core/auth.service';
                       [&>a]:rounded-md [&>a]:px-3 [&>a]:py-2 [&>a]:text-sm [&>a]:font-medium [&>a]:text-[#787774]
                       [&>a]:transition-colors [&>a]:duration-150 [&>a:hover]:bg-[#F1F0ED] [&>a:hover]:text-[#111111]">
             <a routerLink="/" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" [routerLinkActiveOptions]="{ exact: true }">Servicios</a>
-            <a routerLink="/book" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Reservar</a>
-            <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">IA</a>
-            <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis reservas</a>
-            <a routerLink="/mentorships/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis mentorías</a>
+            @if (auth.isAuthenticated()) {
+              <a routerLink="/book" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Reservar</a>
+              <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">IA</a>
+              <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis reservas</a>
+              <a routerLink="/mentorships/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis mentorías</a>
 
-            @if (auth.hasRole('PROVIDER', 'ADMIN')) {
-              <a routerLink="/provider/offerings" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">
-                {{ auth.hasRole('ADMIN') ? 'Gestionar servicios' : 'Mis servicios' }}
-              </a>
-            }
+              @if (auth.hasRole('PROVIDER', 'ADMIN')) {
+                <a routerLink="/provider/offerings" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">
+                  {{ auth.hasRole('ADMIN') ? 'Gestionar servicios' : 'Mis servicios' }}
+                </a>
+              }
 
-            @if (auth.hasRole('ADMIN')) {
-              <a routerLink="/admin/users" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Usuarios</a>
+              @if (auth.hasRole('ADMIN')) {
+                <a routerLink="/admin/users" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Usuarios</a>
+              }
             }
           </nav>
 
@@ -103,19 +105,21 @@ import { AuthService } from './core/auth.service';
                     [&>a]:rounded-md [&>a]:px-3 [&>a]:py-3 [&>a]:text-lg [&>a]:font-medium [&>a]:text-[#787774]
                     [&>a]:transition-[background-color,color,transform] [&>a]:duration-150 [&>a:hover]:bg-[#F1F0ED] [&>a:hover]:text-[#111111] [&>a:active]:scale-[0.98]">
           <a routerLink="/" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" [routerLinkActiveOptions]="{ exact: true }" (click)="closeMenu()">Servicios</a>
-          <a routerLink="/book" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Reservar</a>
-          <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">IA</a>
-          <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Mis reservas</a>
-          <a routerLink="/mentorships/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Mis mentorías</a>
+          @if (auth.isAuthenticated()) {
+            <a routerLink="/book" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Reservar</a>
+            <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">IA</a>
+            <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Mis reservas</a>
+            <a routerLink="/mentorships/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Mis mentorías</a>
 
-          @if (auth.hasRole('PROVIDER', 'ADMIN')) {
-            <a routerLink="/provider/offerings" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">
-              {{ auth.hasRole('ADMIN') ? 'Gestionar servicios' : 'Mis servicios' }}
-            </a>
-          }
+            @if (auth.hasRole('PROVIDER', 'ADMIN')) {
+              <a routerLink="/provider/offerings" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">
+                {{ auth.hasRole('ADMIN') ? 'Gestionar servicios' : 'Mis servicios' }}
+              </a>
+            }
 
-          @if (auth.hasRole('ADMIN')) {
-            <a routerLink="/admin/users" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Usuarios</a>
+            @if (auth.hasRole('ADMIN')) {
+              <a routerLink="/admin/users" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Usuarios</a>
+            }
           }
         </nav>
       </div>
