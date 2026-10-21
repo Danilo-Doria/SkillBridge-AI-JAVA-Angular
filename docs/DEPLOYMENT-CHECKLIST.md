@@ -1,5 +1,7 @@
 # Deployment Checklist
 
+> For a step-by-step procedural tutorial on provisioning and deploying to free cloud providers (Neon, Upstash, CloudAMQP, Render, Vercel), see the [Free Tier Deployment Guide](guides/free-tier-deployment.md).
+
 ## Before deploying
 - [ ] Tests pass.
 - [ ] No secrets are committed.
