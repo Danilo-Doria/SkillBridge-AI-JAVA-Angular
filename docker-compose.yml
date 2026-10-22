@@ -216,6 +216,8 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       AUDIT_MONGO_URI: mongodb://audit-mongo:27017/${AUDIT_MONGO_DB:-audit}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8090,http://localhost:4200}
+      # Mismo valor que el backend principal (valida el JWT de ADMIN); el audit-service falla al arrancar si falta
+      JWT_SECRET: ${JWT_SECRET:-change-this-to-a-long-random-secret-at-least-32-characters}
     depends_on:
       kafka:
         condition: service_healthy

@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: audit-service
+  autoconfigure:
+    # Sin UserDetailsService propio: evita la contraseña generada que Spring Boot imprimiría en el log
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   data:
     mongodb:
       uri: ${AUDIT_MONGO_URI:mongodb://localhost:27017/audit}
@@ -31,6 +34,9 @@ management:
         enabled: true
 
 app:
+  jwt:
+    # Mismo valor que JWT_SECRET del backend principal. Sin valor por defecto: si falta, el arranque falla.
+    secret: ${JWT_SECRET:}
   kafka:
     topic:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}

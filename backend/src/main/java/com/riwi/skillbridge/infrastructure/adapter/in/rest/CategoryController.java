@@ -50,7 +50,7 @@ public class CategoryController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('PROVIDER','ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Actualiza una categoría existente")
     public CategoryResponse update(@PathVariable UUID id, @Valid @RequestBody CreateCategoryRequest request) {
         return CategoryResponse.from(updateCategory.update(id, request.name()));
@@ -58,7 +58,7 @@ public class CategoryController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('PROVIDER','ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Elimina una categoría")
     public void delete(@PathVariable UUID id) {
         deleteCategory.delete(id);
