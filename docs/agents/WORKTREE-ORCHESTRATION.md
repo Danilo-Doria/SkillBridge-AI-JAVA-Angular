@@ -11,7 +11,7 @@ and `.agents/agents/agy-worktree-orchestrator/agent.md` (the two agents, see [RE
 ## Script contract
 
 ```
-scripts/agent-worktree-agy.sh run --task-id ID --base REF --spec FILE|- --scope PATH [--scope PATH ...] --non-interactive
+scripts/agent-worktree-agy.sh run --task-id ID --base REF --spec FILE|- --scope PATH [--scope PATH ...] --non-interactive|--interactive
                                   [--finding ID ...] [--context PATH ...] [--forbid PATH ...]
                                   [--timeout SECONDS] [--worktrees-root DIR] [--sandbox] [--dry-run]
 scripts/agent-worktree-agy.sh mark-reviewed --run-id RUN_ID [--worktrees-root DIR]
@@ -28,6 +28,7 @@ scripts/agent-worktree-agy.sh cleanup       --run-id RUN_ID [--worktrees-root DI
 | Location | Default `<repo-parent>/<repo-name>-agent-worktrees/<run-id>/worktree` (sibling, never inside the repo). Branch `agent/<task-id>-<UTC timestamp>`. Path and branch must not already exist. |
 | Dirty workspace | Reported (counts + warning), recorded in `meta.env`, never copied, stashed or discarded. |
 | agy call | `agy -p "<prompt>"` from inside the worktree; prompt is one argv element read from a file; stdin is `/dev/null`; env `AGY_WORKTREE_CHILD=1`, `AGY_PARENT_RUN_ID`. No permission-bypass flag is ever passed; `--sandbox` is opt-in. |
+| Interactive mode | `--interactive` (instead of `--non-interactive`) opens a new terminal window (`AGY_TERMINAL`, else gnome-terminal/konsole/xterm) running `agy -i "<prompt>"` in the worktree, so you can watch and steer the agent. The script waits until agy exits or the window closes (`session_exit`), then collects the same evidence. The agent writes its report to `<run folder>/report.md`. `--timeout` does not apply. |
 | Limits | `--timeout` (default 1800 s) with TERM then KILL after 30 s. Ctrl-C/TERM preserves everything. |
 | Guardrail checks after the run | agent commits or moved HEAD/branch; changes outside scope; forbidden paths (`docs/audit/*`, `scripts/repo_audit.py`, extra `--forbid`); modified applied migrations; `.env` files; and whether the **original** workspace changed during the run. Violations are reported, never auto-reverted. |
 | Cleanup | Separate subcommand, never implicit. Refuses unless: signed run metadata, registered `git worktree`, not the main/original workspace, status finished, review marked, clean tree (no untracked), no commits beyond base, branch used by one worktree. Uses `git worktree remove` **without force**; deletes the branch only by compare-and-delete when it still equals the base commit. Run folders and logs are always kept. |

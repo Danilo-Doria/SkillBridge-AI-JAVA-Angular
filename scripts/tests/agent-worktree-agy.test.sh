@@ -392,6 +392,29 @@ RC=0; OUT=$(cd "$OK_WT" && env AGY_BIN="$FAKE" AGY_SETTINGS_FILE=/nonexistent ba
 assert_eq "refuses to run from a linked worktree" 3 "$RC"
 assert_contains "message explains" "$OUT" "linked worktree"
 
+# ================================================================ 9b. interactive mode
+echo "# 9b. --interactive (agy -i in a terminal)"
+raw_run run --task-id T --base main --spec "$SPEC" --scope backend/src --non-interactive --interactive
+assert_eq "rejects both --non-interactive and --interactive" 2 "$RC"
+IT_TS=$(next_ts)
+RC=0; OUT=$(cd "$ORIG" && env -u DISPLAY -u WAYLAND_DISPLAY -u AGY_TERMINAL AGY_BIN="$FAKE" AGENT_WT_TIMESTAMP="$IT_TS" \
+      AGY_SETTINGS_FILE=/nonexistent bash "$SCRIPT" run --task-id ITNOTERM --base main --spec "$SPEC" --scope backend/src --interactive 2>&1) || RC=$?
+assert_eq "interactive without a terminal rc 3" 3 "$RC"
+assert_missing "no run folder without a terminal" "$ROOT/ITNOTERM-$IT_TS"
+IT_TS=$(next_ts); IT_DIR="$ROOT/ITOK-$IT_TS"
+# AGY_TERMINAL=bash runs the session script synchronously in place of a terminal window
+RC=0; OUT=$(cd "$ORIG" && env AGY_BIN="$FAKE" AGY_TERMINAL=bash FAKE_AGY_MODE=ok FAKE_AGY_LOG="$FAKELOG" AGENT_WT_TIMESTAMP="$IT_TS" \
+      AGY_SETTINGS_FILE=/nonexistent bash "$SCRIPT" run --task-id ITOK --base main --spec "$SPEC" --scope backend/src --interactive 2>&1 </dev/null) || RC=$?
+assert_eq "interactive run rc 0" 0 "$RC"
+assert_eq "agy called with -i" "-i" "$(sed -n 's/^arg1=//p' "$FAKELOG" | head -n 1)"
+assert_eq "prompt passed as one argument" "2" "$(sed -n 's/^argc=//p' "$FAKELOG")"
+assert_eq "interactive child runs inside the worktree" "$IT_DIR/worktree" "$(sed -n 's/^pwd=//p' "$FAKELOG")"
+assert_eq "interactive child has recursion guard" "1" "$(sed -n 's/^child=//p' "$FAKELOG")"
+assert_eq "session exit recorded" "0" "$(cat "$IT_DIR/session_exit")"
+assert_contains "prompt tells the agent where to write the report" "$(cat "$IT_DIR/prompt.md")" "$IT_DIR/report.md"
+assert_contains "placeholder report when the agent wrote none" "$(cat "$IT_DIR/report.md")" "did not write report.md"
+assert_eq "evidence collected after the session" "backend/src/main/java/Fixed.java" "$(cat "$IT_DIR/changed-files.txt")"
+
 # ================================================================ 10. static safety of the script
 echo "# 10. static checks on the script"
 # comments and the worker prompt (which names the git commands it forbids) are excluded
