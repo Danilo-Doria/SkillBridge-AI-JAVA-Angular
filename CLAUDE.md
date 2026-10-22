@@ -65,9 +65,10 @@ cd audit-service/frontend && npm test -- --watch=false
 | Deployment & container config | `docs/DEPLOYMENT-CHECKLIST.md`, `docs/guides/free-tier-deployment.md` | `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile` |
 | Known risks & open defects | `docs/RISK-REGISTER.md` | `docs/audit/findings.md` *(read-only)*, `docs/audit/evidence/` *(read-only)* |
 | Delegating to worktrees & agents | `docs/agents/WORKTREE-ORCHESTRATION.md` | `docs/agents/REGISTRY.md`, `docs/agents/GUARDRAILS.md`, `scripts/agent-worktree-agy.sh` |
-| Spec-Driven Development (specs, plans, tasks) | `docs/agents/SDD-WORKFLOW.md`, `specs/README.md` | `specs/`, `.specify/` |
+| Spec-Driven Development (clasificación, specs, plans, tasks) | `docs/agents/SDD-HYBRID-GUIDE.md`, `docs/agents/SDD-WORKFLOW.md` | `specs/`, `.specify/` |
 
 ## Spec-Driven Development (SDD)
+- **Clasificación primero**: Sigue `docs/agents/SDD-HYBRID-GUIDE.md`. Los cambios pequeños usan evidencia concisa en issue/PR; los medianos requieren una spec de comportamiento; los grandes/alto riesgo o delegados requieren el ciclo completo.
 - **GitHub Spec Kit Slash Commands**: Execute the SDD workflow using slash commands:
   - `/speckit.constitution`: Consult or amend system governance (`.specify/memory/constitution.md`).
   - `/speckit.specify [description]`: Generate or refine functional specification in `specs/<NNN>-<slug>/spec.md`.
@@ -75,9 +76,9 @@ cd audit-service/frontend && npm test -- --watch=false
   - `/speckit.plan`: Formulate the technical design and architectural plan in `specs/<NNN>-<slug>/plan.md`.
   - `/speckit.tasks`: Create dependency-ordered, independently verifiable tasks in `specs/<NNN>-<slug>/tasks.md`.
   - `/speckit.analyze`: Cross-check consistency between spec, plan, and tasks.
-  - `/speckit.implement`: Implement tasks phase-by-phase.
+  - `/speckit.implement`: Implement tasks phase-by-phase when a task list exists.
   - `/speckit.checklist`: Review quality checklists and non-functional requirements.
-- **Worktree Delegation**: Delegate task execution from `tasks.md` to `agy` worktrees via `scripts/agent-worktree-agy.sh` per [docs/agents/SDD-WORKFLOW.md](docs/agents/SDD-WORKFLOW.md). Never modify parallel feature folders (`specs/0*`).
+- **Worktree Delegation**: Delegating to `agy` worktrees requires a reviewed `spec.md`, `plan.md`, and `tasks.md`; follow [docs/agents/SDD-WORKFLOW.md](docs/agents/SDD-WORKFLOW.md). Never modify parallel feature folders (`specs/0*`).
 
 
 ## Claude Code Execution Directives

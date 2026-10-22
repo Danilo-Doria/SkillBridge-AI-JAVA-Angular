@@ -1,12 +1,12 @@
 # SDD-WORKFLOW — Puente entre Spec-Driven Development y el Orquestador Worktree de agy
 
-Este documento describe la integración operacional entre el flujo **Spec-Driven Development (GitHub Spec Kit)** y el orquestador de agentes en Git worktrees aislados (`scripts/agent-worktree-agy.sh`), documentado en [WORKTREE-ORCHESTRATION.md](WORKTREE-ORCHESTRATION.md).
+Este documento describe la integración operacional entre el flujo **Spec-Driven Development (GitHub Spec Kit)** y el orquestador de agentes en Git worktrees aislados (`scripts/agent-worktree-agy.sh`), documentado en [WORKTREE-ORCHESTRATION.md](WORKTREE-ORCHESTRATION.md). Es el flujo obligatorio para trabajo delegado; para clasificar el cambio antes de llegar aquí, consulta [SDD-HYBRID-GUIDE.md](SDD-HYBRID-GUIDE.md).
 
 ---
 
 ## 1. Filosofía y División de Responsabilidades (Humanos vs. Agentes)
 
-El flujo SDD garantiza que ningún agente escriba código sin una especificación clara, un diseño técnico validado y límites estrictos de alcance:
+El flujo SDD completo garantiza que ningún worker delegado escriba código sin una especificación clara, un diseño técnico validado y límites estrictos de alcance. Los cambios pequeños no se delegan mediante este puente y siguen la evidencia proporcional definida en la guía híbrida.
 
 ```
 [User Story / Issue]

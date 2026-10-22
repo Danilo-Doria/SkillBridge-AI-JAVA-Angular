@@ -49,10 +49,10 @@
 ```text
 specs/[###-feature]/
 ├── plan.md              # This file (__SPECKIT_COMMAND_PLAN__ command output)
-├── research.md          # Phase 0 output (__SPECKIT_COMMAND_PLAN__ command)
-├── data-model.md        # Phase 1 output (__SPECKIT_COMMAND_PLAN__ command)
-├── quickstart.md        # Phase 1 output (__SPECKIT_COMMAND_PLAN__ command)
-├── contracts/           # Phase 1 output (__SPECKIT_COMMAND_PLAN__ command)
+├── research.md          # Optional: durable rationale for unresolved decisions
+├── data-model.md        # Optional: material domain/persistence model change
+├── quickstart.md        # Optional: high-risk or multi-module validation guide
+├── contracts/           # Optional: changed external interface contract
 └── tasks.md             # Phase 2 output (__SPECKIT_COMMAND_TASKS__ command - NOT created by __SPECKIT_COMMAND_PLAN__)
 ```
 

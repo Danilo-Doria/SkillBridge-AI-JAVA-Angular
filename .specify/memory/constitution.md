@@ -1,6 +1,6 @@
 # SkillBridge AI System Constitution
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-22 | **Last Amended**: 2026-10-22 | **Status**: Enforced
+**Version**: 1.1.0 | **Ratified**: 2026-10-22 | **Last Amended**: 2026-10-22 | **Status**: Enforced
 
 This constitution establishes the non-negotiable architectural principles, security invariants, operational boundaries, and verification standards for **SkillBridge AI**. It supersedes all informal practices. All human engineers, automated tooling, and coding agents (Claude Code, Antigravity, and peers) must comply with these rules.
 
@@ -119,6 +119,11 @@ This constitution establishes the non-negotiable architectural principles, secur
    - Any modification that adds, modifies, or removes domain models, inbound/outbound ports, security filters, or messaging topics must be accompanied by updates to the respective documentation under `docs/`.
 2. **Architectural Decision Records (ADRs)**:
    - Significant architectural decisions, structural changes, or operational trade-offs require a formal, numbered ADR in `docs/adr/` (format: `docs/adr/NNNN-<slug>.md`) following the Context-Decision-Consequences taxonomy.
+3. **Proportionate SDD Evidence**:
+   - Each change MUST be classified as small, medium, or large/high-risk according to `docs/agents/SDD-HYBRID-GUIDE.md` before implementation.
+   - Small changes require an issue/PR description with verifiable acceptance criteria and evidence of validation; they do not require a feature directory or generated SDD artifacts.
+   - Medium changes require a behavior specification. A plan and task list are required only when the guide's decision criteria require them (for example, a material design decision, multiple implementation phases, or delegation to worktrees).
+   - Large or high-risk changes require the complete reviewed lifecycle: `spec.md`, `plan.md`, `tasks.md`, and the relevant architectural documentation or ADR.
 
 ---
 
@@ -148,4 +153,4 @@ Development must adhere to the four-tier testing hierarchy defined in `docs/TEST
      3. Semantic version bump of this document (`MAJOR.MINOR.PATCH`).
      4. Recording of the amendment date and creation of an accompanying ADR in `docs/adr/`.
 3. **Compliance Verification**:
-   - All proposed code changes, feature specifications (`spec.md`), and implementation plans (`plan.md`) must include an explicit Constitution Check section verifying adherence to Articles I through VIII prior to implementation.
+   - Every generated implementation plan (`plan.md`) and every large/high-risk change must include an explicit Constitution Check verifying adherence to Articles I through VIII prior to implementation. Medium changes without a plan and small changes record applicable invariants in their issue/PR evidence.
