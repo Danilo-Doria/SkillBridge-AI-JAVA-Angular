@@ -1,13 +1,13 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Offering, OfferingService } from '../core/offering.service';
 import { BookingService } from '../core/booking.service';
 
 @Component({
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule],
   template: `
     <section class="min-h-screen bg-[#FBFBFA] px-4 py-16 sm:px-6 lg:py-24">
       <div class="mx-auto grid max-w-5xl gap-12 lg:grid-cols-[1fr_26rem] lg:gap-20">
@@ -106,6 +106,7 @@ export class BookingComponent implements OnInit {
   private offeringsService = inject(OfferingService);
   private bookingService = inject(BookingService);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   ngOnInit(): void {
     this.offeringsService.list().subscribe({
@@ -153,6 +154,7 @@ export class BookingComponent implements OnInit {
           this.selectedOfferingTitle = '';
           this.scheduledLocal = '';
           this.loading = false;
+          this.router.navigate(['/bookings/me']);
         },
         error: (e: HttpErrorResponse) => {
           this.error = e?.error?.detail || 'No fue posible crear la reserva. Inicia sesión y verifica la fecha.';

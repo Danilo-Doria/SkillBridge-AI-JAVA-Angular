@@ -1,4 +1,16 @@
 package com.riwi.skillbridge.application.port.out.event;
-import com.riwi.skillbridge.application.recommendation.InputType;
+
+import com.riwi.skillbridge.domain.model.RecommendationInputType;
+
 import java.util.UUID;
-public record RecommendationRequestedPayload(UUID recommendationId, UUID userId, InputType inputType) {}
+
+/**
+ * Payload for the RecommendationRequested event.
+ * Published when a user submits a recommendation request before calling the AI.
+ */
+public record RecommendationRequestedPayload(
+        UUID recommendationId,
+        UUID userId,
+        String goal,
+        RecommendationInputType inputType
+) {}

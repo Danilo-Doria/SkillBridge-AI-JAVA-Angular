@@ -8,7 +8,7 @@ import { AuthService } from './core/auth.service';
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <header class="sticky top-0 z-30 border-b border-[#EAEAEA] bg-[#FBFBFA]/85 backdrop-blur-md">
-      <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div class="mx-auto flex h-16 max-w-8xl items-center justify-between px-4 sm:px-6">
 
         <a routerLink="/" (click)="closeMenu()" aria-label="SkillBridge AI, inicio"
            class="flex items-center gap-2.5 transition-opacity duration-150 hover:opacity-70">
@@ -23,14 +23,16 @@ import { AuthService } from './core/auth.service';
         </a>
 
         <!-- Navegación escritorio -->
-        <div class="hidden items-center gap-6 md:flex">
+        <div class="hidden items-center gap-4 lg:gap-6 md:flex">
           <nav class="flex items-center gap-1
                       [&>a]:rounded-md [&>a]:px-3 [&>a]:py-2 [&>a]:text-sm [&>a]:font-medium [&>a]:text-[#787774]
                       [&>a]:transition-colors [&>a]:duration-150 [&>a:hover]:bg-[#F1F0ED] [&>a:hover]:text-[#111111]">
             <a routerLink="/" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" [routerLinkActiveOptions]="{ exact: true }">Servicios</a>
             <a routerLink="/book" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Reservar</a>
             <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">IA</a>
+            <a routerLink="/trending" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Tendencias</a>
             <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis reservas</a>
+            <a routerLink="/mentorships/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis mentorías</a>
 
             @if (auth.hasRole('PROVIDER', 'ADMIN')) {
               <a routerLink="/provider/offerings" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">
@@ -43,17 +45,23 @@ import { AuthService } from './core/auth.service';
             }
           </nav>
 
-          @if (!auth.isAuthenticated()) {
-            <a routerLink="/login"
-               class="rounded-md bg-[#111111] px-4 py-2 text-sm font-medium text-white transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] motion-reduce:active:scale-100">
-              Ingresar
-            </a>
-          } @else {
-            <button type="button" (click)="auth.logout()"
-                    class="cursor-pointer rounded-md px-4 py-2 text-sm font-medium text-[#111111] transition-[background-color,transform] duration-150 hover:bg-[#F1F0ED] active:scale-[0.97] motion-reduce:active:scale-100">
-              Salir
-            </button>
-          }
+          <div class="flex items-center gap-3 border-l border-[#EAEAEA] pl-4 lg:pl-6">
+            @if (!auth.isAuthenticated()) {
+              <a routerLink="/login"
+                 class="rounded-md bg-[#111111] px-4 py-2 text-sm font-medium text-white transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] motion-reduce:active:scale-100">
+                Ingresar
+              </a>
+            } @else {
+              <div class="hidden max-w-44 text-right xl:block">
+                <p class="truncate text-xs font-medium text-[#111111]">{{ auth.email() }}</p>
+                <p class="text-[11px] uppercase tracking-wide text-[#787774]">{{ roleLabel() }}</p>
+              </div>
+              <button type="button" (click)="auth.logout()"
+                      class="cursor-pointer rounded-md px-3 py-2 text-sm font-medium text-[#111111] transition-[background-color,transform] duration-150 hover:bg-[#F1F0ED] active:scale-[0.97] motion-reduce:active:scale-100">
+                Salir
+              </button>
+            }
+          </div>
         </div>
 
         <!-- Hamburguesa (móvil) -->
@@ -100,7 +108,9 @@ import { AuthService } from './core/auth.service';
           <a routerLink="/" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" [routerLinkActiveOptions]="{ exact: true }" (click)="closeMenu()">Servicios</a>
           <a routerLink="/book" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Reservar</a>
           <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">IA</a>
+          <a routerLink="/trending" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Tendencias</a>
           <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Mis reservas</a>
+          <a routerLink="/mentorships/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Mis mentorías</a>
 
           @if (auth.hasRole('PROVIDER', 'ADMIN')) {
             <a routerLink="/provider/offerings" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">
@@ -121,6 +131,10 @@ import { AuthService } from './core/auth.service';
             Ingresar
           </a>
         } @else {
+          <div class="mb-4 rounded-md bg-[#F1F0ED] px-3 py-2.5">
+            <p class="truncate text-sm font-medium text-[#111111]">{{ auth.email() }}</p>
+            <p class="mt-0.5 text-xs uppercase tracking-wide text-[#787774]">{{ roleLabel() }}</p>
+          </div>
           <button type="button" (click)="handleLogout()"
                   class="w-full cursor-pointer rounded-md border border-[#EAEAEA] px-4 py-3 text-center text-sm font-medium text-[#111111] transition-[background-color,transform] duration-150 hover:bg-[#F1F0ED] active:scale-[0.98] motion-reduce:active:scale-100">
             Cerrar sesión
@@ -144,6 +158,15 @@ export class AppComponent {
 
   closeMenu(): void {
     this.isMenuOpen = false;
+  }
+
+  roleLabel(): string {
+    switch (this.auth.role()) {
+      case 'ADMIN': return 'Administrador';
+      case 'PROVIDER': return 'Provider';
+      case 'CUSTOMER': return 'Usuario';
+      default: return '';
+    }
   }
 
   handleLogout(): void {

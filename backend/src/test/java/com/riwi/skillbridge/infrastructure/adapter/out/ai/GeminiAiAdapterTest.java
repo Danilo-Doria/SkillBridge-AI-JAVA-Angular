@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -74,6 +75,29 @@ class GeminiAiAdapterTest {
     }
 
     @Test
+    void springCreatesAdapterThroughInjectedConstructorByDefault() {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(ChatClient.Builder.class, () -> chatClientBuilder);
+            context.registerBean(AiProviderProperties.class, () -> properties);
+            context.register(GeminiAiAdapter.class);
+            context.refresh();
+
+            assertNotNull(context.getBean(GeminiAiAdapter.class));
+        }
+    }
+
+    @Test
+    void geminiAdapterIsNotRegisteredWhenAnotherProviderIsSelected() {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.getEnvironment().getSystemProperties().put("app.ai.provider", "openai");
+            context.register(GeminiAiAdapter.class);
+            context.refresh();
+
+            assertFalse(context.containsBean("geminiAiAdapter"));
+        }
+    }
+
+    @Test
     @DisplayName("Should throw AiProviderException with INVALID_INPUT for missing API key")
     void testRecommendWithMissingApiKey() {
         // Arrange
@@ -92,6 +116,26 @@ class GeminiAiAdapterTest {
     }
 
     @Test
+    void parsesValidStructuredJson() {
+        var parsed = adapter.parse(("{\"explanation\":\"Plan para Java\",\"recommendations\":[{\"offeringId\":\"%s\",\"score\":0.9,\"reason\":\"Ayuda con Spring\"}]}" ).formatted(TEST_OFFERINGS.getFirst().id()));
+        assertEquals("Plan para Java", parsed.explanation());
+        assertEquals(1, parsed.recommendations().size());
+    }
+
+    @Test
+    void rejectsInvalidJson() {
+        var error = assertThrows(AiProviderException.class, () -> adapter.parse("esto no es json"));
+        assertEquals(ErrorType.INTERNAL_ERROR, error.getErrorType());
+    }
+
+    @Test
+    void rejectsTruncatedJson() {
+        var error = assertThrows(AiProviderException.class, () -> adapter.parse("{\"explanation\":\"cortado\",\"recommendations\":[{\"offeringId\":"));
+        assertEquals(ErrorType.INTERNAL_ERROR, error.getErrorType());
+        assertTrue(error.getMessage().contains("truncated"));
+    }
+
+    @Test
     @DisplayName("Should throw AiProviderException with UNAVAILABLE for network error")
     void testRecommendWithNetworkError() {
         // Arrange
@@ -106,8 +150,7 @@ class GeminiAiAdapterTest {
         );
 
         assertEquals(ErrorType.UNAVAILABLE, exception.getErrorType());
-        assertTrue(exception.getMessage().contains("temporarily unavailable"));
-        assertTrue(exception.getMessage().contains("timeout: 10s"));
+        assertTrue(exception.getCause().getMessage().contains("Connection refused"));
     }
 
     @Test
@@ -147,7 +190,7 @@ class GeminiAiAdapterTest {
             () -> adapter.recommend(REQ, TEST_OFFERINGS)
         );
 
-        assertTrue(exception.getMessage().contains("timeout: 5s"));
+        assertEquals(ErrorType.TIMEOUT, exception.getErrorType());
     }
 
     @Test
@@ -203,8 +246,10 @@ class GeminiAiAdapterTest {
                 "Should handle: " + error.getMessage()
             );
 
-            assertEquals(ErrorType.UNAVAILABLE, exception.getErrorType(),
-                "Error should be mapped to UNAVAILABLE: " + error.getMessage());
+            ErrorType expected = error.getMessage().toLowerCase().contains("timeout")
+                    ? ErrorType.TIMEOUT : ErrorType.UNAVAILABLE;
+            assertEquals(expected, exception.getErrorType(),
+                "Error type should match: " + error.getMessage());
         }
     }
 }

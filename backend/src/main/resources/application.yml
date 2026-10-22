@@ -135,6 +135,7 @@ app:
     audio-provider: ${AI_AUDIO_PROVIDER:gemini}
     groq:
       api-key: ${GROQ_API_KEY:}
+      audio-model: ${GROQ_AUDIO_MODEL:whisper-large-v3-turbo}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:10}
     gemini:
       enabled: ${GEMINI_ENABLED:true}
@@ -152,6 +153,7 @@ app:
     topic:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
       audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
+      recommendation-events: ${KAFKA_TOPIC_RECOMMENDATION_EVENTS:recommendation-events}
   payment:
     provider: ${PAYMENT_PROVIDER:stripe}
 
@@ -160,3 +162,10 @@ stripe:
   secret-key: ${STRIPE_SECRET_KEY:}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
   currency: ${STRIPE_CURRENCY:usd}
+
+zoom:
+  account-id: ${ZOOM_ACCOUNT_ID:}
+  client-id: ${ZOOM_CLIENT_ID:}
+  client-secret: ${ZOOM_CLIENT_SECRET:}
+  sdk-key: ${ZOOM_SDK_KEY:}
+  sdk-secret: ${ZOOM_SDK_SECRET:}

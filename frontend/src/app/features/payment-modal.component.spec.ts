@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { PaymentModal } from './payment-modal';
+import { PaymentModal } from './payment-modal.component';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { StripeService } from '../../core/stripe.service';
+import { StripeService } from '../core/stripe.service';
 
 describe('PaymentModal', () => {
   let component: PaymentModal;
@@ -53,7 +53,6 @@ describe('PaymentModal', () => {
     component = fixture.componentInstance;
 
     component.formatCardNumber('1234567812345678');
-    // Verificamos que el método procesa sin lanzar errores
     expect(component.cardData).toBeDefined();
   });
 

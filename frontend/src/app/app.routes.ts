@@ -10,6 +10,8 @@ import { BookingComponent } from './features/booking.component';
 import { MyBookingsComponent } from './features/my-bookings.component';
 import { ProviderOfferingsComponent } from './features/provider-offerings.component';
 import { AdminUsersComponent } from './features/admin-users.component';
+import { TrendingComponent } from './features/trending.component';
+import { MyMentorshipsComponent } from './features/my-mentorships.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -21,6 +23,8 @@ export const routes: Routes = [
   { path: 'ai', component: AiComponent, canActivate: [authGuard] },
   { path: 'book', component: BookingComponent, canActivate: [authGuard] },
   { path: 'bookings/me', component: MyBookingsComponent, canActivate: [authGuard] },
+  { path: 'trending', component: TrendingComponent, canActivate: [authGuard] },
+  { path: 'mentorships/me', component: MyMentorshipsComponent, canActivate: [authGuard] },
 
   // Solo Provider y Admin:
   { path: 'provider/offerings', component: ProviderOfferingsComponent, canActivate: [roleGuard('PROVIDER', 'ADMIN')] },
