@@ -77,6 +77,49 @@ import { Stripe, StripeElements, StripePaymentElement } from '@stripe/stripe-js'
                   >
                 </div>
 
+                <!-- Guía de pruebas disponible en el entorno académico -->
+                @if (stripeAvailable) {
+                  <details class="group overflow-hidden rounded-lg border border-[#EAEAEA] bg-[#FAFAF9]">
+                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-[#111111] marker:content-none">
+                      <span class="flex items-center gap-2">
+                        <svg class="h-4 w-4 text-[#787774]" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                          <path d="M224 72H32A16 16 0 0 0 16 88v80a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16V88a16 16 0 0 0-16-16Zm0 96H32V88h192v80Zm-24-40a8 8 0 0 1-8 8h-48a8 8 0 0 1 0-16h48a8 8 0 0 1 8 8Zm-80 0a8 8 0 0 1-8 8H64a8 8 0 0 1 0-16h48a8 8 0 0 1 8 8Z"/>
+                        </svg>
+                        Tarjetas de prueba
+                      </span>
+                      <svg class="h-4 w-4 text-[#787774] transition-transform duration-150 group-open:rotate-180" viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="20" aria-hidden="true">
+                        <path d="m48 96 80 80 80-80"/>
+                      </svg>
+                    </summary>
+
+                    <div class="border-t border-[#EAEAEA] px-4 py-3">
+                      <p class="mb-3 text-xs leading-5 text-[#787774]">
+                        Solo para pruebas. Usa una fecha futura y cualquier CVC de tres dígitos.
+                      </p>
+                      <ul class="space-y-2" aria-label="Casos de prueba de Stripe">
+                        @for (card of stripeTestCards; track card.number) {
+                          <li class="rounded-md border border-[#EAEAEA] bg-white px-3 py-2.5">
+                            <div class="flex items-start justify-between gap-3">
+                              <span class="font-mono text-xs font-semibold tracking-wide text-[#111111]">{{ card.number }}</span>
+                              <span
+                                class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                [ngClass]="{
+                                  'bg-[#EAF3E9] text-[#346538]': card.tone === 'success',
+                                  'bg-[#FDEBEC] text-[#9F2F2D]': card.tone === 'error',
+                                  'bg-[#FFF4D9] text-[#8A5A00]': card.tone === 'warning'
+                                }"
+                              >
+                                {{ card.outcome }}
+                              </span>
+                            </div>
+                            <p class="mt-1 text-xs leading-4 text-[#787774]">{{ card.description }}</p>
+                          </li>
+                        }
+                      </ul>
+                    </div>
+                  </details>
+                }
+
                 <!-- CASO 1: Contenedor Oficial de Stripe Elements -->
                 @if (stripeAvailable) {
                   <div>
@@ -218,6 +261,33 @@ export class PaymentModal implements OnInit, OnDestroy {
   stripeConfigured = false;
   loading = false;
   errorMsg = '';
+
+  readonly stripeTestCards = [
+    {
+      number: '4242 4242 4242 4242',
+      outcome: 'Pago exitoso',
+      description: 'La transacción se aprueba sin autenticación adicional.',
+      tone: 'success'
+    },
+    {
+      number: '4000 0000 0000 0002',
+      outcome: 'Tarjeta rechazada',
+      description: 'Stripe responde con un rechazo genérico de la tarjeta.',
+      tone: 'error'
+    },
+    {
+      number: '4000 0000 0000 9995',
+      outcome: 'Fondos insuficientes',
+      description: 'Stripe rechaza el pago por falta de fondos.',
+      tone: 'error'
+    },
+    {
+      number: '4000 0025 0000 3155',
+      outcome: 'Autenticación requerida',
+      description: 'Simula un pago que solicita la validación 3D Secure.',
+      tone: 'warning'
+    }
+  ];
 
   // Datos para fallback simulado (en caso de que no haya clave de Stripe configurada)
   cardData = {
