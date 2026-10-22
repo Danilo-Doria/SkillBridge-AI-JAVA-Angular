@@ -1,6 +1,6 @@
 # specs/ — Especificaciones Spec-Driven Development (GitHub Spec Kit)
 
-Este directorio alberga los artefactos de diseño, análisis y planificación de funcionalidades de **SkillBridge AI**, gestionados conforme al estándar de **GitHub Spec Kit**.
+Este directorio alberga los artefactos de diseño, análisis y planificación de funcionalidades de **SkillBridge AI**, gestionados conforme al estándar de **GitHub Spec Kit**. Se usa cuando la clasificación de la [guía SDD híbrida](../docs/agents/SDD-HYBRID-GUIDE.md) requiere una especificación; no se crea para cambios pequeños.
 
 Cada funcionalidad o User Story (HU) cuenta con su propio subdirectorio aislado: `specs/<NNN>-<slug>/`.
 
@@ -24,27 +24,29 @@ Dentro de cada directorio `specs/<NNN>-<slug>/` residen los documentos de las di
 ```text
 specs/<NNN>-<slug>/
 ├── spec.md              # Fase 1: Especificación funcional (Qué y Por qué). Aprobada por el Humano.
-├── plan.md              # Fase 2: Plan de implementación técnica (Cómo). Aprobada por el Humano.
-├── tasks.md             # Fase 3: Desglose ejecutable de tareas y dependencias. Base de delegación.
-├── research.md          # Artefacto de apoyo: Investigación previa, alternativas evaluadas y decisiones.
-├── data-model.md        # Artefacto de apoyo: Entidades de dominio, modelos JPA y mapeos.
-├── contracts/           # Artefacto de apoyo: Contratos OpenAPI / esquemas de eventos.
-└── checklists/          # Artefacto de apoyo: Listas de verificación de calidad y puertas de revisión.
+├── plan.md              # Si hay diseño material, alto riesgo o delegación.
+├── tasks.md             # Si hay varias fases, agentes o worktrees.
+├── research.md          # Solo si una decisión requiere investigación conservable.
+├── data-model.md        # Solo si el modelo necesita revisión fuera del código.
+├── contracts/           # Solo si existe un contrato externo que revisar.
+└── checklists/          # Puerta de calidad para trabajo con ambigüedad/riesgo.
 ```
 
 1. **`spec.md`** (Generado con `/speckit.specify` o `/speckit.clarify`):
    - Define el problema, historias de usuario priorizadas (P1: MVP, P2, P3), criterios de aceptación en formato Given-When-Then y casos borde.
    - Incluye el enlace formal al Issue de GitHub correspondiente.
    - **Puerta de Calidad**: Requiere revisión y aprobación explícita de un humano antes de pasar al plan.
-2. **`plan.md`** (Generado con `/speckit.plan`):
+2. **`plan.md`** (Generado con `/speckit.plan`, cuando aplique):
    - Traduce la especificación en una arquitectura ejecutable respetando la constitución de SkillBridge AI (`.specify/memory/constitution.md`).
    - Define puertos entrantes/salientes, adaptadores, DTOs, cambios en base de datos y estrategias de observabilidad.
    - **Puerta de Calidad**: Requiere revisión y aprobación explícita de un humano antes de desglosar tareas.
-3. **`tasks.md`** (Generado con `/speckit.tasks`):
+3. **`tasks.md`** (Generado con `/speckit.tasks`, cuando aplique):
    - Desglosa el plan en tareas unitarias, independientes y ordenadas por fase/dependencia con formato `[T001] [P?] [US1] Descripción`.
    - Cada tarea o fase de tareas se convierte en la entrada (`--spec`) para delegación a agentes en worktrees aislados.
-4. **Artefactos auxiliares**:
-   - `research.md`, `data-model.md`, `contracts/` y `checklists/` proporcionan contexto profundo bajo demanda para los agentes de implementación.
+4. **Artefactos auxiliares opcionales**:
+   - `research.md`, `data-model.md`, `contracts/` y `checklists/` proporcionan contexto profundo bajo demanda para los agentes de implementación. No duplican información ya expresada adecuadamente por código, pruebas o configuración.
+
+Al cerrar una feature, plan, tareas y artefactos auxiliares se conservan como historial. La especificación mantiene el comportamiento acordado durante la entrega; una intención posterior abre una feature enlazada, en vez de reescribir el historial.
 
 ---
 

@@ -63,8 +63,8 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Fill Technical Context (mark unknowns as "NEEDS CLARIFICATION")
    - Fill Constitution Check section from constitution
    - Evaluate gates (ERROR if violations unjustified)
-   - Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
-   - Phase 1: Generate data-model.md, contracts/, quickstart.md
+   - Phase 0: Generate `research.md` only for unresolved technical choices, external integrations, or decisions that need durable rationale; resolve all `NEEDS CLARIFICATION` that block implementation.
+   - Phase 1: Generate only the applicable design artifacts: `data-model.md` for a material domain/persistence model, `contracts/` for changed external interfaces, and `quickstart.md` for a multi-module, high-risk, or operational validation flow. Do not duplicate code, tests, configuration, or canonical documentation.
    - Re-evaluate Constitution Check post-design
 
 ## Mandatory Post-Execution Hooks
@@ -109,12 +109,12 @@ Command ends after Phase 1 design. Report branch, IMPL_PLAN path, and generated 
 
 ### Phase 0: Outline & Research
 
-1. **Extract unknowns from Technical Context** above:
-   - For each NEEDS CLARIFICATION → research task
-   - For each dependency → best practices task
-   - For each integration → patterns task
+1. **Decide whether research is required** from Technical Context:
+   - Each implementation-blocking `NEEDS CLARIFICATION` → research task
+   - Each unfamiliar dependency, external integration, or consequential technology choice → research/best-practices task
+   - Do not create research work for facts already established in the repository or in canonical project documentation.
 
-2. **Generate and dispatch research agents**:
+2. **When research is required, generate and dispatch research agents**:
 
    ```text
    For each unknown in Technical Context:
@@ -123,36 +123,36 @@ Command ends after Phase 1 design. Report branch, IMPL_PLAN path, and generated 
      Task: "Find best practices for {tech} in {domain}"
    ```
 
-3. **Consolidate findings** in `research.md` using format:
+3. **When research is required, consolidate findings** in `research.md` using format:
    - Decision: [what was chosen]
    - Rationale: [why chosen]
    - Alternatives considered: [what else evaluated]
 
-**Output**: research.md with all NEEDS CLARIFICATION resolved
+**Output**: `research.md` when research was required; all implementation-blocking `NEEDS CLARIFICATION` resolved.
 
 ### Phase 1: Design & Contracts
 
-**Prerequisites:** `research.md` complete
+**Prerequisites:** Any required research is complete; no implementation-blocking clarification remains.
 
-1. **Extract entities from feature spec** → `data-model.md`:
+1. **If the feature changes a material domain or persistence model, extract entities from feature spec** → `data-model.md`:
    - Entity name, fields, relationships
    - Validation rules from requirements
    - State transitions if applicable
 
-2. **Define interface contracts** (if project has external interfaces) → `/contracts/`:
+2. **Define interface contracts only when the feature changes an external interface** → `/contracts/`:
    - Identify what interfaces the project exposes to users or other systems
    - Document the contract format appropriate for the project type
    - Examples: public APIs for libraries, command schemas for CLI tools, endpoints for web services, grammars for parsers, UI contracts for applications
    - Skip if project is purely internal (build scripts, one-off tools, etc.)
 
-3. **Create quickstart validation guide** → `quickstart.md`:
+3. **Create a quickstart validation guide only for a multi-module, high-risk, or operational flow** → `quickstart.md`:
    - Document runnable validation scenarios that prove the feature works end-to-end
    - Include prerequisites, setup commands, test/run commands, and expected outcomes
    - Use links or references to contracts and data model details instead of duplicating them
    - Do not include full implementation code, model/service/controller bodies, migrations, or complete test suites
    - Keep this artifact as a validation/run guide; implementation details belong in `tasks.md` and the implementation phase
 
-**Output**: data-model.md, /contracts/*, quickstart.md
+**Output**: Only the applicable artifacts above. The plan itself records why an artifact was unnecessary when its subject is material to the feature.
 
 ## Key rules
 
@@ -161,6 +161,6 @@ Command ends after Phase 1 design. Report branch, IMPL_PLAN path, and generated 
 
 ## Done When
 
-- [ ] Plan workflow executed and design artifacts generated
+- [ ] Plan workflow executed and applicable design artifacts generated
 - [ ] Extension hooks dispatched or skipped according to the rules in Mandatory Post-Execution Hooks above
 - [ ] Completion reported to user with branch, plan path, and generated artifacts
