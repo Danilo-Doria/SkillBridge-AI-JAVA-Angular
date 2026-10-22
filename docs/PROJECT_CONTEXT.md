@@ -131,3 +131,19 @@ For comprehensive module-specific guides, consult:
    - Domain entities in `domain/model/` must remain pure Java records or classes.
 3. **Verify Database Schema**:
    - New database changes must be added as sequential Flyway migrations (`V8__...sql`) in `backend/src/main/resources/db/migration/`.
+
+---
+
+<!-- ACTIVE-WORK:BEGIN — mantenido SOLO por el coordinador; los agentes de tarea no editan esta sección -->
+## 8. Seguimiento de trabajo activo
+
+Última actualización: 2026-10-22T01:10Z · Commit base común: `1d5dde4` (`develop`) · Registro cronológico: [WORKSTREAM-LOG](tasks/WORKSTREAM-LOG.md)
+
+| ID | Objetivo | Responsable | Commit base | Rama / worktree | Estado | Dependencias y riesgos | Actualizado | Spec / Informe |
+|---|---|---|---|---|---|---|---|---|
+| SECURITY-REMEDIATION-001 | Corregir SEC-003 (BOLA en pagos), SEC-004 (audit-service sin auth), SEC-005 (categorías) | Claude Code (tmux `skillbridge-parallel`, panel 0) | `1d5dde4` | `agent/SECURITY-REMEDIATION-001-20261022T001327Z` · `../SkillBridge-AI-JAVA-Angular-agent-worktrees/SECURITY-REMEDIATION-001-20261022T001327Z/worktree` | RUNNING (con cambios en el worktree; sin informe aún) | SEC-004 acopla servicios por secreto JWT compartido; SEC-005 puede romper el borrado de categorías de PROVIDER en el frontend; suites con Docker pueden no ejecutarse | 2026-10-22 | [spec](tasks/SECURITY-REMEDIATION-001.md) · informe: pendiente (`<run>/report.md`) |
+| RAG-001 | MVP de RAG fundamentado en conocimiento real (ofertas, categorías, recursos, docs públicas) | AGY | `1d5dde4` | `agent/RAG-001-20261022T002200Z` · `../SkillBridge-AI-JAVA-Angular-agent-worktrees/RAG-001-20261022T002200Z/worktree` | REVIEW (needs-fixes: respaldo silencioso a mock, timeout no aplicado, fuentes sin validar) | 32 pruebas RAG y `mvn -o test` re-ejecutados por el coordinador (0 fallos); sin LLM real probado; SEC-010 (rate limit) abierto | 2026-10-22 | [spec](tasks/RAG-001.md) · [decisiones](tasks/DECISIONS-RAG-SPARK.md) · informe: `<run>/report.md` |
+| SPARK-001 | Evaluar Spark y PoC aislada de analítica de eventos | AGY | `1d5dde4` | `agent/SPARK-001-20261022T002200Z` · `../SkillBridge-AI-JAVA-Angular-agent-worktrees/SPARK-001-20261022T002200Z/worktree` | REVIEW (ready-for-review con 2 retoques; recomienda NO adoptar Spark) | PoC en `scripts/spark-analytics/` (no `experiments/`); datos sintéticos; benchmark no re-ejecutado; versiones sin fijar | 2026-10-22 | [spec](tasks/SPARK-001.md) · [decisiones](tasks/DECISIONS-RAG-SPARK.md) · informe: `<run>/report.md` |
+
+Reglas: solo el coordinador edita esta sección y `WORKSTREAM-LOG.md`; un estado `DONE` exige pruebas re-ejecutadas por el coordinador, no basta el informe del agente. Ningún hallazgo SEC se marca resuelto hasta entonces, y el producto no se declara listo para producción mientras existan hallazgos altos confirmados (SEC-002, SEC-003, SEC-004 siguen abiertos).
+<!-- ACTIVE-WORK:END -->
