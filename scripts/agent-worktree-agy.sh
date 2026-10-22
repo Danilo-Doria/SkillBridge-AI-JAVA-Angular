@@ -3,7 +3,8 @@
 # isolated Git worktree, collect evidence, and clean up only when it is provably safe.
 #
 # Subcommands:
-#   run            create worktree + branch from an explicit base, run `agy -p`, collect evidence
+#   run            create worktree + branch from an explicit base, run `agy -p` (or an interactive
+#                  `agy -i` session in a new terminal window with --interactive), collect evidence
 #   mark-reviewed  record that a human/Claude reviewed a run (required before cleanup)
 #   cleanup        remove a clean, reviewed, system-created worktree (never forced)
 #   help           show this text
@@ -53,7 +54,7 @@ agent-worktree-agy.sh — run Antigravity (agy -p) in an isolated Git worktree.
 
 USAGE
   agent-worktree-agy.sh run --task-id ID --base REF --spec FILE|- --scope PATH [--scope PATH ...]
-                            --non-interactive [options]
+                            --non-interactive|--interactive [options]
   agent-worktree-agy.sh mark-reviewed --run-id RUN_ID [--worktrees-root DIR]
   agent-worktree-agy.sh cleanup       --run-id RUN_ID [--worktrees-root DIR]
   agent-worktree-agy.sh help
@@ -66,7 +67,13 @@ RUN (required)
                         a heading with "Acceptance" or "Criterios" (verifiable criteria are mandatory).
   --scope PATH          Repo-relative file/dir agy may change. Repeatable, at least one. Rejects '.',
                         absolute paths, '..', globs and bare top-level directories.
-  --non-interactive     Required acknowledgement that a model run (agy -p) will start.
+  --non-interactive     Run headless with `agy -p` (output only when it finishes). Exactly one of
+                        --non-interactive / --interactive is required: both acknowledge a model run.
+  --interactive         Open a new terminal window running `agy -i "<prompt>"` inside the worktree,
+                        so the human can watch and steer the agent. The script waits until that
+                        session ends (agy exits or the window is closed), then collects evidence.
+                        The agent writes its final report to <run folder>/report.md. --timeout is
+                        not applied to interactive sessions.
 
 RUN (optional)
   --finding ID          Audit finding/issue ID to investigate or fix. Repeatable.
@@ -80,6 +87,9 @@ RUN (optional)
 
 ENVIRONMENT
   AGY_BIN               agy executable (default: agy). Used to substitute a fake in tests.
+  AGY_TERMINAL          --interactive only: command that opens a terminal; the session script path
+                        is appended as its last argument (e.g. "xterm -e bash"). Default: the first
+                        of gnome-terminal, konsole, xterm, x-terminal-emulator found in PATH.
   AGENT_WT_TIMESTAMP    Override the UTC timestamp (YYYYMMDDTHHMMSSZ); for tests only.
   AGY_SETTINGS_FILE     agy settings path used for the (non-fatal) workspace-trust warning.
   AGY_WORKTREE_CHILD    Set to 1 by this script for the agy child; 'run' refuses to start
@@ -91,7 +101,7 @@ EXIT CODES
 
 RUN OUTPUT (<root>/<run-id>/): worktree/  prompt.md  task-spec.md  meta.env  stdout.log
   stderr.log  exit_code  report.md  changes.patch  changed-files.txt  diffstat.txt
-  diff-check.txt  violations.txt  summary.md
+  diff-check.txt  violations.txt  summary.md  (+ agy-session.sh, session_exit with --interactive)
 EOF
 }
 
@@ -154,7 +164,16 @@ origin_fingerprint() {
 # ----------------------------------------------------------------------------- prompt
 build_prompt() {
   # Variables are expanded once by the heredoc; their contents are never re-evaluated.
-  local run_id=$1 base_commit=$2 branch=$3 spec=$4
+  local run_id=$1 base_commit=$2 branch=$3 spec=$4 interactive=$5 run_dir=$6
+  local launcher report_rule
+  if ((interactive)); then
+    launcher='an interactive "agy -i" session opened by scripts/agent-worktree-agy.sh (a human is watching)'
+    report_rule="FINAL REPORT (write it with exactly this Markdown to the file $run_dir/report.md -- the ONLY file
+you may write outside the worktree -- then show it as your last message and tell the human the task is done)"
+  else
+    launcher='a child of "agy -p" started by scripts/agent-worktree-agy.sh'
+    report_rule='FINAL REPORT (your last message must be exactly this Markdown, nothing else; do not write report files)'
+  fi
   local scope_list context_list forbid_list finding_list f
   scope_list=""; for f in "${SCOPES[@]}"; do scope_list+="  - $f"$'\n'; done
   context_list=""; for f in "${CONTEXTS[@]:-}"; do [[ -n $f ]] && context_list+="  - $f"$'\n'; done
@@ -167,7 +186,7 @@ build_prompt() {
 
   cat <<EOF
 You are the WORKER agent for run "$run_id" in the SkillBridge AI repository.
-You are running as a child of "agy -p" started by scripts/agent-worktree-agy.sh.
+You are running as $launcher.
 The environment variable AGY_WORKTREE_CHILD=1 is set. NEVER start another agy process and NEVER run
 scripts/agent-worktree-agy.sh. Do the work yourself, in this worktree, and report.
 
@@ -201,7 +220,7 @@ HOW TO VERIFY
   audit-service: its own mvn test / npm test.
 - Then run and include the output of: git diff --check ; git status --short ; git diff --stat.
 
-FINAL REPORT (your last message must be exactly this Markdown, nothing else; do not write report files)
+$report_rule
 # Report $run_id
 ## Summary
 (2-4 sentences)
@@ -222,10 +241,67 @@ $spec
 EOF
 }
 
+# ----------------------------------------------------------------------------- interactive
+# Fills term_cmd (caller's local) with the command that opens a new terminal window; the session
+# script path is appended as the last argument.
+resolve_terminal() {
+  if [[ -n ${AGY_TERMINAL:-} ]]; then
+    read -r -a term_cmd <<<"$AGY_TERMINAL"
+    return 0
+  fi
+  [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] || return 1
+  if command -v gnome-terminal >/dev/null 2>&1; then term_cmd=(gnome-terminal --wait --title "$task_id" -- bash)
+  elif command -v konsole >/dev/null 2>&1;     then term_cmd=(konsole -e bash)
+  elif command -v xterm >/dev/null 2>&1;       then term_cmd=(xterm -T "$task_id" -e bash)
+  elif command -v x-terminal-emulator >/dev/null 2>&1; then term_cmd=(x-terminal-emulator -e bash)
+  else return 1
+  fi
+}
+
+# Writes <run_dir>/agy-session.sh, opens it in a terminal and waits for <run_dir>/session_exit.
+# Sets agy_rc (caller's local). Values are embedded with printf %q, never re-evaluated.
+run_interactive_session() {
+  local session="$run_dir/agy-session.sh" done_file="$run_dir/session_exit"
+  local -a agy_args=(-i)
+  ((sandbox)) && agy_args=(--sandbox -i)
+  {
+    printf '#!/usr/bin/env bash\n# generated by %s for run %s\n' "$PROG" "$run_id"
+    printf 'rc=129\n'
+    printf "trap 'printf \"%%s\\\\n\" \"\$rc\" >%q' EXIT\n" "$done_file"
+    printf "trap 'exit 129' HUP TERM\n"
+    printf 'cd -- %q || exit 125\n' "$wt"
+    printf 'export AGY_WORKTREE_CHILD=1 AGY_PARENT_RUN_ID=%q\n' "$run_id"
+    printf 'printf %q %q\n' '\033]0;%s\007' "$task_id"
+    printf 'echo %q\n' "== $task_id | worktree: $wt | report: $run_dir/report.md =="
+    printf '%q %s "$(cat -- %q)"\n' "$AGY_BIN" "${agy_args[*]}" "$run_dir/prompt.md"
+    # record the exit right away so evidence is collected while the window is still open
+    printf 'rc=$?; printf "%%s\\n" "$rc" >%q\n' "$done_file"
+    printf 'read -r -p "agy finished (exit $rc). Press Enter to close this window..." _ || true\n'
+  } >"$session"
+  chmod 700 -- "$session"
+
+  info "opening interactive agy session for $run_id (${term_cmd[*]}); waiting for it to end"
+  info "worktree $wt; the script resumes when agy exits or the window is closed"
+  set +e
+  "${term_cmd[@]}" "$session" >"$run_dir/stdout.log" 2>"$run_dir/stderr.log" </dev/null
+  local term_rc=$?
+  set -e
+  # Some terminals return immediately (server process): poll for the session's own exit marker.
+  while [[ ! -s $done_file ]]; do
+    if ((term_rc != 0)) && [[ ! -e $done_file ]]; then
+      sleep 2; [[ -s $done_file ]] && break
+      warn "terminal command exited $term_rc and the session never started"; agy_rc=$EX_AGY_FAILED; return 0
+    fi
+    sleep 2
+  done
+  agy_rc=$(head -n 1 -- "$done_file")
+  [[ $agy_rc =~ ^[0-9]+$ ]] || agy_rc=1
+}
+
 # ----------------------------------------------------------------------------- run
 cmd_run() {
   local task_id="" base_ref="" spec_arg="" root="" timeout_s=$DEFAULT_TIMEOUT
-  local noninteractive=0 sandbox=0 dry_run=0
+  local noninteractive=0 interactive=0 sandbox=0 dry_run=0
   SCOPES=(); CONTEXTS=(); EXTRA_FORBIDS=(); FINDINGS=()
 
   while (($#)); do
@@ -240,6 +316,7 @@ cmd_run() {
       --timeout)          need_val "$1" $#; timeout_s=$2; shift 2 ;;
       --worktrees-root)   need_val "$1" $#; root=$2; shift 2 ;;
       --non-interactive)  noninteractive=1; shift ;;
+      --interactive)      interactive=1; shift ;;
       --sandbox)          sandbox=1; shift ;;
       --dry-run)          dry_run=1; shift ;;
       -h|--help)          usage; exit 0 ;;
@@ -258,7 +335,8 @@ cmd_run() {
   [[ $base_ref != -* ]] || die "$EX_USAGE" "--base must not start with '-'"
   [[ -n $spec_arg ]] || die "$EX_USAGE" "--spec is required (file or '-' for stdin)"
   ((${#SCOPES[@]} > 0)) || die "$EX_USAGE" "at least one --scope is required: undefined tasks are not delegated"
-  ((noninteractive)) || die "$EX_USAGE" "--non-interactive is required (acknowledges that agy -p will run)"
+  ((noninteractive + interactive == 1)) \
+    || die "$EX_USAGE" "exactly one of --non-interactive (agy -p) or --interactive (agy -i in a terminal) is required"
   [[ $timeout_s =~ ^[1-9][0-9]{0,5}$ ]] || die "$EX_USAGE" "--timeout must be a positive integer (seconds)"
   local f
   for f in "${FINDINGS[@]:-}"; do
@@ -269,6 +347,10 @@ cmd_run() {
   command -v git >/dev/null 2>&1      || die "$EX_PRECONDITION" "git not found"
   command -v timeout >/dev/null 2>&1  || die "$EX_PRECONDITION" "timeout (coreutils) not found"
   command -v "$AGY_BIN" >/dev/null 2>&1 || die "$EX_PRECONDITION" "'$AGY_BIN' not found in PATH (set AGY_BIN to override)"
+  local -a term_cmd=()
+  if ((interactive)); then
+    resolve_terminal || die "$EX_PRECONDITION" "--interactive needs a terminal: set AGY_TERMINAL or install gnome-terminal/konsole/xterm (and a DISPLAY)"
+  fi
 
   local top
   top=$(git_toplevel) || die "$EX_PRECONDITION" "not inside a Git repository"
@@ -364,13 +446,14 @@ cmd_run() {
   fi
 
   local prompt
-  prompt=$(build_prompt "$run_id" "$base_commit" "$branch" "$spec_content")
+  prompt=$(build_prompt "$run_id" "$base_commit" "$branch" "$spec_content" "$interactive" "$run_dir")
 
   if ((dry_run)); then
     {
       printf 'DRY RUN (nothing created)\n'
       printf 'run-id:       %s\nbranch:       %s\nbase:         %s (%s)\n' "$run_id" "$branch" "$base_ref" "$base_commit"
       printf 'worktree:     %s\nrun folder:   %s\norigin dirty: %s\n' "$wt" "$run_dir" "$origin_dirty"
+      ((interactive)) && printf 'mode:         interactive (terminal: %s)\n' "${term_cmd[*]}"
       printf 'scope:        %s\n\n--- prompt ---\n%s\n' "${SCOPES[*]}" "$prompt"
     }
     return 0
@@ -422,24 +505,32 @@ cmd_run() {
   }
   trap on_interrupt INT TERM
 
-  # --- invoke agy: prompt passed as ONE argv element, never through a shell string
-  local -a agy_cmd=("$AGY_BIN" -p "$prompt")
-  ((sandbox)) && agy_cmd+=(--sandbox)
-  info "launching agy in $wt (timeout ${timeout_s}s); logs in $run_dir"
   local agy_rc=0
-  set +e
-  (
-    cd -- "$wt" || exit 125
-    AGY_WORKTREE_CHILD=1 AGY_PARENT_RUN_ID="$run_id" \
-      timeout --signal=TERM --kill-after=30 "$timeout_s" "${agy_cmd[@]}" \
-      >"$run_dir/stdout.log" 2>"$run_dir/stderr.log" </dev/null
-  )
-  agy_rc=$?
-  set -e
+  if ((interactive)); then
+    run_interactive_session
+  else
+    # --- invoke agy: prompt passed as ONE argv element, never through a shell string
+    local -a agy_cmd=("$AGY_BIN" -p "$prompt")
+    ((sandbox)) && agy_cmd+=(--sandbox)
+    info "launching agy in $wt (timeout ${timeout_s}s); logs in $run_dir"
+    set +e
+    (
+      cd -- "$wt" || exit 125
+      AGY_WORKTREE_CHILD=1 AGY_PARENT_RUN_ID="$run_id" \
+        timeout --signal=TERM --kill-after=30 "$timeout_s" "${agy_cmd[@]}" \
+        >"$run_dir/stdout.log" 2>"$run_dir/stderr.log" </dev/null
+    )
+    agy_rc=$?
+    set -e
+  fi
   trap - INT TERM
   printf '%s\n' "$agy_rc" >"$run_dir/exit_code"
   meta_set "$meta" AGY_EXIT "$agy_rc"
-  cp -- "$run_dir/stdout.log" "$run_dir/report.md"
+  if ((interactive)); then
+    [[ -s $run_dir/report.md ]] || printf '# Report %s\n\nThe interactive agent did not write report.md (session exit %s).\n' "$run_id" "$agy_rc" >"$run_dir/report.md"
+  else
+    cp -- "$run_dir/stdout.log" "$run_dir/report.md"
+  fi
 
   # --- evidence
   collect_evidence "$top" "$wt" "$run_dir" "$base_commit" "$branch" "$fp_before"
