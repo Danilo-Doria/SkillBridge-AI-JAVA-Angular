@@ -15,3 +15,11 @@ reverse), when names differ, when a row is missing here, or when shared invarian
 3. Both files must keep the shared invariants checked by the parity test (protected paths, no commits,
    recursion guard where the agent can launch `agy`).
 4. Add a row above and run `bash scripts/tests/agent-parity.test.sh`.
+
+## Spec-Driven Development Tooling
+
+Paired Spec-Driven Development (SDD) slash commands and workflows are established across both platforms:
+- **Claude Code commands**: Configured in `.claude/commands/` (`speckit.constitution`, `speckit.specify`, `speckit.clarify`, `speckit.plan`, `speckit.tasks`, `speckit.analyze`, `speckit.implement`, `speckit.checklist`).
+- **Antigravity workflows**: Configured in `.agents/workflows/` (`speckit.constitution`, `speckit.specify`, `speckit.clarify`, `speckit.plan`, `speckit.tasks`, `speckit.analyze`, `speckit.implement`, `speckit.checklist`).
+- **Shared Assets & Governance**: Centralized in `.specify/` (`memory/constitution.md`, `templates/`, `scripts/bash/`).
+- **Orchestration Bridge**: Connects tasks from `specs/<NNN>-<slug>/tasks.md` to `scripts/agent-worktree-agy.sh` via [SDD-WORKFLOW.md](SDD-WORKFLOW.md).

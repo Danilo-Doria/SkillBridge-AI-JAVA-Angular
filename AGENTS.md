@@ -79,3 +79,13 @@ Before beginning any task, select the relevant specialized documentation:
   - Security & RBAC: [docs/SECURITY-MODEL.md](file:///home/santiagojava/IdeaProjects/rejuv-wt/SkillBridge-AI-JAVA-Angular/docs/SECURITY-MODEL.md)
 - **Contributing & Adding Features**: See [docs/CONTRIBUTING.md](file:///home/santiagojava/IdeaProjects/rejuv-wt/SkillBridge-AI-JAVA-Angular/docs/CONTRIBUTING.md).
 - **Known Vulnerabilities & Technical Debt**: See [docs/RISK-REGISTER.md](file:///home/santiagojava/IdeaProjects/rejuv-wt/SkillBridge-AI-JAVA-Angular/docs/RISK-REGISTER.md).
+
+---
+
+## 6. Spec-Driven Development (SDD)
+
+- **GitHub Spec Kit Workflow**: Features and architectural tasks follow the SDD lifecycle: `constitution` → `specify` → `clarify` → `plan` → `tasks` → `implement`.
+- **System Constitution**: Stored in [.specify/memory/constitution.md](.specify/memory/constitution.md). All specifications, plans, and implementations must strictly satisfy its principles (hexagonal purity, AI port isolation, zero PAN/CVV, correlation tracing, and truthful verification).
+- **Feature Directories**: Specifications reside in `specs/<NNN>-<slug>/` where `<NNN>` corresponds to the 3-digit GitHub User Story / Issue number (e.g. `specs/025-ai-matching/`, `specs/027-booking-rescheduling/`).
+- **Parallel Work Isolation**: When working on an assigned feature, do not touch or modify other feature folders (`specs/0*`).
+- **Worktree Orchestration Bridge**: Tasks from `tasks.md` are executed via `scripts/agent-worktree-agy.sh` in isolated worktrees. See [docs/agents/SDD-WORKFLOW.md](docs/agents/SDD-WORKFLOW.md).
