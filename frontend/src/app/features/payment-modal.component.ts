@@ -289,7 +289,8 @@ export class PaymentModal implements OnInit, OnDestroy {
     }
   ];
 
-  // Datos para fallback simulado (en caso de que no haya clave de Stripe configurada)\n  cardData = {
+  // Datos para fallback simulado (en caso de que no haya clave de Stripe configurada)
+  cardData = {
     cardNumber: '',
     expiryDate: '',
     cvv: ''
