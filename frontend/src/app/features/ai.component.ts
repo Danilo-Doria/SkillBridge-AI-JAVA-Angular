@@ -48,8 +48,9 @@ import { apiBase } from '../core/api';
               <button
                 type="button"
                 (click)="toggleRecording()"
+                [disabled]="loading || !!selectedFile"
                 [class]="recording ? 'bg-[#FDEBEC] text-[#9F2F2D] animate-pulse' : ''"
-                class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100"
+                class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100"
               >
                 @if (recording) {
                   <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
@@ -64,12 +65,23 @@ import { apiBase } from '../core/api';
                 }
               </button>
 
-              <label class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100 focus-within:outline-2 focus-within:outline-[#111111]">
+              <label
+                [class.pointer-events-none]="loading || recording"
+                [class.opacity-40]="loading || recording"
+                class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-[#787774] transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#F1F0ED] hover:text-[#111111] active:scale-[0.97] motion-reduce:active:scale-100 focus-within:outline-2 focus-within:outline-[#111111]"
+              >
                 <svg class="h-4 w-4" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
                   <path d="M216 40H40a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16Zm0 16v102.75l-26.07-26.06a16 16 0 0 0-22.63 0l-20 20-44-44a16 16 0 0 0-22.62 0L40 149.37V56ZM40 172l52-52 80 80H40Zm176 28h-21.37l-36-36 20-20L216 181.38V200ZM144 100a12 12 0 1 1 12 12 12 12 0 0 1-12-12Z"/>
                 </svg>
                 Subir imagen
-                <input type="file" accept="image/jpeg,image/png,image/webp" (change)="selectFile($event, 'image')" class="sr-only" />
+                <input
+                  type="file"
+                  [disabled]="loading || recording"
+                  accept="image/jpeg,image/png,image/webp,image/heic,.jpg,.jpeg,.png,.webp,.heic"
+                  (click)="$any($event.target).value = null"
+                  (change)="selectFile($event, 'image')"
+                  class="sr-only"
+                />
               </label>
             </div>
 
@@ -288,12 +300,15 @@ export class AiComponent implements OnDestroy {
     const file = (event.target as HTMLInputElement).files?.[0] ?? null;
     this.selectedFile = file;
     this.selectedType = file ? type : null;
+    this.error = '';
+    this.cdr.detectChanges();
   }
 
   clearSelection() {
     this.selectedFile = null;
     this.selectedType = null;
     this.goal = '';
+    this.cdr.detectChanges();
   }
 
   closeModal() {
@@ -338,10 +353,12 @@ export class AiComponent implements OnDestroy {
         this.recommendations = r.recommendations ?? [];
         this.loading = false;
         this.showModal = true;
+        this.cdr.detectChanges();
       },
       error: (e) => {
         this.error = e?.error?.detail || 'Ocurrió un problema procesando tu solicitud. Intenta de nuevo más tarde.';
         this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }
