@@ -389,10 +389,10 @@ export class PaymentModal implements OnInit, OnDestroy {
       }, 50);
 
     } catch (err: any) {
-      console.warn('[PaymentModal] No se pudo inicializar Stripe Elements:', err.message || err);
+      console.error('[PaymentModal Error]: Detalle técnico para desarrolladores:', err?.message || err);
       this.stripeAvailable = false;
       this.initializingStripe = false;
-      this.errorMsg = 'No se pudo cargar Stripe Elements: ' + (err?.message || 'revisa la conexión con js.stripe.com y vuelve a intentarlo.');
+      this.errorMsg = 'No pudimos conectar con la pasarela de pagos segura en este momento. Por favor, intenta de nuevo o recarga la página.';
     }
   }
 
@@ -416,6 +416,7 @@ export class PaymentModal implements OnInit, OnDestroy {
 
         if (error) {
           this.loading = false;
+          console.error('[PaymentModal Error]: Detalle de error en confirmación:', error);
           this.errorMsg = error.message || 'El pago no pudo ser procesado. Intenta de nuevo.';
           return;
         }
@@ -425,11 +426,13 @@ export class PaymentModal implements OnInit, OnDestroy {
           this.paymentSuccess.emit();
         } else {
           this.loading = false;
-          this.errorMsg = 'El estado de la transacción es: ' + (paymentIntent?.status || 'desconocido');
+          console.warn('[PaymentModal]: Estado de transacción no completado:', paymentIntent?.status);
+          this.errorMsg = 'No fue posible completar la transacción. Por favor verifica tus fondos o intenta con otro medio de pago.';
         }
       } catch (err: any) {
         this.loading = false;
-        this.errorMsg = 'Error al comunicar con la pasarela: ' + (err.message || 'desconocido');
+        console.error('[PaymentModal Error]: Detalle técnico al comunicar con la pasarela:', err?.message || err);
+        this.errorMsg = 'Ocurrió un inconveniente al procesar el pago. Por favor intenta de nuevo en unos momentos.';
       }
 
     } else if (!this.stripeConfigured) {
@@ -437,7 +440,8 @@ export class PaymentModal implements OnInit, OnDestroy {
       this.submitSimulatedPayment();
     } else {
       this.loading = false;
-      this.errorMsg = 'Stripe Elements no está disponible. Cierra esta ventana, recarga la página e inténtalo de nuevo.';
+      console.warn('[PaymentModal]: Stripe Elements no está disponible o no se configuró.');
+      this.errorMsg = 'El servicio de pago no se encuentra disponible temporalmente. Cierra esta ventana, recarga la página e inténtalo de nuevo.';
     }
   }
 

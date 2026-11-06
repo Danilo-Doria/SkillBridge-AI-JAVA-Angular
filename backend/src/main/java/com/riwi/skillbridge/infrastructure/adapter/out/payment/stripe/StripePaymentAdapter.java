@@ -7,7 +7,6 @@ import com.riwi.skillbridge.domain.model.PaymentStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -20,7 +19,6 @@ import java.util.UUID;
  * Consume la API REST de Stripe mediante OpenFeign.
  */
 @Component("stripePaymentAdapter")
-@ConditionalOnProperty(name = "app.payment.provider", havingValue = "stripe", matchIfMissing = true)
 public class StripePaymentAdapter implements PaymentPort {
 
     private static final Logger log = LoggerFactory.getLogger(StripePaymentAdapter.class);
