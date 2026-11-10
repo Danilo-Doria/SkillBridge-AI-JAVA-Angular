@@ -256,6 +256,13 @@ export class PaymentModal implements OnInit, OnDestroy {
         headers: { 'Idempotency-Key': idempotencyKey }
       }).toPromise();
 
+      if (response?.status === 'DECLINED') {
+        this.stripeAvailable = false;
+        this.initializingStripe = false;
+        this.errorMsg = response.message || 'La reserva no puede ser pagada porque su plazo ha expirado.';
+        return;
+      }
+
       if (!response?.clientSecret) {
         throw new Error('El servidor no retornó el clientSecret para la pasarela.');
       }
@@ -323,7 +330,11 @@ export class PaymentModal implements OnInit, OnDestroy {
         if (error) {
           this.loading = false;
           console.error('[PaymentModal Error]: Detalle de error en confirmación:', error);
-          this.errorMsg = error.message || 'El pago no pudo ser procesado. Intenta de nuevo.';
+          // Stripe Elements ya muestra los errores de tarjeta y validación directamente bajo el campo afectado.
+          // Solo asignamos errorMsg al banner superior si es un error general del sistema para evitar duplicidad.
+          if (error.type !== 'card_error' && error.type !== 'validation_error') {
+            this.errorMsg = error.message || 'El pago no pudo ser procesado. Intenta de nuevo.';
+          }
           return;
         }
 

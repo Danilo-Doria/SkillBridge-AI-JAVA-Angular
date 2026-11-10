@@ -29,6 +29,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -37,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -476,6 +478,32 @@ class BookingServiceTest {
         assertThrows(IdempotencyKeyConflictException.class,
             () -> bookingService.create(differentOfferingId, scheduledAt, "user@example.com", "same-key"));
         verify(bookings, never()).save(any());
+    }
+
+    @Test
+    void shouldAutoCancelExpiredCreatedBookingWhenListingBookings() {
+        BookingRepositoryPort bookings = mock(BookingRepositoryPort.class);
+        OfferingRepositoryPort offerings = mock(OfferingRepositoryPort.class);
+        UserRepositoryPort users = mock(UserRepositoryPort.class);
+        BookingStatusHistoryPort historyPort = mock(BookingStatusHistoryPort.class);
+
+        Instant now = Instant.parse("2026-11-10T12:00:00Z");
+        Instant sessionIn5Hours = now.plusSeconds(5 * 3600); // menos de 12 horas
+
+        UUID customerId = UUID.randomUUID();
+        Booking expiredBooking = new Booking(UUID.randomUUID(), UUID.randomUUID(), customerId, sessionIn5Hours, BookingStatus.CREATED, 0);
+
+        when(bookings.findByCustomerEmail("user@example.com")).thenReturn(List.of(expiredBooking));
+        when(bookings.save(any(Booking.class))).thenAnswer(i -> i.getArgument(0));
+
+        BookingService service = service(bookings, offerings, users, mock(NotificationPublisherPort.class), historyPort, now);
+
+        List<Booking> result = service.bookingsList("user@example.com");
+
+        assertEquals(1, result.size());
+        assertEquals(BookingStatus.CANCELLED, result.get(0).status());
+        verify(bookings).save(argThat(b -> b.status() == BookingStatus.CANCELLED));
+        verify(historyPort).save(any(BookingStatusHistory.class));
     }
 
     private BookingService service(

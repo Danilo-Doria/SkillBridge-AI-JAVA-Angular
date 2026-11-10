@@ -43,7 +43,7 @@ import { PaymentModal } from './payment-modal.component';
             <button (click)="statusFilter = 'CANCELLED'"
                     [ngClass]="statusFilter === 'CANCELLED' ? 'border-[#111111] text-[#111111]' : 'border-transparent text-[#787774] hover:text-[#111111]'"
                     class="-mb-px cursor-pointer whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors duration-150">
-              Canceladas <span class="ml-1 tabular-nums text-[#787774]">{{ getCountByStatus('CANCELLED') }}</span>
+              Canceladas o vencidas <span class="ml-1 tabular-nums text-[#787774]">{{ getCountByStatus('CANCELLED') }}</span>
             </button>
           </div>
         }
@@ -130,7 +130,16 @@ import { PaymentModal } from './payment-modal.component';
                     <p class="mt-1 text-sm text-[#787774]">
                       {{ offering?.category || 'Servicio' }}
                       @if (booking.status === 'CONFIRMED') {
-                        <span> · {{ canCancel(booking.scheduledAt) ? 'Reembolso del 100% hasta 24 h antes' : 'Plazo de cancelación vencido' }}</span>
+                        <span> · {{ canCancel(booking.scheduledAt) ? 'Reembolso del 100% hasta 24 h antes de la sesión' : 'Plazo de cancelación vencido' }}</span>
+                      }
+                      @if (isPending(booking)) {
+                        <span> · Pago disponible hasta 12 h antes de la sesión</span>
+                      }
+                      @if (isPaymentExpired(booking)) {
+                        <span> · Plazo de pago vencido</span>
+                      }
+                      @if (booking.status === 'CANCELLED' && !isPaymentExpired(booking)) {
+                        <span> · Reserva cancelada</span>
                       }
                     </p>
                   </div>
@@ -140,15 +149,16 @@ import { PaymentModal } from './payment-modal.component';
                     <span
                       class="rounded-md px-2 py-0.5 text-xs font-medium"
                       [ngClass]="{
-                        'bg-[#FBF3DB] text-[#956400]': booking.status === 'CREATED',
+                        'bg-[#FBF3DB] text-[#956400]': isPending(booking),
                         'bg-[#EDF3EC] text-[#346538]': booking.status === 'CONFIRMED' || booking.status === 'COMPLETED',
-                        'bg-[#FDEBEC] text-[#9F2F2D]': booking.status === 'CANCELLED'
+                        'bg-[#FDEBEC] text-[#9F2F2D]': isPaymentExpired(booking) || booking.status === 'CANCELLED'
                       }"
                     >
                       {{
-                        booking.status === 'CREATED' ? 'Pendiente de pago' :
+                        isPending(booking) ? 'Pendiente de pago' :
                         booking.status === 'CONFIRMED' ? 'Confirmada' :
                         booking.status === 'COMPLETED' ? 'Completada' :
+                        isPaymentExpired(booking) ? 'Vencida' :
                         booking.status === 'CANCELLED' ? 'Cancelada' : booking.status
                       }}
                     </span>
@@ -158,7 +168,7 @@ import { PaymentModal } from './payment-modal.component';
                     </span>
 
                     <div class="flex min-w-[8.5rem] justify-end">
-                      @if (booking.status === 'CREATED') {
+                      @if (isPending(booking)) {
                         <button
                           (click)="openPaymentModal(booking)"
                           class="cursor-pointer rounded-md bg-[#111111] px-4 py-2 text-sm font-medium text-white transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] motion-reduce:active:scale-100"
@@ -237,6 +247,15 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   get filteredBookings(): Booking[] {
     if (this.statusFilter === 'ALL') {
       return this.bookings;
+    }
+    if (this.statusFilter === 'CONFIRMED') {
+      return this.bookings.filter(b => b.status === 'CONFIRMED' || b.status === 'COMPLETED');
+    }
+    if (this.statusFilter === 'CREATED') {
+      return this.bookings.filter(b => this.isPending(b));
+    }
+    if (this.statusFilter === 'CANCELLED') {
+      return this.bookings.filter(b => b.status === 'CANCELLED' || this.isPaymentExpired(b));
     }
     return this.bookings.filter(b => b.status === this.statusFilter);
   }
@@ -354,6 +373,29 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
     return diffHours > 24;
   }
 
+  canPay(scheduledAt: string): boolean {
+    const bookingDate = new Date(scheduledAt);
+    const now = new Date();
+    const diffHours = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    return diffHours >= 12;
+  }
+
+  isPending(booking: Booking): boolean {
+    return booking.status === 'CREATED' && this.canPay(booking.scheduledAt);
+  }
+
+  isPaymentExpired(booking: Booking): boolean {
+    // Si la reserva está en CREATED y ya no se puede pagar (menos de 12 horas o fecha pasada)
+    if (booking.status === 'CREATED' && !this.canPay(booking.scheduledAt)) {
+      return true;
+    }
+    // Si fue cancelada y su fecha de sesión está a menos de 12 horas o ya pasó (vencida por falta de pago)
+    if (booking.status === 'CANCELLED' && !this.canPay(booking.scheduledAt)) {
+      return true;
+    }
+    return false;
+  }
+
   openCancelModal(booking: Booking): void {
     this.bookingToCancel = booking;
   }
@@ -386,6 +428,15 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   }
 
   getCountByStatus(status: string): number {
+    if (status === 'CONFIRMED') {
+      return this.bookings.filter(b => b.status === 'CONFIRMED' || b.status === 'COMPLETED').length;
+    }
+    if (status === 'CREATED') {
+      return this.bookings.filter(b => this.isPending(b)).length;
+    }
+    if (status === 'CANCELLED') {
+      return this.bookings.filter(b => b.status === 'CANCELLED' || this.isPaymentExpired(b)).length;
+    }
     return this.bookings.filter((b) => b.status === status).length;
   }
 

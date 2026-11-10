@@ -1,10 +1,13 @@
 package com.riwi.skillbridge.application.service;
 
+import com.riwi.skillbridge.application.port.out.BookingRepositoryPort;
 import com.riwi.skillbridge.application.port.out.PaymentEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.PaymentPort;
 import com.riwi.skillbridge.application.port.out.PaymentResultRepositoryPort;
 import com.riwi.skillbridge.domain.event.PaymentApproved;
 import com.riwi.skillbridge.domain.event.PaymentRejected;
+import com.riwi.skillbridge.domain.model.Booking;
+import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.domain.model.PaymentCommand;
 import com.riwi.skillbridge.domain.model.PaymentResult;
 import com.riwi.skillbridge.domain.model.PaymentStatus;
@@ -12,11 +15,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -37,7 +42,10 @@ class PaymentAuthorizationServiceTest {
     @Mock
     private PaymentEventPublisherPort eventPublisherPort;
 
-    @InjectMocks
+    @Mock
+    private BookingRepositoryPort bookingRepositoryPort;
+
+    private Clock clock;
     private PaymentAuthorizationService service;
 
     private PaymentCommand command;
@@ -46,6 +54,15 @@ class PaymentAuthorizationServiceTest {
 
     @BeforeEach
     void setUp() {
+        clock = Clock.fixed(Instant.parse("2026-11-10T12:00:00Z"), ZoneOffset.UTC);
+        service = new PaymentAuthorizationService(
+                paymentPort,
+                repositoryPort,
+                eventPublisherPort,
+                bookingRepositoryPort,
+                clock
+        );
+
         idempotencyKey = "test-key-123";
         bookingId = UUID.randomUUID();
         command = new PaymentCommand(idempotencyKey, bookingId, new BigDecimal("50.00"));
@@ -70,6 +87,7 @@ class PaymentAuthorizationServiceTest {
     void testPaymentApproved() {
         // [Caso Feliz]: La tarjeta pasa con éxito, guardamos el resultado y confirmamos la reserva.
         when(repositoryPort.findByIdempotencyKey(idempotencyKey)).thenReturn(Optional.empty());
+        when(bookingRepositoryPort.findById(bookingId)).thenReturn(Optional.empty());
         PaymentResult newResult = new PaymentResult(UUID.randomUUID(), bookingId, PaymentStatus.APPROVED, "Payment approved", "pi_test_secret");
         when(paymentPort.process(command)).thenReturn(newResult);
 
@@ -85,6 +103,7 @@ class PaymentAuthorizationServiceTest {
     void testPaymentDeclined() {
         // [Caso Triste]: El banco rechaza el pago, guardamos el fallo y avisamos para no confirmar la cita.
         when(repositoryPort.findByIdempotencyKey(idempotencyKey)).thenReturn(Optional.empty());
+        when(bookingRepositoryPort.findById(bookingId)).thenReturn(Optional.empty());
         PaymentResult newResult = new PaymentResult(UUID.randomUUID(), bookingId, PaymentStatus.DECLINED, "Card declined", null);
         when(paymentPort.process(command)).thenReturn(newResult);
 
@@ -93,5 +112,41 @@ class PaymentAuthorizationServiceTest {
         assertEquals(newResult, result);
         verify(repositoryPort).save(idempotencyKey, newResult);
         verify(eventPublisherPort).publishRejected(any(PaymentRejected.class));
+    }
+
+    @Test
+    @DisplayName("Caso Triste / Lógica 12h: Si faltan menos de 12 horas, cancela la reserva y rechaza el pago")
+    void testPaymentDeclinedWhenPaymentWindowExpired() {
+        // [Caso Triste / Lógica de 12h]: La sesión inicia en 4 horas (< 12h); cancela la reserva en BD y rechaza el cobro.
+        Instant sessionIn4Hours = clock.instant().plusSeconds(4 * 3600);
+        Booking expiredBooking = new Booking(bookingId, UUID.randomUUID(), UUID.randomUUID(), sessionIn4Hours, BookingStatus.CREATED, 0);
+
+        when(repositoryPort.findByIdempotencyKey(idempotencyKey)).thenReturn(Optional.empty());
+        when(bookingRepositoryPort.findById(bookingId)).thenReturn(Optional.of(expiredBooking));
+
+        PaymentResult result = service.authorize(command);
+
+        assertEquals(PaymentStatus.DECLINED, result.status());
+        assertEquals("El plazo para pagar esta reserva ha expirado (menos de 12 horas para la sesión). La reserva ha sido cancelada.", result.message());
+        verify(bookingRepositoryPort).save(argThat(b -> b.status() == BookingStatus.CANCELLED));
+        verify(paymentPort, never()).process(any());
+        verify(eventPublisherPort).publishRejected(any(PaymentRejected.class));
+    }
+
+    @Test
+    @DisplayName("Caso Triste: Si la reserva ya fue cancelada previamente, rechaza sin llamar a Stripe")
+    void testPaymentDeclinedWhenBookingIsAlreadyCancelled() {
+        // [Caso Triste]: Si la reserva ya estaba en estado CANCELLED, rechaza inmediatamente.
+        Instant futureSession = clock.instant().plusSeconds(24 * 3600);
+        Booking cancelledBooking = new Booking(bookingId, UUID.randomUUID(), UUID.randomUUID(), futureSession, BookingStatus.CANCELLED, 0);
+
+        when(repositoryPort.findByIdempotencyKey(idempotencyKey)).thenReturn(Optional.empty());
+        when(bookingRepositoryPort.findById(bookingId)).thenReturn(Optional.of(cancelledBooking));
+
+        PaymentResult result = service.authorize(command);
+
+        assertEquals(PaymentStatus.DECLINED, result.status());
+        assertEquals("La reserva ya se encuentra cancelada.", result.message());
+        verify(paymentPort, never()).process(any());
     }
 }

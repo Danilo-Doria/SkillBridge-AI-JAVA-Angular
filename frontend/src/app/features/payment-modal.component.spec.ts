@@ -109,4 +109,49 @@ describe('PaymentModal', () => {
     expect(component.stripeAvailable).toBeFalse();
     expect(component.errorMsg).toContain('No pudimos conectar con la pasarela de pagos');
   }));
+
+  // [Caso Triste / Lógica 12h]: Si el backend responde DECLINED porque la reserva expiró o fue cancelada
+  it('debe mostrar mensaje amigable si el backend responde DECLINED por plazo expirado', fakeAsync(() => {
+    stripeServiceSpy.getPublishableKey.and.returnValue('pk_test_sample_key');
+    const mockStripe = { elements: jasmine.createSpy('elements') };
+    stripeServiceSpy.getStripe.and.resolveTo(mockStripe as any);
+
+    fixture = TestBed.createComponent(PaymentModal);
+    component = fixture.componentInstance;
+    component.bookingId = 'test-booking-id';
+    component.amount = 100;
+
+    component.ngOnInit();
+    tick();
+
+    const req = httpMock.expectOne(apiBase() + '/payments/authorize');
+    req.flush({
+      status: 'DECLINED',
+      message: 'El plazo para pagar esta reserva ha expirado (menos de 12 horas para la sesión). La reserva ha sido cancelada.'
+    });
+    tick();
+
+    expect(component.stripeAvailable).toBeFalse();
+    expect(component.initializingStripe).toBeFalse();
+    expect(component.errorMsg).toContain('menos de 12 horas para la sesión');
+  }));
+
+  // [Caso de Validación]: No duplica el mensaje en el banner superior si Stripe ya lo reporta como card_error
+  it('no debe duplicar el mensaje superior si Stripe reporta card_error', async () => {
+    fixture = TestBed.createComponent(PaymentModal);
+    component = fixture.componentInstance;
+    component.stripeAvailable = true;
+    const mockStripe = {
+      confirmPayment: jasmine.createSpy('confirmPayment').and.resolveTo({
+        error: { type: 'card_error', message: 'Tu tarjeta ha sido rechazada.' }
+      })
+    };
+    component.stripe = mockStripe as any;
+    component.elements = {} as any;
+
+    await component.submitPayment();
+
+    expect(component.loading).toBeFalse();
+    expect(component.errorMsg).toBe('');
+  });
 });
