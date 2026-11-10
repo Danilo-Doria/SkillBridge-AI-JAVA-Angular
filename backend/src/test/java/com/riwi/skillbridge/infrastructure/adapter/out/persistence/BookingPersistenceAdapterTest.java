@@ -30,7 +30,7 @@ class BookingPersistenceAdapterTest {
     private static final UUID CUSTOMER_ID = UUID.fromString("b7d9f3c1-a8e4-4c59-b1d6-8f2a3e9c4b7d");
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg17")
             .withDatabaseName("skillbridge_test")
             .withUsername("test")
             .withPassword("test");
