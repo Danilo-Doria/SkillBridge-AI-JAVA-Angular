@@ -154,6 +154,12 @@ app:
     media:
       max-audio-bytes: ${AI_MEDIA_MAX_AUDIO_BYTES:10485760}
       max-image-bytes: ${AI_MEDIA_MAX_IMAGE_BYTES:5242880}
+  rag:
+    top-k: ${RAG_TOP_K:3}
+    # min-score-threshold: sin valor por defecto. Se fija tras calibrar con el conjunto de evaluación (FR-019, T030).
+    timeout-seconds: ${RAG_TIMEOUT_SECONDS:10}
+    max-context-chars: ${RAG_MAX_CONTEXT_CHARS:6000}
+    rrf-k: ${RAG_RRF_K:60}
   booking:
     cancellation:
       minimum-notice-hours: ${BOOKING_CANCELLATION_MINIMUM_NOTICE_HOURS:24}
