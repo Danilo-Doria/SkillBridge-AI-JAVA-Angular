@@ -63,3 +63,11 @@ Fecha: 2026-11-10. Solo se documentan las decisiones técnicas que bloquean la i
 - `CategoryService` no invalida ninguna caché. FR-015 pide un gancho propio: se añade la notificación de cambio desde `CategoryService` al índice.
 - `AiController` existe en `infrastructure/adapter/in/rest/`.
 - Los puertos de IA actuales: `AiRecommendationPort`, `VisionPort`, `AiStructuredResponse`, en `application/port/out/`.
+
+## Spike T004 (2026-11-10, Docker local)
+
+- `[VERIFIED]` Imagen `pgvector/pgvector:pg17`: PostgreSQL 17.11 y extensión pgvector 0.8.7.
+- `[VERIFIED]` `db/migration/V14__knowledge_chunks.sql` se aplica sin errores con `psql -v ON_ERROR_STOP=1`: extensión en `public`, schema `knowledge`, tabla `knowledge_chunks` e índice HNSW `knowledge_chunks_embedding_hnsw` sobre `vector(768)`.
+- `[VERIFIED]` Prueba de humo: inserción de un vector de 768 dimensiones y búsqueda con `ORDER BY embedding <=> ...` devuelve la fila con similitud coseno 1.0000.
+- `[UNKNOWN]` El plan de consulta (si el índice HNSW se usa) no se comprobó: con pocas filas el planificador usa búsqueda secuencial. Se verifica con el corpus real en T016.
+- Sin resolver: el límite de 2000 dimensiones para HNSW no se probó por encima de 768; no hace falta, ya que la dimensión es 768.
