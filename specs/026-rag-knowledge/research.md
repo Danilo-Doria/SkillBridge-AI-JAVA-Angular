@@ -4,7 +4,8 @@ Fecha: 2026-11-10. Solo se documentan las decisiones técnicas que bloquean la i
 
 ## R1. Modelo de embeddings de Gemini y dimensión
 
-- **Decision:** `gemini-embedding-001`, con `output_dimensionality = 768` (parámetro de la API). Confirmar en el spike T0 que Spring AI 1.1.8 lo expone.
+- **Decision:** `gemini-embedding-001`, con dimensión de salida 768 configurada mediante `output_dimensionality` (propiedad `dimensions` en Spring AI).
+- **Verified:** `[VERIFIED]` en esta sesión leyendo el bytecode del jar `~/.m2/repository/org/springframework/ai/spring-ai-google-genai-embedding/1.1.8/spring-ai-google-genai-embedding-1.1.8.jar` con `javap`. La clase `org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions` expone el campo `private Integer dimensions` con métodos `getDimensions()` / `setDimensions(Integer)` y builder `dimensions(Integer)`. Además, el enum `org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModelName` define explícitamente `GEMINI_EMBEDDING_001("gemini-embedding-001", "001", 3072, "Multilingual embedding model")`, y la clase `org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel` pasa dicho valor directamente a la API de Google GenAI mediante `EmbedContentConfig.builder().outputDimensionality(options.getDimensions())`.
 - **Rationale:** el modelo por defecto devuelve 3072 dimensiones. Un `vector` de pgvector con índice HNSW admite como máximo 2000 dimensiones `[INFERRED]`, así que 3072 impide indexar. 768 cabe holgadamente y reduce almacenamiento. Fuente: documentación de Vertex AI sobre `output_dimensionality` y tamaño por defecto (<https://docs.cloud.google.com/vertex-ai/docs/generative-ai/model-reference/text>, <https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/get-text-embeddings?hl=en>).
 - **Alternatives considered:**
   - `text-embedding-004` / `text-multilingual-embedding-002`: son los modelos que citan los ejemplos de Spring AI, pero son de generación anterior `[INFERRED]`. Se descartan por ser legados frente a `gemini-embedding-001`.
@@ -14,8 +15,11 @@ Fecha: 2026-11-10. Solo se documentan las decisiones técnicas que bloquean la i
 ## R2. Artefacto de Spring AI para embeddings
 
 - **Decision:** `org.springframework.ai:spring-ai-starter-model-google-genai-embedding`, versión gestionada por el BOM `spring-ai-bom` 1.1.8 ya importado en `backend/pom.xml`.
-- **Verified:** el artefacto existe en Maven Central con versión `1.1.8` (<https://repo1.maven.org/maven2/org/springframework/ai/spring-ai-starter-model-google-genai-embedding/maven-metadata.xml>). Prefijo de propiedades `spring.ai.google.genai.embedding`; documentación de referencia: <https://docs.spring.io/spring-ai/reference/api/embeddings/google-genai-embeddings-text.html>.
-- **Pendiente:** que la opción de dimensión (`output_dimensionality` o `dimensions`) esté disponible en 1.1.8 para `gemini-embedding-001`. La documentación consultada es sin versión, así que se verifica en el spike T0 leyendo el código del starter.
+- **Verified:** `[VERIFIED]` en esta sesión inspeccionando los jars `~/.m2/repository/org/springframework/ai/spring-ai-google-genai-embedding/1.1.8/spring-ai-google-genai-embedding-1.1.8.jar` y `~/.m2/repository/org/springframework/ai/spring-ai-autoconfigure-model-google-genai/1.1.8/spring-ai-autoconfigure-model-google-genai-1.1.8.jar` (descargados con `mvn dependency:get`). Las clases de autoconfiguración y metadatos (`META-INF/spring-configuration-metadata.json`) confirman:
+  - Clase de propiedades: `org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiTextEmbeddingProperties` (prefijo `spring.ai.google.genai.embedding.text`).
+  - Propiedad exacta para dimensión: `spring.ai.google.genai.embedding.text.options.dimensions` (tipo `Integer`, mapeado a `outputDimensionality`).
+  - Propiedad de modelo: `spring.ai.google.genai.embedding.text.options.model` (por defecto `gemini-embedding-001`).
+  - Propiedad de API key dedicada para embeddings: `spring.ai.google.genai.embedding.api-key` (clase `GoogleGenAiEmbeddingConnectionProperties`), lo que permite aislar la cuota de embeddings respecto a la del chat sin colisión (R5).
 - **Alternative rejected:** llamar a la API REST de Gemini con `RestClient`. Duplica lo que el starter ya resuelve y se aleja de la integración de Spring AI que ADR-0008 exige.
 
 ## R3. pgvector: imagen local, pruebas y Railway
