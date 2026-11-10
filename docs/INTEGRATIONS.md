@@ -100,15 +100,24 @@ This document catalogs all verified infrastructure, broker, external API, and mi
 
 ---
 
-## 7. AI & Multimodal Providers
+## 7. AI & Multimodal Providers (Fallback Chain Architecture)
 
-- **Provider Switching Architecture**: Complies with [docs/adr/ADR-001-AI-PROVIDER-ABSTRACTION.md](adr/ADR-001-AI-PROVIDER-ABSTRACTION.md).
-- **Configuration Switches**:
-  - `app.ai.provider: ${AI_PROVIDER:gemini}` (activates `GeminiAiAdapter` or `OpenAiAiAdapter` via `@ConditionalOnProperty`).
-  - `app.ai.audio-provider: ${AI_AUDIO_PROVIDER:gemini}` (activates `GroqSpeechToTextAdapter` or `GeminiSpeechToTextAdapter`).
-  - `spring.ai.tts.enabled: ${TTS_ENABLED:false}` (activates `ElevenLabsTextToSpeechAdapter` or `NoOpTextToSpeechAdapter`).
+- **Provider Switching Architecture**: Complies with [ADR-0007](adr/0007-ai-provider-fallback-chain.md) (supersedes single-adapter model from ADR-001).
+- **Composite Fallback Adapters**:
+  - `FallbackAiRecommendationAdapter`: Primary composite adapter implementing `AiRecommendationPort` (`gemini:gemini-3.8-flash` → `openai:gpt-4o-mini`).
+  - `FallbackSpeechToTextAdapter`: Primary composite adapter implementing `SpeechToTextPort` (`groq:whisper-large-v3-turbo` → `gemini:gemini-audio`).
+  - `FallbackVisionAdapter`: Primary composite adapter implementing `VisionPort` (`gemini:gemini-3.8-flash` → fallback).
+  - `FallbackTextToSpeechAdapter`: Primary composite adapter implementing `TextToSpeechPort` (`elevenlabs:multilingual-v2` → `noop:noop`).
+- **Error Classification & Recoverability**:
+  - Centralized in `AiErrorClassifier` based strictly on exception hierarchy and upstream HTTP status codes (no arbitrary string matching).
+  - **Recoverable**: HTTP 429 (rate limit), 5xx (server error), timeouts (`TimeoutException`, `SocketTimeoutException`), network disconnects, and malformed LLM JSON.
+  - **Non-Recoverable**: HTTP 4xx client errors, `IllegalArgumentException`, input validation failures (aborts fallback immediately).
 - **Timeouts & Limits**:
-  - Overall AI inference timeout: `app.ai.timeout-seconds: 10` (10s).
+  - Candidate-specific timeout enforced asynchronously via `CompletableFuture.orTimeout`.
   - Max audio upload size: `app.ai.media.max-audio-bytes: 10485760` (10 MB).
   - Max image upload size: `app.ai.media.max-image-bytes: 5242880` (5 MB).
   - Max TTS character length: `app.ai.tts.max-chars: 2000` characters.
+- **Observability & Metrics**:
+  - Metrics recorded via `AiFallbackMetricsRecorder` using Micrometer: `ai.fallback.attempts` and `ai.fallback.latency`.
+  - Event `RecommendationGenerated` v2 enriched with `provider` and `model` resolution metadata.
+  - Candidate execution tracked in logs with `X-Correlation-Id` and SLF4J MDC.
