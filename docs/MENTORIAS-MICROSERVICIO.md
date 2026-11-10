@@ -775,3 +775,8 @@ Casos críticos que deben quedar automatizados antes de producción:
 - ¿Qué servicio será responsable de actualizar/cancelar una mentoría cuando la
   reserva cambie de estado?
 
+---
+
+Para ver el desglose ágil en formato INVEST, los criterios de aceptación en Gherkin y la arquitectura de aislamiento e integración multi-proveedor (Zoom, Google Meet, Discord), consulta el documento:
+- [Historias de Usuario y Arquitectura de Migración a NestJS](HISTORIAS-USUARIO-NESTJS.md)
+
