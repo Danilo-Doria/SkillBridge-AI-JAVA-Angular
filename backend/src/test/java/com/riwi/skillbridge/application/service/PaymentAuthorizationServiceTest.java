@@ -9,6 +9,7 @@ import com.riwi.skillbridge.domain.model.PaymentCommand;
 import com.riwi.skillbridge.domain.model.PaymentResult;
 import com.riwi.skillbridge.domain.model.PaymentStatus;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -21,10 +22,10 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("Pruebas Unitarias - Servicio de Pagos")
 class PaymentAuthorizationServiceTest {
 
     @Mock
@@ -47,47 +48,50 @@ class PaymentAuthorizationServiceTest {
     void setUp() {
         idempotencyKey = "test-key-123";
         bookingId = UUID.randomUUID();
-        command = new PaymentCommand(idempotencyKey, bookingId, new BigDecimal("50.00"), "1111", "12/25", "123");
+        command = new PaymentCommand(idempotencyKey, bookingId, new BigDecimal("50.00"));
     }
 
     @Test
+    @DisplayName("Caso Borde: Si dan clic dos veces, devuelve el cobro previo sin duplicar")
     void testIdempotencyRepeat() {
-        // Prueba de Idempotencia: Si la llave ya existe, retorna el resultado previo sin volver a procesar
-        PaymentResult existingResult = new PaymentResult(UUID.randomUUID(), bookingId, PaymentStatus.APPROVED, "Already approved");
+        // [Caso Borde]: Evita cobros dobles si el usuario repite la petición; no vuelve a llamar a Stripe.
+        PaymentResult existingResult = new PaymentResult(UUID.randomUUID(), bookingId, PaymentStatus.APPROVED, "Already approved", "pi_test_secret");
         when(repositoryPort.findByIdempotencyKey(idempotencyKey)).thenReturn(Optional.of(existingResult));
 
         PaymentResult result = service.authorize(command);
 
         assertEquals(existingResult, result);
-        verify(paymentPort, never()).process(any()); // Verifica que NO se llamo a la pasarela
-        verify(eventPublisherPort, never()).publishApproved(any()); // Verifica que NO se emitio otro evento
+        verify(paymentPort, never()).process(any());
+        verify(eventPublisherPort, never()).publishApproved(any());
     }
 
     @Test
+    @DisplayName("Caso Feliz: Pago aprobado, guarda en BD y emite PaymentApproved")
     void testPaymentApproved() {
-        // Prueba flujo feliz: Pago aprobado, guarda el resultado y emite el evento correspondiente
+        // [Caso Feliz]: La tarjeta pasa con éxito, guardamos el resultado y confirmamos la reserva.
         when(repositoryPort.findByIdempotencyKey(idempotencyKey)).thenReturn(Optional.empty());
-        PaymentResult newResult = new PaymentResult(UUID.randomUUID(), bookingId, PaymentStatus.APPROVED, "Payment approved");
+        PaymentResult newResult = new PaymentResult(UUID.randomUUID(), bookingId, PaymentStatus.APPROVED, "Payment approved", "pi_test_secret");
         when(paymentPort.process(command)).thenReturn(newResult);
 
         PaymentResult result = service.authorize(command);
 
         assertEquals(newResult, result);
-        verify(repositoryPort).save(idempotencyKey, newResult); // Verifica guardado
-        verify(eventPublisherPort).publishApproved(any(PaymentApproved.class)); // Verifica evento emitido
+        verify(repositoryPort).save(idempotencyKey, newResult);
+        verify(eventPublisherPort).publishApproved(any(PaymentApproved.class));
     }
 
     @Test
+    @DisplayName("Caso Triste: Tarjeta rechazada, guarda en BD y emite PaymentRejected")
     void testPaymentDeclined() {
-        // Prueba flujo de rechazo: Pago rechazado, guarda el resultado y emite el evento correspondiente
+        // [Caso Triste]: El banco rechaza el pago, guardamos el fallo y avisamos para no confirmar la cita.
         when(repositoryPort.findByIdempotencyKey(idempotencyKey)).thenReturn(Optional.empty());
-        PaymentResult newResult = new PaymentResult(UUID.randomUUID(), bookingId, PaymentStatus.DECLINED, "Card declined");
+        PaymentResult newResult = new PaymentResult(UUID.randomUUID(), bookingId, PaymentStatus.DECLINED, "Card declined", null);
         when(paymentPort.process(command)).thenReturn(newResult);
 
         PaymentResult result = service.authorize(command);
 
         assertEquals(newResult, result);
-        verify(repositoryPort).save(idempotencyKey, newResult); // Verifica guardado
-        verify(eventPublisherPort).publishRejected(any(PaymentRejected.class)); // Verifica evento emitido
+        verify(repositoryPort).save(idempotencyKey, newResult);
+        verify(eventPublisherPort).publishRejected(any(PaymentRejected.class));
     }
 }

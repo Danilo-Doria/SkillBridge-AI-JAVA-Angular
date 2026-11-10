@@ -7,7 +7,7 @@ En esta primera fase se implementó la integración con la pasarela real de **St
 ### Principios Clave Aplicados:
 * **Separación de Responsabilidades e Inversión de Dependencias**: El núcleo de la aplicación (`domain` y `application`) desconoce la implementación técnica de Stripe. Se comunica únicamente a través de los puertos existentes (`PaymentPort`, `PaymentEventPublisherPort`).
 * **Cliente HTTP Declarativo**: Se utilizó **Spring Cloud OpenFeign** en lugar del SDK de Stripe para la creación de `PaymentIntent`, consumiendo directamente la API REST `https://api.stripe.com/v1/payment_intents`.
-* **Tolerancia a Fallos y Resiliencia**: Se integró **Resilience4j** (`@CircuitBreaker` y `@Retry`) envolviendo las llamadas de red hacia Stripe para garantizar estabilidad ante latencias o caídas de conectividad.
+* **Tolerancia a Fallos**: Manejo controlado de excepciones ante caídas de conectividad o errores con la pasarela Stripe, retornando estados de rechazo (`DECLINED`) predecibles sin interrumpir el flujo del sistema.
 * **Seguridad Criptográfica**: El SDK oficial `stripe-java` se incorporó de forma **exclusiva** para la verificación criptográfica estricta de las firmas de los Webhooks (`Webhook.constructEvent`), garantizando autenticidad y protegiendo contra ataques de repetición (replay attacks).
 * **Seguridad en Spring Security**: Se habilitó la ruta `/api/webhooks/**` en `SecurityConfiguration` como pública (`permitAll`) y exenta de protección CSRF para permitir la recepción de eventos asíncronos desde Stripe CLI o los servidores de Stripe.
 
@@ -28,8 +28,7 @@ En esta primera fase se implementó la integración con la pasarela real de **St
   * Implementa `PaymentPort`.
   * Habilitado por defecto mediante `@ConditionalOnProperty(name = "app.payment.provider", havingValue = "stripe", matchIfMissing = true)`.
   * Convierte el monto decimal a centavos enteros (ej. `$50.00` -> `5000` centavos USD).
-  * Protegido con `@CircuitBreaker(name = "stripePaymentClient")` y `@Retry(name = "stripePaymentClient")`.
-  * Método fallback `fallbackProcess` para degradación elegante ante caídas de la pasarela.
+  * Manejo seguro de excepciones ante fallos o caídas de conectividad de la pasarela para responder con degradación elegante (`DECLINED`).
 
 ### Nuevo Adaptador de Entrada (Primary / Driving Adapter):
 * **`StripeWebhookController.java`**:
@@ -92,7 +91,7 @@ Se crearon pruebas unitarias específicas y se validó la compatibilidad de toda
 
 * **`PaymentAuthorizationServiceTest`**: 3 tests (Pasan en verde al 100%, validando idempotencia y emisión de eventos).
 * **`SimulatedPaymentAdapterTest`**: 4 tests (Pasan en verde al 100%, validando determinismo y timeouts).
-* **`StripePaymentAdapterTest`**: 3 tests (Validan conversión de centavos, envío de metadata, idempotencia y activación del fallback de Resilience4j).
+* **`StripePaymentAdapterTest`**: 3 tests (Validan conversión de centavos, envío de metadata, idempotencia y captura controlada de excepciones ante errores de pasarela).
 * **`StripeWebhookControllerTest`**: 5 tests (Validan rechazo de firmas faltantes e inválidas con 400, verificación criptográfica exitosa, emisión de `PaymentApproved`, emisión de `PaymentRejected` y manejo seguro de payloads sin metadatos).
 
 Total: **15 tests ejecutados exitosamente con 0 fallos**.

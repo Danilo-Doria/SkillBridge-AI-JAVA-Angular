@@ -154,8 +154,6 @@ app:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
       audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
       recommendation-events: ${KAFKA_TOPIC_RECOMMENDATION_EVENTS:recommendation-events}
-  payment:
-    provider: ${PAYMENT_PROVIDER:stripe}
 
 stripe:
   api-url: ${STRIPE_API_URL:https://api.stripe.com}
