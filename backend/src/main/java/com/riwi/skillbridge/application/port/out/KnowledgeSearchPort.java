@@ -32,15 +32,4 @@ public interface KnowledgeSearchPort {
         }
         return search(query.question(), topK);
     }
-
-    /**
-     * Sobrecarga conveniente que recupera únicamente los fragmentos asociados a los candidatos.
-     *
-     * @param query texto de la consulta
-     * @param topK  número máximo de candidatos a recuperar
-     * @return lista de KnowledgeChunk recuperados
-     */
-    default List<KnowledgeChunk> searchChunks(String query, int topK) {
-        return search(query, topK).stream().map(KnowledgeCandidate::chunk).toList();
-    }
 }

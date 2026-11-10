@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * Cargador del corpus de conocimiento de la plataforma (HU-26, FR-004, FR-014).
@@ -100,7 +101,7 @@ public class KnowledgeCorpusLoader {
 
             try {
                 String uriStr = resource.getURI().toString().toLowerCase(Locale.ROOT);
-                if (uriStr.contains(FORBIDDEN_PATH_KEYWORD) || !uriStr.contains(REQUIRED_PATH_KEYWORD)) {
+                if (hasPathSegment(uriStr, FORBIDDEN_PATH_KEYWORD) || !hasPathSegment(uriStr, REQUIRED_PATH_KEYWORD)) {
                     continue;
                 }
             } catch (IOException ignored) {
@@ -316,12 +317,22 @@ public class KnowledgeCorpusLoader {
             throw new IllegalArgumentException("El patrón de recursos no puede ser nulo ni estar vacío");
         }
         String lower = pattern.toLowerCase(Locale.ROOT);
-        if (lower.contains(FORBIDDEN_PATH_KEYWORD)) {
+        if (hasPathSegment(lower, FORBIDDEN_PATH_KEYWORD)) {
             throw new IllegalArgumentException("Acceso prohibido: no se permite la lectura de la ruta 'docs/' (FR-004)");
         }
-        if (!lower.contains(REQUIRED_PATH_KEYWORD)) {
+        if (!hasPathSegment(lower, REQUIRED_PATH_KEYWORD)) {
             throw new IllegalArgumentException("Acceso restringido: solo se permite la lectura dentro del directorio 'knowledge/' (FR-004)");
         }
+    }
+
+    /**
+     * Comprueba que {@code segment} aparece como segmento completo de ruta, no como parte de otro nombre.
+     * Así {@code /mi-proyecto-docs/} no cuenta como {@code docs} (evita descartar todo el corpus en silencio).
+     */
+    static boolean hasPathSegment(String text, String segment) {
+        return Pattern.compile("(?<![\\w.-])" + Pattern.quote(segment) + "(?![\\w.-])")
+                .matcher(text)
+                .find();
     }
 
     private record Section(KnowledgeChunk.Language language, String content) {}

@@ -32,26 +32,4 @@ public interface KnowledgeAnswerPort {
         }
         return generateAnswer(query.question(), validatedChunks);
     }
-
-    /**
-     * Alias de generateAnswer para conveniencia de invocación.
-     *
-     * @param question        la pregunta formulada por el usuario
-     * @param validatedChunks fragmentos de conocimiento relevantes que superaron el umbral mínimo
-     * @return texto de la respuesta redactada
-     */
-    default String answer(String question, List<KnowledgeChunk> validatedChunks) {
-        return generateAnswer(question, validatedChunks);
-    }
-
-    /**
-     * Alias de generateAnswer con KnowledgeQuery para conveniencia de invocación.
-     *
-     * @param query           objeto de consulta
-     * @param validatedChunks fragmentos de conocimiento relevantes que superaron el umbral mínimo
-     * @return texto de la respuesta redactada
-     */
-    default String answer(KnowledgeQuery query, List<KnowledgeChunk> validatedChunks) {
-        return generateAnswer(query, validatedChunks);
-    }
 }
