@@ -3,7 +3,6 @@ package com.riwi.skillbridge.application.service.knowledge;
 import com.riwi.skillbridge.application.port.out.KnowledgeCorpusSourcePort;
 import com.riwi.skillbridge.application.port.out.KnowledgeSourceDocument;
 import com.riwi.skillbridge.domain.knowledge.KnowledgeChunk;
-import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -19,12 +18,11 @@ import java.util.Objects;
 /**
  * Cargador del corpus de conocimiento de la plataforma (HU-26, FR-004, FR-014).
  * <p>
- * Bean {@code @Component} que depende exclusivamente del puerto de salida {@link KnowledgeCorpusSourcePort} para
+ * Clase de aplicación pura (se registra como bean en {@code KnowledgeConfiguration}) que depende exclusivamente del puerto de salida {@link KnowledgeCorpusSourcePort} para
  * obtener los documentos fuente, parsea el encabezado YAML frontmatter (sourceId, type,
  * title, visibility) e indexa solo los archivos con {@code visibility: public},
  * dividiendo el contenido por sección de idioma (ES y EN).
  */
-@Component
 public class KnowledgeCorpusLoader {
 
     private final KnowledgeCorpusSourcePort corpusSourcePort;

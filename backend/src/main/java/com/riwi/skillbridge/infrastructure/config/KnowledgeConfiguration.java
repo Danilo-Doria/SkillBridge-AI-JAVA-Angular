@@ -4,6 +4,7 @@ import com.riwi.skillbridge.application.port.in.AskKnowledgeUseCase;
 import com.riwi.skillbridge.application.port.out.CategoryRepositoryPort;
 import com.riwi.skillbridge.application.port.out.EmbeddingPort;
 import com.riwi.skillbridge.application.port.out.KnowledgeAnswerPort;
+import com.riwi.skillbridge.application.port.out.KnowledgeCorpusSourcePort;
 import com.riwi.skillbridge.application.port.out.KnowledgeIndexPort;
 import com.riwi.skillbridge.application.port.out.KnowledgeSearchPort;
 import com.riwi.skillbridge.application.port.out.OfferingRepositoryPort;
@@ -50,6 +51,11 @@ public class KnowledgeConfiguration {
                                             KnowledgeProperties properties) {
         return new AskKnowledgeService(searchPort, answerPort, promptBuilder, citationValidator,
                 properties.getMinScoreThreshold(), properties.getTopK());
+    }
+
+    @Bean
+    KnowledgeCorpusLoader knowledgeCorpusLoader(KnowledgeCorpusSourcePort corpusSource) {
+        return new KnowledgeCorpusLoader(corpusSource);
     }
 
     @Bean
