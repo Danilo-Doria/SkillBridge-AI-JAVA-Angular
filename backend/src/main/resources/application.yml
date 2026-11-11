@@ -167,10 +167,13 @@ app:
       max-image-bytes: ${AI_MEDIA_MAX_IMAGE_BYTES:5242880}
   rag:
     top-k: ${RAG_TOP_K:3}
-    # min-score-threshold: sin valor por defecto. Se fija tras calibrar con el conjunto de evaluación (FR-019, T030).
+    # PROVISIONAL (0.5, decidido por el propietario el 2026-11-10). Pendiente de calibrar con el informe real (FR-019, T030).
+    min-score-threshold: ${RAG_MIN_SCORE_THRESHOLD:0.5}
     timeout-seconds: ${RAG_TIMEOUT_SECONDS:10}
     max-context-chars: ${RAG_MAX_CONTEXT_CHARS:6000}
     rrf-k: ${RAG_RRF_K:60}
+    # Recomendaciones: si hay más ofertas activas que este número, solo las N más cercanas a la necesidad llegan al LLM (0 = desactivado).
+    recommendation-shortlist-size: ${RAG_RECOMMENDATION_SHORTLIST_SIZE:15}
   booking:
     cancellation:
       minimum-notice-hours: ${BOOKING_CANCELLATION_MINIMUM_NOTICE_HOURS:24}

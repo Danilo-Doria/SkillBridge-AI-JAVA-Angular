@@ -264,7 +264,7 @@ class PgVectorKnowledgeAdapterTest {
     @DisplayName("Punto 4: search devuelve fragmentos ordenados por similitud coseno descendente en [-1, 1]")
     void shouldReturnChunksOrderedByCosineSimilarityWithinRange() {
         // Arrange
-        String queryText = "machine learning and data science";
+        String queryText = "quasar nebula";
         double[] queryVector = createVector(1.0, 0.0);
         ((DeterministicEmbeddingPort) embeddingPort).register(queryText, queryVector);
 
@@ -351,6 +351,124 @@ class PgVectorKnowledgeAdapterTest {
         List<KnowledgeCandidate> top1 = adapter.search(new KnowledgeQuery(queryText), 1);
         assertThat(top1).hasSize(1);
         assertThat(top1.get(0).chunk().sourceId()).isEqualTo("chunk-identical");
+    }
+
+    @Test
+    @DisplayName("Híbrida: un término raro que solo aparece en un fragmento lo promueve sobre uno con mayor coseno (RRF)")
+    void shouldPromoteLexicalMatchOverHigherCosineWhenFusingWithRrf() {
+        String queryText = "zorgblatt";
+        ((DeterministicEmbeddingPort) embeddingPort).register(queryText, createVector(1.0, 0.0));
+
+        KnowledgeChunk closer = new KnowledgeChunk("hy-closer", KnowledgeChunk.SourceType.POLICY_DOC,
+                "Documento A", "Texto sin relacion lexica alguna.", KnowledgeChunk.Language.ES, "hash-hy-a");
+        KnowledgeChunk lexical = new KnowledgeChunk("hy-lexical", KnowledgeChunk.SourceType.POLICY_DOC,
+                "Documento B", "Contiene el termino zorgblatt de forma literal.", KnowledgeChunk.Language.ES, "hash-hy-b");
+        adapter.upsert(closer, createVector(0.9, Math.sqrt(1 - 0.81)));
+        adapter.upsert(lexical, createVector(0.8, 0.6));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<KnowledgeCandidate> candidates = adapter.search(queryText, 2);
+
+        assertThat(candidates).hasSize(2);
+        assertThat(candidates.get(0).chunk().sourceId()).isEqualTo("hy-lexical");
+        // La similitud devuelta sigue siendo el coseno real, no la puntuación fusionada (FR-006)
+        assertThat(candidates.get(0).cosineSimilarity()).isCloseTo(0.8, offset(0.001));
+        assertThat(candidates.get(1).cosineSimilarity()).isCloseTo(0.9, offset(0.001));
+    }
+
+    @Test
+    @DisplayName("Un mismo sourceId admite un fragmento ES y otro EN (UNIQUE source_id + language)")
+    void shouldStoreSpanishAndEnglishChunksOfTheSameSource() {
+        KnowledgeChunk es = new KnowledgeChunk("policy-bilingual", KnowledgeChunk.SourceType.POLICY_DOC,
+                "Politica", "Contenido en espanol.", KnowledgeChunk.Language.ES, "hash-bi-es");
+        KnowledgeChunk en = new KnowledgeChunk("policy-bilingual", KnowledgeChunk.SourceType.POLICY_DOC,
+                "Policy", "Content in english.", KnowledgeChunk.Language.EN, "hash-bi-en");
+        adapter.replaceIndex(List.of(
+                new com.riwi.skillbridge.application.port.out.KnowledgeIndexPort.IndexedChunk(es, createVector(1.0, 0.0)),
+                new com.riwi.skillbridge.application.port.out.KnowledgeIndexPort.IndexedChunk(en, createVector(0.0, 1.0))));
+        entityManager.clear();
+
+        assertThat(repository.count()).isEqualTo(2);
+        // upsert del mismo (sourceId, idioma) actualiza en lugar de duplicar
+        adapter.upsert(es, createVector(0.5, 0.5));
+        entityManager.flush();
+        assertThat(repository.count()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("searchByType solo devuelve fragmentos del tipo pedido aunque otros tipos estén más cerca (preselección de ofertas)")
+    void shouldRestrictSearchToTheRequestedSourceType() {
+        String queryText = "quasar nebula";
+        ((DeterministicEmbeddingPort) embeddingPort).register(queryText, createVector(1.0, 0.0));
+
+        KnowledgeChunk policyClose = new KnowledgeChunk("typ-policy", KnowledgeChunk.SourceType.POLICY_DOC,
+                "Politica", "Texto de politica.", KnowledgeChunk.Language.ES, "hash-typ-1");
+        KnowledgeChunk offeringFar = new KnowledgeChunk("offering:typ-1", KnowledgeChunk.SourceType.OFFERING,
+                "Curso A", "Texto de oferta A.", KnowledgeChunk.Language.ES, "hash-typ-2");
+        KnowledgeChunk offeringFarther = new KnowledgeChunk("offering:typ-2", KnowledgeChunk.SourceType.OFFERING,
+                "Curso B", "Texto de oferta B.", KnowledgeChunk.Language.ES, "hash-typ-3");
+        adapter.upsert(policyClose, createVector(1.0, 0.0));
+        adapter.upsert(offeringFar, createVector(0.6, 0.8));
+        adapter.upsert(offeringFarther, createVector(0.0, 1.0));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<KnowledgeCandidate> offerings =
+                adapter.searchByType(queryText, 5, KnowledgeChunk.SourceType.OFFERING);
+
+        assertThat(offerings).extracting(c -> c.chunk().sourceId())
+                .containsExactly("offering:typ-1", "offering:typ-2");
+        assertThat(adapter.searchByType(queryText, 1, KnowledgeChunk.SourceType.OFFERING)).hasSize(1);
+        assertThat(adapter.searchByType(queryText, 5, KnowledgeChunk.SourceType.CATEGORY)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Sincronización diferencial: hashes por (sourceId, idioma), applyChanges atómico y deleteBySourceId")
+    void shouldSupportDifferentialSyncOperations() {
+        KnowledgeChunk keep = new KnowledgeChunk("sync-keep", KnowledgeChunk.SourceType.POLICY_DOC,
+                "Se queda", "Contenido que no cambia.", KnowledgeChunk.Language.ES, "hash-keep");
+        KnowledgeChunk change = new KnowledgeChunk("sync-change", KnowledgeChunk.SourceType.POLICY_DOC,
+                "Cambia", "Contenido viejo.", KnowledgeChunk.Language.ES, "hash-old");
+        KnowledgeChunk gone = new KnowledgeChunk("sync-gone", KnowledgeChunk.SourceType.OFFERING,
+                "Se va", "Oferta que se desactiva.", KnowledgeChunk.Language.ES, "hash-gone");
+        adapter.applyChanges(List.of(
+                new KnowledgeIndexPort.IndexedChunk(keep, createVector(1.0, 0.0)),
+                new KnowledgeIndexPort.IndexedChunk(change, createVector(0.0, 1.0)),
+                new KnowledgeIndexPort.IndexedChunk(gone, createVector(0.6, 0.8))), List.of());
+        entityManager.flush();
+        entityManager.clear();
+
+        java.util.Map<KnowledgeIndexPort.IndexKey, String> hashes = adapter.findIndexedHashes();
+        assertThat(hashes).hasSize(3)
+                .containsEntry(new KnowledgeIndexPort.IndexKey("sync-keep", KnowledgeChunk.Language.ES), "hash-keep")
+                .containsEntry(new KnowledgeIndexPort.IndexKey("sync-change", KnowledgeChunk.Language.ES), "hash-old");
+
+        // Un cambio y una eliminación en la misma operación; "keep" no se toca
+        KnowledgeChunk changed = new KnowledgeChunk("sync-change", KnowledgeChunk.SourceType.POLICY_DOC,
+                "Cambia", "Contenido NUEVO.", KnowledgeChunk.Language.ES, "hash-new");
+        adapter.applyChanges(
+                List.of(new KnowledgeIndexPort.IndexedChunk(changed, createVector(0.5, 0.5))),
+                List.of(new KnowledgeIndexPort.IndexKey("sync-gone", KnowledgeChunk.Language.ES)));
+        entityManager.flush();
+        entityManager.clear();
+
+        java.util.Map<KnowledgeIndexPort.IndexKey, String> after = adapter.findIndexedHashes();
+        assertThat(after).hasSize(2)
+                .containsEntry(new KnowledgeIndexPort.IndexKey("sync-keep", KnowledgeChunk.Language.ES), "hash-keep")
+                .containsEntry(new KnowledgeIndexPort.IndexKey("sync-change", KnowledgeChunk.Language.ES), "hash-new");
+
+        // deleteBySourceId borra todos los idiomas de la fuente y no falla si no existe
+        KnowledgeChunk en = new KnowledgeChunk("sync-keep", KnowledgeChunk.SourceType.POLICY_DOC,
+                "Stays", "Content that stays.", KnowledgeChunk.Language.EN, "hash-keep-en");
+        adapter.upsert(en, createVector(1.0, 0.0));
+        entityManager.flush();
+        assertThat(adapter.findIndexedHashes()).hasSize(3);
+        adapter.deleteBySourceId("sync-keep");
+        adapter.deleteBySourceId("no-existe");
+        entityManager.clear();
+        assertThat(adapter.findIndexedHashes()).containsOnlyKeys(
+                new KnowledgeIndexPort.IndexKey("sync-change", KnowledgeChunk.Language.ES));
     }
 
     @Test

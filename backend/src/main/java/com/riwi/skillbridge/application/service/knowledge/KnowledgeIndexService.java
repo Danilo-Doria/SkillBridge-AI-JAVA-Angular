@@ -48,28 +48,35 @@ public class KnowledgeIndexService {
         this.indexPort = Objects.requireNonNull(indexPort, "indexPort no puede ser nulo");
     }
 
+    /** Máximo de textos por llamada de embeddings (Gemini limita el tamaño del lote). */
+    static final int EMBEDDING_BATCH_SIZE = 50;
+
     /**
-     * Carga inicial atómica del índice de conocimiento al arrancar la aplicación (FR-015, FR-018).
-     * <p>
-     * Carga por lotes los fragmentos públicos del corpus (.md), las ofertas activas
-     * y las categorías activas, genera sus vectores de embedding por lotes mediante {@link EmbeddingPort}
-     * y reemplaza el índice completo de forma atómica mediante {@link KnowledgeIndexPort#replaceIndex}.
+     * Sincronización de arranque (FR-015, FR-018): deja el índice igual al contenido público actual
+     * (corpus .md, ofertas activas y categorías activas) <b>sin recalcular lo que no cambió</b>.
+     * <ul>
+     *   <li>Calcula embeddings solo de fragmentos nuevos o con {@code contentHash} distinto, en lotes de
+     *       {@link #EMBEDDING_BATCH_SIZE}.</li>
+     *   <li>Elimina del índice lo que ya no existe (ofertas desactivadas, categorías borradas, secciones retiradas).</li>
+     *   <li>Aplica todo en una única transacción: si falla el proveedor de embeddings, el índice anterior queda intacto.</li>
+     * </ul>
      *
-     * @return número total de fragmentos indexados
+     * @return número total de fragmentos que quedan indexados
      */
     public int loadInitialIndex() {
-        List<KnowledgeChunk> allChunks = new ArrayList<>();
+        java.util.Map<KnowledgeIndexPort.IndexKey, KnowledgeChunk> desired = new java.util.LinkedHashMap<>();
 
         List<KnowledgeChunk> corpusChunks = corpusLoader.load();
         if (corpusChunks != null) {
-            allChunks.addAll(corpusChunks);
+            corpusChunks.forEach(c -> desired.put(keyOf(c), c));
         }
 
         List<Offering> activeOfferings = offeringRepository.findAllActive();
         if (activeOfferings != null) {
             for (Offering offering : activeOfferings) {
                 if (offering != null && offering.active()) {
-                    allChunks.add(toChunk(offering));
+                    KnowledgeChunk c = toChunk(offering);
+                    desired.put(keyOf(c), c);
                 }
             }
         }
@@ -78,26 +85,51 @@ public class KnowledgeIndexService {
         if (activeCategories != null) {
             for (Category category : activeCategories) {
                 if (category != null && category.active()) {
-                    allChunks.add(toChunk(category));
+                    KnowledgeChunk c = toChunk(category);
+                    desired.put(keyOf(c), c);
                 }
             }
         }
 
-        if (allChunks.isEmpty()) {
-            indexPort.replaceIndex(List.of());
-            LOGGER.log(System.Logger.Level.INFO, "Índice de conocimiento inicializado con 0 fragmentos");
-            return 0;
+        java.util.Map<KnowledgeIndexPort.IndexKey, String> indexed = indexPort.findIndexedHashes();
+        if (indexed == null) {
+            indexed = java.util.Map.of();
         }
 
-        List<String> texts = allChunks.stream()
-                .map(KnowledgeChunk::content)
+        List<KnowledgeChunk> toEmbed = new ArrayList<>();
+        for (java.util.Map.Entry<KnowledgeIndexPort.IndexKey, KnowledgeChunk> e : desired.entrySet()) {
+            if (!e.getValue().contentHash().equals(indexed.get(e.getKey()))) {
+                toEmbed.add(e.getValue());
+            }
+        }
+
+        List<KnowledgeIndexPort.IndexedChunk> upserts = new ArrayList<>(toEmbed.size());
+        for (int from = 0; from < toEmbed.size(); from += EMBEDDING_BATCH_SIZE) {
+            List<KnowledgeChunk> batch = toEmbed.subList(from, Math.min(from + EMBEDDING_BATCH_SIZE, toEmbed.size()));
+            List<double[]> vectors = embeddingPort.embed(batch.stream().map(KnowledgeChunk::content).toList());
+            if (vectors == null || vectors.size() != batch.size()) {
+                throw new IllegalStateException("El proveedor de embeddings devolvió una cantidad de vectores distinta a la solicitada");
+            }
+            for (int i = 0; i < batch.size(); i++) {
+                upserts.add(new KnowledgeIndexPort.IndexedChunk(batch.get(i), vectors.get(i)));
+            }
+        }
+
+        List<KnowledgeIndexPort.IndexKey> deletions = indexed.keySet().stream()
+                .filter(k -> !desired.containsKey(k))
                 .toList();
 
-        List<double[]> embeddings = embeddingPort.embed(texts);
+        if (!upserts.isEmpty() || !deletions.isEmpty()) {
+            indexPort.applyChanges(upserts, deletions);
+        }
+        LOGGER.log(System.Logger.Level.INFO,
+                "Índice de conocimiento sincronizado: {0} fragmentos ({1} recalculados, {2} reutilizados, {3} eliminados)",
+                desired.size(), upserts.size(), desired.size() - upserts.size(), deletions.size());
+        return desired.size();
+    }
 
-        indexPort.replaceIndex(allChunks, embeddings);
-        LOGGER.log(System.Logger.Level.INFO, "Índice de conocimiento inicializado con {0} fragmentos", allChunks.size());
-        return allChunks.size();
+    private static KnowledgeIndexPort.IndexKey keyOf(KnowledgeChunk chunk) {
+        return new KnowledgeIndexPort.IndexKey(chunk.sourceId(), chunk.language());
     }
 
     /**
@@ -186,7 +218,8 @@ public class KnowledgeIndexService {
             return false;
         }
         if (!offering.active()) {
-            LOGGER.log(System.Logger.Level.INFO, "Oferta {0} no activa, se omite de la indexación pública", offering.id());
+            indexPort.deleteBySourceId("offering:" + offering.id());
+            LOGGER.log(System.Logger.Level.INFO, "Oferta {0} no activa: se retira del índice público", offering.id());
             return false;
         }
         KnowledgeChunk chunk = toChunk(offering);
@@ -222,7 +255,8 @@ public class KnowledgeIndexService {
             return false;
         }
         if (!category.active()) {
-            LOGGER.log(System.Logger.Level.INFO, "Categoría {0} no activa, se omite de la indexación pública", category.id());
+            indexPort.deleteBySourceId("category:" + category.id());
+            LOGGER.log(System.Logger.Level.INFO, "Categoría {0} no activa: se retira del índice público", category.id());
             return false;
         }
         KnowledgeChunk chunk = toChunk(category);
@@ -252,7 +286,8 @@ public class KnowledgeIndexService {
      * @param id identificador de la categoría eliminada
      */
     public void deleteCategory(UUID id) {
-        LOGGER.log(System.Logger.Level.INFO, "Notificación de eliminación de categoría: {0}", id);
+        indexPort.deleteBySourceId("category:" + id);
+        LOGGER.log(System.Logger.Level.INFO, "Categoría {0} eliminada: se retira del índice", id);
     }
 
     /**
@@ -272,9 +307,7 @@ public class KnowledgeIndexService {
         Objects.requireNonNull(offering, "offering no puede ser nulo");
         String sourceId = "offering:" + offering.id();
         String title = offering.title();
-        String content = (offering.description() != null && !offering.description().isBlank())
-                ? offering.description().trim()
-                : offering.title().trim();
+        String content = offeringContent(offering);
         String hash = computeContentHash(content);
         String mode = offering.mode() != null ? offering.mode().name() : null;
         Integer durationHours = offering.durationHours() > 0 ? offering.durationHours() : null;
@@ -288,6 +321,36 @@ public class KnowledgeIndexService {
                 mode,
                 durationHours
         );
+    }
+
+    /**
+     * Texto indexado de una oferta: título, categoría, modalidad, duración, precio y descripción.
+     * Enriquecerlo (no solo la descripción) mejora el emparejamiento léxico y semántico de preguntas como
+     * "mentoría en vivo de cloud" o "algo corto y barato de frontend". Es también lo que ve el LLM y el extracto citado.
+     * Solo incluye datos públicos del catálogo (FR-004).
+     */
+    static String offeringContent(Offering offering) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Mentoría: ").append(offering.title().trim());
+        if (offering.category() != null && !offering.category().isBlank()) {
+            sb.append("\nCategoría: ").append(offering.category().trim());
+        }
+        if (offering.mode() != null) {
+            sb.append("\nModalidad: ")
+                    .append(offering.mode() == com.riwi.skillbridge.domain.model.MentorshipMode.LIVE
+                            ? "en vivo (LIVE)" : "asíncrona (ASYNCHRONOUS)");
+        }
+        if (offering.durationHours() > 0) {
+            sb.append("\nDuración: ").append(offering.durationHours())
+                    .append(offering.durationHours() == 1 ? " hora" : " horas");
+        }
+        if (offering.price() != null) {
+            sb.append("\nPrecio: ").append(offering.price().stripTrailingZeros().toPlainString());
+        }
+        if (offering.description() != null && !offering.description().isBlank()) {
+            sb.append("\nDescripción: ").append(offering.description().trim());
+        }
+        return sb.toString();
     }
 
     /**

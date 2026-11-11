@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(
         controllers = KnowledgeController.class,
-        properties = "app.cors.allowed-origins=http://localhost:4200"
+        properties = {"app.cors.allowed-origins=http://localhost:4200", "app.rag.min-score-threshold=0.5"}
 )
 @Import({SecurityConfiguration.class, RestAccessDeniedHandler.class, GlobalExceptionHandler.class})
 class KnowledgeControllerTest {

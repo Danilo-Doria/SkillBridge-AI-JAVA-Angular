@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -146,24 +147,25 @@ class KnowledgeIndexServiceTest {
             assertEquals(4, passedTexts.size());
             assertEquals("Texto de la política de cancelación.", passedTexts.get(0));
             assertEquals("Texto de preguntas frecuentes.", passedTexts.get(1));
-            assertEquals("Aprende Spring Boot desde cero.", passedTexts.get(2));
+            assertTrue(passedTexts.get(2).startsWith("Mentoría: Curso de Spring Boot"));
+            assertTrue(passedTexts.get(2).endsWith("Descripción: Aprende Spring Boot desde cero."));
             assertEquals("ARQUITECTURA", passedTexts.get(3));
 
-            // Verifica que KnowledgeIndexPort.replaceIndex se invocó atómicamente con los 4 fragmentos y embeddings
+            // Verifica que el índice se actualiza en una sola operación atómica con los 4 fragmentos y sus vectores
             @SuppressWarnings("unchecked")
-            ArgumentCaptor<List<KnowledgeChunk>> chunksCaptor = ArgumentCaptor.forClass(List.class);
+            ArgumentCaptor<List<KnowledgeIndexPort.IndexedChunk>> upsertsCaptor = ArgumentCaptor.forClass(List.class);
             @SuppressWarnings("unchecked")
-            ArgumentCaptor<List<double[]>> embeddingsCaptor = ArgumentCaptor.forClass(List.class);
-            verify(indexPort, times(1)).replaceIndex(chunksCaptor.capture(), embeddingsCaptor.capture());
+            ArgumentCaptor<java.util.Collection<KnowledgeIndexPort.IndexKey>> deletionsCaptor = ArgumentCaptor.forClass(java.util.Collection.class);
+            verify(indexPort, times(1)).applyChanges(upsertsCaptor.capture(), deletionsCaptor.capture());
 
-            assertEquals(4, chunksCaptor.getValue().size());
-            assertEquals(4, embeddingsCaptor.getValue().size());
-            assertEquals("offering:" + offering1.id(), chunksCaptor.getValue().get(2).sourceId());
-            assertEquals("category:" + category1.id(), chunksCaptor.getValue().get(3).sourceId());
+            assertEquals(4, upsertsCaptor.getValue().size());
+            assertTrue(deletionsCaptor.getValue().isEmpty());
+            assertEquals("offering:" + offering1.id(), upsertsCaptor.getValue().get(2).chunk().sourceId());
+            assertEquals("category:" + category1.id(), upsertsCaptor.getValue().get(3).chunk().sourceId());
         }
 
         @Test
-        @DisplayName("Carga inicial con fuentes vacías reemplaza el índice con lista vacía sin invocar embeddings")
+        @DisplayName("Carga inicial con fuentes vacías y un índice vacío no hace nada ni invoca embeddings")
         void shouldHandleEmptySourcesGracefully() {
             when(corpusLoader.load()).thenReturn(List.of());
             when(offeringRepository.findAllActive()).thenReturn(List.of());
@@ -172,8 +174,107 @@ class KnowledgeIndexServiceTest {
             int count = service.loadInitialIndex();
 
             assertEquals(0, count);
-            verify(indexPort).replaceIndex(List.of());
+            verify(indexPort, never()).applyChanges(any(), any());
             verifyNoInteractions(embeddingPort);
+        }
+
+        private KnowledgeChunk policy(String id, KnowledgeChunk.Language lang, String content) {
+            return new KnowledgeChunk(id, KnowledgeChunk.SourceType.POLICY_DOC, "T " + id, content, lang,
+                    KnowledgeIndexService.computeContentHash(content));
+        }
+
+        @Test
+        @DisplayName("Reinicio sin cambios: reutiliza los vectores guardados y no llama al proveedor de embeddings (FR-018)")
+        void shouldReuseStoredVectorsWhenNothingChanged() {
+            KnowledgeChunk p1 = policy("policy-1", KnowledgeChunk.Language.ES, "Contenido uno");
+            KnowledgeChunk p2 = policy("policy-1", KnowledgeChunk.Language.EN, "Content one");
+            when(corpusLoader.load()).thenReturn(List.of(p1, p2));
+            when(offeringRepository.findAllActive()).thenReturn(List.of());
+            when(categoryRepository.findAllActive()).thenReturn(List.of());
+            when(indexPort.findIndexedHashes()).thenReturn(java.util.Map.of(
+                    new KnowledgeIndexPort.IndexKey("policy-1", KnowledgeChunk.Language.ES), p1.contentHash(),
+                    new KnowledgeIndexPort.IndexKey("policy-1", KnowledgeChunk.Language.EN), p2.contentHash()));
+
+            int count = service.loadInitialIndex();
+
+            assertEquals(2, count);
+            verifyNoInteractions(embeddingPort);
+            verify(indexPort, never()).applyChanges(any(), any());
+        }
+
+        @Test
+        @DisplayName("Reinicio con un fragmento cambiado: solo ese se recalcula; lo reutilizable no se envía al proveedor")
+        void shouldRecomputeOnlyChangedChunks() {
+            KnowledgeChunk same = policy("policy-1", KnowledgeChunk.Language.ES, "Contenido uno");
+            KnowledgeChunk changed = policy("policy-2", KnowledgeChunk.Language.ES, "Contenido dos NUEVO");
+            when(corpusLoader.load()).thenReturn(List.of(same, changed));
+            when(offeringRepository.findAllActive()).thenReturn(List.of());
+            when(categoryRepository.findAllActive()).thenReturn(List.of());
+            when(indexPort.findIndexedHashes()).thenReturn(java.util.Map.of(
+                    new KnowledgeIndexPort.IndexKey("policy-1", KnowledgeChunk.Language.ES), same.contentHash(),
+                    new KnowledgeIndexPort.IndexKey("policy-2", KnowledgeChunk.Language.ES), "hash-viejo"));
+            when(embeddingPort.embed(anyList())).thenReturn(List.of(sampleVector(768)));
+
+            service.loadInitialIndex();
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<String>> texts = ArgumentCaptor.forClass(List.class);
+            verify(embeddingPort, times(1)).embed(texts.capture());
+            assertEquals(List.of("Contenido dos NUEVO"), texts.getValue());
+        }
+
+        @Test
+        @DisplayName("Reinicio: lo que ya no existe (oferta desactivada, categoría borrada) se elimina del índice")
+        void shouldRemoveStaleEntriesFromTheIndex() {
+            when(corpusLoader.load()).thenReturn(List.of());
+            when(offeringRepository.findAllActive()).thenReturn(List.of());
+            when(categoryRepository.findAllActive()).thenReturn(List.of());
+            KnowledgeIndexPort.IndexKey stale = new KnowledgeIndexPort.IndexKey("offering:viejo", KnowledgeChunk.Language.ES);
+            when(indexPort.findIndexedHashes()).thenReturn(java.util.Map.of(stale, "h"));
+
+            service.loadInitialIndex();
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<java.util.Collection<KnowledgeIndexPort.IndexKey>> deletions = ArgumentCaptor.forClass(java.util.Collection.class);
+            verify(indexPort).applyChanges(eq(List.of()), deletions.capture());
+            assertEquals(List.of(stale), List.copyOf(deletions.getValue()));
+            verifyNoInteractions(embeddingPort);
+        }
+
+        @Test
+        @DisplayName("Más de 50 fragmentos se envían al proveedor en varios lotes de máximo 50")
+        void shouldSplitEmbeddingCallsIntoBatches() {
+            List<KnowledgeChunk> many = new java.util.ArrayList<>();
+            for (int i = 0; i < 120; i++) {
+                many.add(policy("policy-" + i, KnowledgeChunk.Language.ES, "Contenido " + i));
+            }
+            when(corpusLoader.load()).thenReturn(many);
+            when(offeringRepository.findAllActive()).thenReturn(List.of());
+            when(categoryRepository.findAllActive()).thenReturn(List.of());
+            when(embeddingPort.embed(anyList())).thenAnswer(inv -> {
+                List<?> in = inv.getArgument(0);
+                return in.stream().map(x -> sampleVector(768)).toList();
+            });
+
+            service.loadInitialIndex();
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<String>> texts = ArgumentCaptor.forClass(List.class);
+            verify(embeddingPort, times(3)).embed(texts.capture());
+            assertEquals(List.of(50, 50, 20), texts.getAllValues().stream().map(List::size).toList());
+        }
+
+        @Test
+        @DisplayName("Si el proveedor de embeddings falla, no se toca el índice existente")
+        void shouldLeaveIndexUntouchedWhenEmbeddingProviderFails() {
+            when(corpusLoader.load()).thenReturn(List.of(policy("policy-1", KnowledgeChunk.Language.ES, "Nuevo")));
+            when(offeringRepository.findAllActive()).thenReturn(List.of());
+            when(categoryRepository.findAllActive()).thenReturn(List.of());
+            when(embeddingPort.embed(anyList())).thenThrow(new IllegalStateException("proveedor caído"));
+
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> service.loadInitialIndex());
+
+            verify(indexPort, never()).applyChanges(any(), any());
         }
     }
 
@@ -351,6 +452,8 @@ class KnowledgeIndexServiceTest {
             assertFalse(result);
             verifyNoInteractions(embeddingPort);
             verify(indexPort, never()).upsert(any(), any());
+            // y se retira del índice si estaba indexada (antes quedaba hasta el siguiente reinicio)
+            verify(indexPort).deleteBySourceId("offering:" + inactiveOffering.id());
         }
 
         @Test
@@ -372,17 +475,20 @@ class KnowledgeIndexServiceTest {
         }
 
         @Test
-        @DisplayName("deleteCategory emite registro de notificación")
+        @DisplayName("deleteCategory retira la categoría del índice")
         void shouldHandleDeleteCategoryNotification() {
             UUID catId = UUID.randomUUID();
             assertDoesNotThrow(() -> service.deleteCategory(catId));
             assertDoesNotThrow(() -> service.onCategoryDeleted(catId));
+            verify(indexPort, times(2)).deleteBySourceId("category:" + catId);
         }
     }
 
     @Nested
     @DisplayName("Chunk Mapping & Invariants")
     class ChunkMappingTests {
+        private static final String NL = "\n";
+
 
         @Test
         @DisplayName("toChunk mapea Offering con mode y durationHours correctamente")
@@ -403,7 +509,7 @@ class KnowledgeIndexServiceTest {
             assertEquals("offering:" + offering.id(), chunk.sourceId());
             assertEquals(KnowledgeChunk.SourceType.OFFERING, chunk.sourceType());
             assertEquals("Mentoría Docker", chunk.title());
-            assertEquals("Contenedores desde cero", chunk.content());
+            assertEquals("Mentoría: Mentoría Docker"+NL+"Categoría: DEVOPS"+NL+"Modalidad: en vivo (LIVE)"+NL+"Duración: 2 horas"+NL+"Precio: 80"+NL+"Descripción: Contenedores desde cero", chunk.content());
             assertEquals(KnowledgeChunk.Language.ES, chunk.language());
             assertEquals("LIVE", chunk.mode());
             assertEquals(2, chunk.durationHours());
@@ -427,8 +533,10 @@ class KnowledgeIndexServiceTest {
 
             KnowledgeChunk chunk = service.toChunk(offering);
 
-            assertEquals("Título Sin Descripción", chunk.content());
-            assertEquals(KnowledgeIndexService.computeContentHash("Título Sin Descripción"), chunk.contentHash());
+            assertTrue(chunk.content().startsWith("Mentoría: Título Sin Descripción"));
+            assertTrue(chunk.content().contains("Categoría: DEVOPS"));
+            assertFalse(chunk.content().contains("Descripción:"));
+            assertEquals(KnowledgeIndexService.computeContentHash(chunk.content()), chunk.contentHash());
         }
 
         @Test
