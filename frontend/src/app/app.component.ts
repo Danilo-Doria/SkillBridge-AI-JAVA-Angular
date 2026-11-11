@@ -32,6 +32,10 @@ import { AuthService } from './core/auth.service';
             <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">IA</a>
             <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Mis reservas</a>
 
+            @if (auth.isAuthenticated() && !auth.hasRole('PROVIDER', 'ADMIN')) {
+              <a routerLink="/provider/request" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Ser Provider</a>
+            }
+
             @if (auth.hasRole('PROVIDER', 'ADMIN')) {
               <a routerLink="/provider/offerings" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">
                 {{ auth.hasRole('ADMIN') ? 'Gestionar servicios' : 'Mis servicios' }}
@@ -39,6 +43,7 @@ import { AuthService } from './core/auth.service';
             }
 
             @if (auth.hasRole('ADMIN')) {
+              <a routerLink="/admin/provider-requests" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Solicitudes</a>
               <a routerLink="/admin/users" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]">Usuarios</a>
             }
           </nav>
@@ -102,6 +107,10 @@ import { AuthService } from './core/auth.service';
           <a routerLink="/ai" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">IA</a>
           <a routerLink="/bookings/me" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Mis reservas</a>
 
+          @if (auth.isAuthenticated() && !auth.hasRole('PROVIDER', 'ADMIN')) {
+            <a routerLink="/provider/request" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Ser Provider</a>
+          }
+
           @if (auth.hasRole('PROVIDER', 'ADMIN')) {
             <a routerLink="/provider/offerings" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">
               {{ auth.hasRole('ADMIN') ? 'Gestionar servicios' : 'Mis servicios' }}
@@ -109,6 +118,7 @@ import { AuthService } from './core/auth.service';
           }
 
           @if (auth.hasRole('ADMIN')) {
+            <a routerLink="/admin/provider-requests" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Solicitudes</a>
             <a routerLink="/admin/users" routerLinkActive="!bg-[#F1F0ED] !text-[#111111]" (click)="closeMenu()">Usuarios</a>
           }
         </nav>
