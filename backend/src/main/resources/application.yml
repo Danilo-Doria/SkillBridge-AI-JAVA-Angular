@@ -30,6 +30,9 @@ spring:
     sender: ${NOTIFICATIONS_SENDER:simulated}
     email:
       from: ${NOTIFICATIONS_EMAIL_FROM:no-reply@skillbridge.local}
+    payment-reminder:
+      enabled: ${NOTIFICATIONS_PAYMENT_REMINDER_ENABLED:true}
+      cron: ${NOTIFICATIONS_PAYMENT_REMINDER_CRON:0 0 8 * * *}
   ai:
     model:
       embedding:
@@ -263,8 +266,6 @@ app:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
       audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
       recommendation-events: ${KAFKA_TOPIC_RECOMMENDATION_EVENTS:recommendation-events}
-  payment:
-    provider: ${PAYMENT_PROVIDER:stripe}
 
 stripe:
   api-url: ${STRIPE_API_URL:https://api.stripe.com}

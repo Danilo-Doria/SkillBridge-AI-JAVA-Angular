@@ -18,6 +18,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -84,5 +85,28 @@ class BookingPersistenceAdapterTest {
             assertThat(history.getNewStatus()).isEqualTo(BookingStatus.CANCELLED);
             assertThat(history.getChangedBy()).isEqualTo(CUSTOMER_ID);
         });
+    }
+
+    @Test
+    void shouldPersistAndRetrieveLastPaymentReminderSentAtAndFilterByStatus() {
+        BookingPersistenceAdapter bookingAdapter = new BookingPersistenceAdapter(bookingRepository, userRepository);
+        UUID bookingId = UUID.randomUUID();
+        Instant reminderTime = Instant.parse("2026-11-10T08:00:00Z");
+        Booking created = new Booking(
+                bookingId,
+                OFFERING_ID,
+                CUSTOMER_ID,
+                Instant.parse("2030-10-15T12:00:00Z"),
+                BookingStatus.CREATED,
+                0,
+                reminderTime);
+
+        bookingAdapter.save(created);
+
+        Booking retrieved = bookingAdapter.findById(bookingId).orElseThrow();
+        assertThat(retrieved.lastPaymentReminderSentAt()).isEqualTo(reminderTime);
+
+        List<Booking> pending = bookingAdapter.findByStatus(BookingStatus.CREATED);
+        assertThat(pending).extracting(Booking::id).contains(bookingId);
     }
 }

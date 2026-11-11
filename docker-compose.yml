@@ -232,8 +232,9 @@ services:
       context: ./audit-service/backend
     environment:
       PORT: 8081
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      AUDIT_MONGO_URI: mongodb://audit-mongo:27017/${AUDIT_MONGO_DB:-audit}
+      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      AUDIT_MONGO_URI: ${AUDIT_MONGO_URI:-mongodb://audit-mongo:27017/${AUDIT_MONGO_DB:-audit}}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8090,http://localhost:4200}
     depends_on:
       kafka:
