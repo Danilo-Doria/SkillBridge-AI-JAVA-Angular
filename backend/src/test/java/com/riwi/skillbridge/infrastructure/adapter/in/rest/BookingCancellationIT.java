@@ -75,7 +75,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "app.cors.allowed-origins=http://localhost:4200",
     "spring.rabbitmq.listener.simple.retry.initial-interval=100ms",
     "spring.kafka.listener.auto-startup=false",
-    "spring.autoconfigure.exclude=org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration"
+    "spring.autoconfigure.exclude=org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration,"
+        + "org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration,"
+        + "org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiTextEmbeddingAutoConfiguration"
 })
 @AutoConfigureMockMvc
 @Testcontainers

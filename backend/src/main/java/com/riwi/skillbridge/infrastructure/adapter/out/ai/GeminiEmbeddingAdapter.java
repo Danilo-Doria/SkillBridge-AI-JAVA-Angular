@@ -8,9 +8,10 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -27,7 +28,6 @@ import java.util.concurrent.*;
  * Nunca devuelve vectores simulados (FR-009).
  */
 @Component
-@ConditionalOnBean(EmbeddingModel.class)
 public class GeminiEmbeddingAdapter implements EmbeddingPort {
 
     private static final Logger log = LoggerFactory.getLogger(GeminiEmbeddingAdapter.class);
@@ -37,12 +37,24 @@ public class GeminiEmbeddingAdapter implements EmbeddingPort {
     private final String apiKey;
     private final ExecutorService executor;
 
+    /**
+     * Constructor de Spring: elige el modelo de Google entre los {@link EmbeddingModel} disponibles
+     * (puede haber otros, p. ej. OpenAI) y tolera que no exista ninguno (sin clave: 503 al usarse).
+     */
     @Autowired
     public GeminiEmbeddingAdapter(
-            @Autowired(required = false) EmbeddingModel embeddingModel,
+            ObjectProvider<EmbeddingModel> embeddingModels,
             KnowledgeProperties properties,
             @Value("${spring.ai.google.genai.embedding.api-key:}") String apiKey
     ) {
+        this(embeddingModels.orderedStream()
+                        .filter(m -> m instanceof GoogleGenAiTextEmbeddingModel)
+                        .findFirst()
+                        .orElse(null),
+                properties, apiKey, (ExecutorService) null);
+    }
+
+    public GeminiEmbeddingAdapter(EmbeddingModel embeddingModel, KnowledgeProperties properties, String apiKey) {
         this(embeddingModel, properties, apiKey, (ExecutorService) null);
     }
 
