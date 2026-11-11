@@ -2,6 +2,9 @@ package com.riwi.skillbridge.application.port.out;
 
 import com.riwi.skillbridge.domain.model.Booking;
 
+import com.riwi.skillbridge.domain.model.PageQuery;
+import com.riwi.skillbridge.domain.model.PageResult;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,4 +22,6 @@ public interface BookingRepositoryPort {
     }
 
     List<Booking> findByCustomerEmail(String email);
+
+    PageResult<Booking> findByCustomerEmail(String email, PageQuery query);
 }

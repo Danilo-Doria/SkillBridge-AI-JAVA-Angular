@@ -109,7 +109,7 @@ export class BookingComponent implements OnInit {
   private router = inject(Router);
 
   ngOnInit(): void {
-    this.offeringsService.list().subscribe({
+    this.offeringsService.listForLookup().subscribe({
       next: (list) => {
         this.offerings = list;
         this.offeringsLoading = false;

@@ -2,6 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { apiBase } from './api';
 import { Role } from './auth.service';
+import { Page } from './page';
+
+export type { Page } from './page';
 
 export type UserStatus = 'ACTIVE' | 'SUSPENDED';
 
@@ -11,14 +14,6 @@ export interface AdminUser {
   email: string;
   role: Role;
   status: UserStatus;
-}
-
-export interface Page<T> {
-  items: T[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
 }
 
 @Injectable({ providedIn: 'root' })

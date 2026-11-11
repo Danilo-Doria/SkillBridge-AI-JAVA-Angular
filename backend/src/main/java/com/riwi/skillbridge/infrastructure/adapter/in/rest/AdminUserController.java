@@ -4,7 +4,6 @@ import com.riwi.skillbridge.application.port.in.ChangeUserRoleUseCase;
 import com.riwi.skillbridge.application.port.in.ChangeUserStatusUseCase;
 import com.riwi.skillbridge.application.port.in.GetUserUseCase;
 import com.riwi.skillbridge.application.port.in.ListUsersUseCase;
-import com.riwi.skillbridge.domain.model.PageQuery;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.ChangeUserRoleRequest;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.ChangeUserStatusRequest;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.PageResponse;
@@ -54,7 +53,7 @@ public class AdminUserController {
                                            @RequestParam(defaultValue = "20") int size,
                                            @RequestParam(defaultValue = "createdAt,desc") String sort,
                                            Authentication auth) {
-        return PageResponse.from(listUsers.listUsers(actors.from(auth), toQuery(page, size, sort)),
+        return PageResponse.from(listUsers.listUsers(actors.from(auth), PageParams.toQuery(page, size, sort)),
             UserResponse::from);
     }
 
@@ -87,14 +86,5 @@ public class AdminUserController {
     public UserResponse changeRole(@PathVariable UUID id, @Valid @RequestBody ChangeUserRoleRequest req,
                                    Authentication auth) {
         return UserResponse.from(changeRole.changeRole(actors.from(auth), id, req.role()));
-    }
-
-    private static PageQuery toQuery(int page, int size, String sort) {
-        String[] parts = sort.split(",");
-        String direction = parts.length > 1 ? parts[1].trim() : "asc";
-        if (!direction.equalsIgnoreCase("asc") && !direction.equalsIgnoreCase("desc")) {
-            throw new IllegalArgumentException("La dirección de orden debe ser asc o desc");
-        }
-        return new PageQuery(page, size, parts[0].trim(), direction.equalsIgnoreCase("desc"));
     }
 }

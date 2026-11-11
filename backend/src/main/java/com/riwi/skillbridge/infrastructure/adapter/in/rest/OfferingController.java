@@ -3,6 +3,7 @@ package com.riwi.skillbridge.infrastructure.adapter.in.rest;
 import com.riwi.skillbridge.application.port.in.*;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.CreateOfferingRequest;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.OfferingResponse;
+import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.PageResponse;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.UpdateOfferingRequest;
 import com.riwi.skillbridge.infrastructure.security.CurrentActorResolver;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,7 +17,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -45,20 +45,29 @@ public class OfferingController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista el catálogo de offerings activos (público)")
-    public List<OfferingResponse> list() {
-        return listActive.listActive().stream().map(OfferingResponse::from).toList();
+    @Operation(summary = "Lista paginada del catálogo de offerings activos (público). sort=campo,asc|desc (title, price, category, createdAt)")
+    @ApiResponse(responseCode = "400", description = "Paginación u orden inválidos", content = @Content)
+    public PageResponse<OfferingResponse> list(@RequestParam(defaultValue = "0") int page,
+                                               @RequestParam(defaultValue = "20") int size,
+                                               @RequestParam(defaultValue = "title,asc") String sort) {
+        return PageResponse.from(listActive.listActive(PageParams.toQuery(page, size, sort)),
+            OfferingResponse::from);
     }
 
     @GetMapping("/me")
     @PreAuthorize("hasRole('PROVIDER')")
-    @Operation(summary = "Lista los offerings del Provider autenticado")
+    @Operation(summary = "Lista paginada de los offerings del Provider autenticado. sort=campo,asc|desc (title, price, category, active, createdAt)")
     @ApiResponses({
+        @ApiResponse(responseCode = "400", description = "Paginación u orden inválidos", content = @Content),
         @ApiResponse(responseCode = "401", description = "Sin autenticar", content = @Content),
         @ApiResponse(responseCode = "403", description = "El rol no es PROVIDER", content = @Content)
     })
-    public List<OfferingResponse> mine(Authentication auth) {
-        return listMine.listMine(actors.from(auth)).stream().map(OfferingResponse::from).toList();
+    public PageResponse<OfferingResponse> mine(@RequestParam(defaultValue = "0") int page,
+                                               @RequestParam(defaultValue = "20") int size,
+                                               @RequestParam(defaultValue = "title,asc") String sort,
+                                               Authentication auth) {
+        return PageResponse.from(listMine.listMine(actors.from(auth), PageParams.toQuery(page, size, sort)),
+            OfferingResponse::from);
     }
 
     @PostMapping
