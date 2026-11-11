@@ -165,7 +165,7 @@ class GeminiEmbeddingAdapterTest {
     @Test
     @DisplayName("Con EmbeddingModel nulo, embed() lanza AiProviderException con ErrorType.UNAVAILABLE")
     void testEmbedWithNullEmbeddingModelThrowsUnavailable() {
-        GeminiEmbeddingAdapter nullModelAdapter = new GeminiEmbeddingAdapter(null, properties, "some-key");
+        GeminiEmbeddingAdapter nullModelAdapter = new GeminiEmbeddingAdapter((EmbeddingModel) null, properties, "some-key");
 
         AiProviderException ex = assertThrows(
                 AiProviderException.class,
@@ -261,7 +261,11 @@ class GeminiEmbeddingAdapterTest {
             assertNull(context.getStartupFailure(), "El contexto debe arrancar sin error con los autoconfigs excluidos");
             assertFalse(context.containsBean("googleGenAiEmbeddingConnectionDetails"), "El autoconfig original no debe ejecutarse");
             assertFalse(context.containsBean("geminiEmbeddingModel"), "geminiEmbeddingModel no debe registrarse sin clave");
-            assertFalse(context.containsBean("geminiEmbeddingAdapter"), "El adaptador no debe registrarse sin clave");
+            // El adaptador siempre existe (EmbeddingPort disponible); sin clave rechaza con 503 al usarse (FR-017)
+            assertTrue(context.containsBean("geminiEmbeddingAdapter"), "El adaptador debe registrarse aunque no haya clave");
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    com.riwi.skillbridge.domain.exception.AiProviderException.class,
+                    () -> context.getBean(GeminiEmbeddingAdapter.class).embed("hola"));
         });
     }
 

@@ -5,7 +5,7 @@ CREATE SCHEMA IF NOT EXISTS knowledge;
 
 CREATE TABLE knowledge.knowledge_chunks (
     id             UUID PRIMARY KEY,
-    source_id      VARCHAR(120) NOT NULL UNIQUE,
+    source_id      VARCHAR(120) NOT NULL,
     source_type    VARCHAR(20)  NOT NULL,
     title          VARCHAR(300) NOT NULL,
     content        TEXT         NOT NULL,
@@ -14,7 +14,9 @@ CREATE TABLE knowledge.knowledge_chunks (
     mode           VARCHAR(20),
     duration_hours INTEGER,
     embedding      vector(768)  NOT NULL,
-    updated_at     TIMESTAMPTZ  NOT NULL
+    updated_at     TIMESTAMPTZ  NOT NULL,
+    -- Un documento del corpus produce un fragmento por idioma (ES/EN) con el mismo source_id.
+    CONSTRAINT knowledge_chunks_source_lang_uk UNIQUE (source_id, language)
 );
 
 CREATE INDEX knowledge_chunks_embedding_hnsw

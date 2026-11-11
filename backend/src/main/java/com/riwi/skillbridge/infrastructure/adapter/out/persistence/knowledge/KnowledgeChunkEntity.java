@@ -21,7 +21,7 @@ public class KnowledgeChunkEntity {
     @Column(name = "id", nullable = false)
     private UUID id;
 
-    @Column(name = "source_id", nullable = false, unique = true, length = 120)
+    @Column(name = "source_id", nullable = false, length = 120)
     private String sourceId;
 
     @Column(name = "source_type", nullable = false, length = 20)
