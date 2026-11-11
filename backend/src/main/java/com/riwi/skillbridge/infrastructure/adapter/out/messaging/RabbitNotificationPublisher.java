@@ -46,6 +46,7 @@ public class RabbitNotificationPublisher implements NotificationPublisherPort {
         return switch (notificationType) {
             case BOOKING_CREATED -> RabbitConfiguration.NOTIFICATION_BOOKING_CREATED_KEY;
             case BOOKING_CANCELLED -> RabbitConfiguration.NOTIFICATION_BOOKING_CANCELLED_KEY;
+            case PAYMENT_REMINDER -> RabbitConfiguration.NOTIFICATION_PAYMENT_REMINDER_KEY;
         };
     }
 }

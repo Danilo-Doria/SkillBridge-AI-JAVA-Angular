@@ -1,6 +1,7 @@
 package com.riwi.skillbridge.application.port.out;
 
 import com.riwi.skillbridge.domain.model.Booking;
+import com.riwi.skillbridge.domain.model.BookingStatus;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,4 +20,6 @@ public interface BookingRepositoryPort {
     }
 
     List<Booking> findByCustomerEmail(String email);
+
+    List<Booking> findByStatus(BookingStatus status);
 }

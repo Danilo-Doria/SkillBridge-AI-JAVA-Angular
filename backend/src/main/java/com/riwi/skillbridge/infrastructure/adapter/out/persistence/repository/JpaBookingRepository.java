@@ -1,5 +1,6 @@
 package com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository;
 
+import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.BookingEntity;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
@@ -19,4 +20,5 @@ public interface JpaBookingRepository extends JpaRepository<BookingEntity, UUID>
     @Query("select booking from BookingEntity booking where booking.id = :bookingId")
     Optional<BookingEntity> findByIdForUpdate(@Param("bookingId") UUID bookingId);
     Optional<BookingEntity> findByCustomerIdAndIdempotencyKey(UUID customerId, String idempotencyKey);
+    List<BookingEntity> findByStatus(BookingStatus status);
 }

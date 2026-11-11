@@ -28,6 +28,9 @@ spring:
     sender: ${NOTIFICATIONS_SENDER:simulated}
     email:
       from: ${NOTIFICATIONS_EMAIL_FROM:no-reply@skillbridge.local}
+    payment-reminder:
+      enabled: ${NOTIFICATIONS_PAYMENT_REMINDER_ENABLED:true}
+      cron: ${NOTIFICATIONS_PAYMENT_REMINDER_CRON:0 0 8 * * *}
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:dummy-key}

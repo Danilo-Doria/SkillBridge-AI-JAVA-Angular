@@ -3,6 +3,7 @@ package com.riwi.skillbridge.infrastructure.adapter.out.persistence;
 import com.riwi.skillbridge.application.port.out.BookingRepositoryPort;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.model.Booking;
+import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.BookingEntity;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.UserEntity;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingRepository;
@@ -32,6 +33,7 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
         BookingEntity saved = repository.findById(booking.id())
             .map(entity -> {
                 entity.updateStatus(booking.status());
+                entity.setLastPaymentReminderSentAt(booking.lastPaymentReminderSentAt());
                 return repository.saveAndFlush(entity);
             })
             .orElseGet(() -> repository.save(new BookingEntity(
@@ -41,7 +43,10 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
                 booking.scheduledAt(),
                 booking.status(),
                 booking.version(),
-                Instant.now()
+                Instant.now(),
+                null,
+                null,
+                booking.lastPaymentReminderSentAt()
             )));
 
         return toDomain(saved);
@@ -49,7 +54,7 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
     @Override
     public Booking save(Booking booking, String idempotencyKey, String requestHash) {
         return toDomain(repository.saveAndFlush(new BookingEntity(booking.id(), booking.offeringId(), booking.customerId(),
-            booking.scheduledAt(), booking.status(), booking.version(), Instant.now(), idempotencyKey, requestHash)));
+            booking.scheduledAt(), booking.status(), booking.version(), Instant.now(), idempotencyKey, requestHash, booking.lastPaymentReminderSentAt())));
     }
 
     @Override
@@ -85,6 +90,14 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
             .toList();
     }
 
+    @Override
+    public List<Booking> findByStatus(BookingStatus status) {
+        return repository.findByStatus(status)
+            .stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
     private Booking toDomain(BookingEntity entity) {
         return new Booking(
             entity.getId(),
@@ -92,7 +105,8 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
             entity.getCustomerId(),
             entity.getScheduledAt(),
             entity.getStatus(),
-            entity.getVersion()
+            entity.getVersion(),
+            entity.getLastPaymentReminderSentAt()
         );
     }
 }
