@@ -343,7 +343,10 @@ import {
             @for (item of recommendations; track item.offeringId; let i = $index) {
               <li class="flex flex-col gap-4 border-b border-[#EAEAEA] py-5 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0 flex-1">
-                  <p class="text-sm leading-6 text-[#111111]">{{ item.reason }}</p>
+                  @if (item.offeringTitle) {
+                    <h4 class="text-base font-semibold leading-snug text-[#111111]" data-testid="recommendation-title">{{ item.offeringTitle }}</h4>
+                  }
+                  <p class="text-sm leading-6 text-[#111111]" [class.mt-1]="item.offeringTitle">{{ item.reason }}</p>
                   <span class="mt-2 inline-block rounded-md bg-[#EDF3EC] px-2 py-0.5 text-xs font-medium text-[#346538] tabular-nums">
                     Relevancia: {{ (item.score * 100).toFixed(0) }}%
                   </span>
@@ -403,7 +406,7 @@ export class AiComponent implements OnDestroy {
 
   resultInputType = '';
   sourceText = '';
-  recommendations: { offeringId: string; score: number; reason: string }[] = [];
+  recommendations: { offeringId: string; offeringTitle?: string | null; score: number; reason: string }[] = [];
 
   loading = false;
   recording = false;

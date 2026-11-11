@@ -366,5 +366,28 @@ describe('AiComponent — Chat IA Knowledge (HU-26, User Story 3)', () => {
       expect(component.answer).toBe('Te recomendamos comenzar con fundamentos de Spring.');
       expect(component.recommendations.length).toBe(1);
     }));
+
+    it('muestra el título de la mentoría en cada recomendación', fakeAsync(() => {
+      component.setMode('recommendation');
+      component.goal = 'Quiero aprender Java';
+      fixture.detectChanges();
+
+      component.ask();
+      httpMock.expectOne(`${apiBase()}/ai/recommendations`).flush({
+        explanation: 'Te sugerimos esta mentoría.',
+        inputType: 'TEXT',
+        recommendations: [
+          { offeringId: 'off-1', offeringTitle: 'Mentoría Java Backend', score: 0.9, reason: 'Cubre Spring Boot' },
+          { offeringId: 'off-2', score: 0.5, reason: 'Sin título (respuesta antigua)' }
+        ]
+      });
+      tick();
+      fixture.detectChanges();
+
+      const titles = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="recommendation-title"]')
+      ).map(el => el.textContent?.trim());
+      expect(titles).toEqual(['Mentoría Java Backend']);
+    }));
   });
 });
