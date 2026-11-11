@@ -269,7 +269,7 @@ class GeminiKnowledgeAnswerAdapterTest {
     @DisplayName("Adapter is not registered when another ai provider is configured")
     void adapterIsNotRegisteredWhenOtherProviderConfigured() {
         try (var context = new AnnotationConfigApplicationContext()) {
-            context.getEnvironment().getSystemProperties().put("app.ai.provider", "openai");
+            context.getEnvironment().getPropertySources().addFirst(new org.springframework.core.env.MapPropertySource("test-provider", java.util.Map.of("app.ai.provider", "openai")));
             context.register(GeminiKnowledgeAnswerAdapter.class);
             context.refresh();
 
