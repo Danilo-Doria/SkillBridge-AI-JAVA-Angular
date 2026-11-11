@@ -29,6 +29,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,6 +37,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -96,6 +98,10 @@ class OfferingSecurityTest {
         when(repository.findById(own.id())).thenReturn(Optional.of(own));
         when(repository.findById(foreign.id())).thenReturn(Optional.of(foreign));
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
+        var empty = new com.riwi.skillbridge.domain.model.PageResult<Offering>(java.util.List.of(), 0, 20, 0L, 0);
+        when(repository.findAllActive(any(com.riwi.skillbridge.domain.model.PageQuery.class))).thenReturn(empty);
+        when(repository.findAll(any(com.riwi.skillbridge.domain.model.PageQuery.class))).thenReturn(empty);
+        when(repository.findByProviderId(any(), any(com.riwi.skillbridge.domain.model.PageQuery.class))).thenReturn(empty);
 
         when(cookieService.resolve(any())).thenReturn(Optional.empty());
         when(jwtService.extractUsername(any())).thenThrow(new IllegalStateException("No token"));
@@ -153,11 +159,39 @@ class OfferingSecurityTest {
     }
 
     @Test
+    void catalogo_publico_responde_con_la_estructura_paginada() throws Exception {
+        mvc.perform(get("/api/offerings"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items").isArray())
+            .andExpect(jsonPath("$.page").value(0))
+            .andExpect(jsonPath("$.size").value(20))
+            .andExpect(jsonPath("$.totalElements").value(0))
+            .andExpect(jsonPath("$.totalPages").value(0));
+
+        verify(repository).findAllActive(new com.riwi.skillbridge.domain.model.PageQuery(0, 20, "title", false));
+    }
+
+    @Test
+    void catalogo_publico_propaga_page_size_y_sort() throws Exception {
+        mvc.perform(get("/api/offerings").param("page", "2").param("size", "5").param("sort", "price,desc"))
+            .andExpect(status().isOk());
+
+        verify(repository).findAllActive(new com.riwi.skillbridge.domain.model.PageQuery(2, 5, "price", true));
+    }
+
+    @Test
+    void catalogo_publico_rechaza_paginacion_invalida() throws Exception {
+        mvc.perform(get("/api/offerings").param("size", "101")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/offerings").param("page", "-1")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/offerings").param("sort", "title,sideways")).andExpect(status().isBadRequest());
+    }
+
+    @Test
     @WithMockUser(username = "provider@test.com", roles = "PROVIDER")
     void provider_lista_solo_los_suyos() throws Exception {
         mvc.perform(get("/api/offerings/me")).andExpect(status().isOk());
 
-        verify(repository).findByProviderId(PROVIDER_ID);
+        verify(repository).findByProviderId(eq(PROVIDER_ID), any(com.riwi.skillbridge.domain.model.PageQuery.class));
     }
 
     @Test
