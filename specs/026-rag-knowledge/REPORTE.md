@@ -116,8 +116,6 @@ Barrido de umbral con embeddings reales (una ejecución por umbral, sin descarta
 
 Para verlo funcionando: `docker compose up --build -d`, y los comandos de la sección «Cómo ver el RAG» del chat (logs `Preselección RAG`, consultas SQL sobre `knowledge.knowledge_chunks`, la pestaña de conocimiento). Catálogo grande de prueba: `scripts/dev/seed-rag-offerings.sql`; objetivos: `recommendation-eval.json`.
 
-## 9. Cambios en el árbol de trabajo que NO son de la HU-26
+## 9. Alcance de este PR
 
-`git status` también muestra modificaciones que no pertenecen a este trabajo y que no toqué: **paginación de ofertas y reservas** (`PageParams`, `PageParamsTest`, `frontend/src/app/core/page.ts`, `shared-pager.component*`, y cambios en `BookingService`, `OfferingService`, `OfferingQueryService`, `Admin*Controller`, `BookingController`, `OfferingController`, `Jpa*Repository`, `*PersistenceAdapter`, `ListXxxUseCase`, `booking.service*`, `offering.service*`, `admin-user.service`, `home`, `my-bookings`, `booking` y `provider-offerings` en el frontend). Revisa a quién corresponde antes de commitear para no mezclar historias. `frontend/public/env.js` solo cambia por finales de línea (lo regenera `npm run build`).
-
-Todo está **sin commit**.
+Solo contiene la HU-26. La paginación de ofertas y reservas se entrega en otro PR (`feature/pagination-offerings-bookings`), y la deuda de arquitectura heredada que se detectó al revisar la estructura está registrada en la issue #103. `frontend/public/env.js` puede aparecer modificado en el árbol de trabajo, pero solo por finales de línea que regenera `npm run build`.

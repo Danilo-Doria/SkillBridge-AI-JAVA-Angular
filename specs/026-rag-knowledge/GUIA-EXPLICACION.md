@@ -35,10 +35,10 @@ Limpieza del catálogo de prueba: las dos sentencias `DELETE` al inicio de `scri
 
 ## 4. Cómo ver TODO lo que se agregó
 
-Los comandos son de solo lectura. La rama también contiene historia de otras historias y la paginación; estos filtros dejan solo la HU-26.
+Los comandos son de solo lectura. La rama conserva el historial de la HU-26 y de trabajo previo de otras historias; estos filtros dejan solo la HU-26.
 
 ```bash
-# Commits de la HU-26 (excluye paginación y CI)
+# Commits de la HU-26
 git log main..HEAD --no-merges --since=2026-11-09 -i -E --grep='[(]rag[)]|HU-26' --oneline
 
 # Los 5 commits de la última tanda (arreglos, híbrida, recomendaciones, pruebas, configuración)
@@ -51,7 +51,7 @@ git log --oneline -- backend/src/main/java/com/riwi/skillbridge/infrastructure/a
 git diff --diff-filter=A --name-only main HEAD -- 'backend/src/main/java/**/knowledge/**' 'backend/src/test/java/**/knowledge/**' specs/026-rag-knowledge scripts/dev
 ```
 
-**Cifras de la HU-26** (33 commits, sin contar el commit final de documentación ni la paginación; el corpus de políticas llegó en otro commit mixto):
+**Cifras de la HU-26** (33 commits, sin contar los commits finales de documentación y refactor; el corpus de políticas llegó en otro commit mixto):
 
 | Área | Archivos | Líneas |
 |---|---|---|
@@ -106,4 +106,4 @@ Mensaje: las pruebas unitarias en verde no bastaron; la prueba con Docker, pgvec
 
 ## 8. Relación con la paginación
 
-La rama también incluye el commit `52f2395` (paginación de ofertas y reservas) y `aa9fb1c` (CI). Son independientes del RAG: tocan listados y no el índice. Quedan como commits separados en la misma rama, de modo que un solo PR contiene ambas cosas y se pueden revisar por separado con `git show 52f2395`.
+La paginación de ofertas y reservas vive en su propia rama y su propio PR (`feature/pagination-offerings-bookings`); no forma parte de este trabajo. Se tocan zonas distintas del código (listados, no el índice del RAG), pero ambos PRs modifican `docs/API.md` en secciones distintas, así que el segundo en mergearse puede requerir resolver un conflicto trivial en ese archivo.
