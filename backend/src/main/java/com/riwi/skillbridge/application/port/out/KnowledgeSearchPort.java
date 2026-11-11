@@ -32,4 +32,18 @@ public interface KnowledgeSearchPort {
         }
         return search(query.question(), topK);
     }
+
+    /**
+     * Búsqueda restringida a un tipo de fuente (p. ej. solo ofertas) para preseleccionar candidatas antes de llamar al LLM.
+     * La implementación por defecto filtra sobre un conjunto amplio; los adaptadores reales filtran antes de rankear.
+     */
+    default List<KnowledgeCandidate> searchByType(String query, int topK, KnowledgeChunk.SourceType type) {
+        if (type == null) {
+            throw new IllegalArgumentException("type no puede ser nulo");
+        }
+        return search(query, Math.max(topK * 10, 100)).stream()
+                .filter(c -> c.chunk().sourceType() == type)
+                .limit(topK)
+                .toList();
+    }
 }

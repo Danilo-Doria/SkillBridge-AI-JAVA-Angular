@@ -107,7 +107,7 @@ class KnowledgePropertiesTest {
     }
 
     @Test
-    @DisplayName("Should load default values from application.yml and leave minScoreThreshold unset")
+    @DisplayName("Should load application.yml values, with the provisional 0.5 threshold pending calibration (T030)")
     void shouldLoadValuesFromApplicationYml() {
         new ApplicationContextRunner()
                 .withUserConfiguration(TestConfig.class)
@@ -118,7 +118,7 @@ class KnowledgePropertiesTest {
 
                     assertAll(
                             () -> assertThat(properties.getTopK()).isEqualTo(3),
-                            () -> assertThat(properties.getMinScoreThreshold()).isNull(),
+                            () -> assertThat(properties.getMinScoreThreshold()).isEqualTo(0.5),
                             () -> assertThat(properties.getTimeoutSeconds()).isEqualTo(10),
                             () -> assertThat(properties.getMaxContextChars()).isEqualTo(6000),
                             () -> assertThat(properties.getRrfK()).isEqualTo(60)

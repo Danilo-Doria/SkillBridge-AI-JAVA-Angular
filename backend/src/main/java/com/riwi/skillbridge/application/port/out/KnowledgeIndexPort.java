@@ -35,6 +35,32 @@ public interface KnowledgeIndexPort {
     void replaceIndex(List<IndexedChunk> chunks);
 
     /**
+     * Hash de contenido de cada fragmento indexado, por (sourceId, idioma). Permite saber qué fragmentos ya tienen
+     * vector vigente sin volver a calcularlo (FR-018).
+     */
+    java.util.Map<IndexKey, String> findIndexedHashes();
+
+    /**
+     * Aplica de forma atómica (una sola transacción) los fragmentos nuevos o cambiados y las eliminaciones: una lectura
+     * concurrente nunca ve un índice a medias (FR-015).
+     *
+     * @param upserts   fragmentos con su vector ya calculado
+     * @param deletions claves (sourceId, idioma) que ya no deben estar en el índice
+     */
+    void applyChanges(List<IndexedChunk> upserts, java.util.Collection<IndexKey> deletions);
+
+    /** Elimina todos los fragmentos (cualquier idioma) de una fuente, p. ej. una oferta desactivada. No falla si no existe. */
+    void deleteBySourceId(String sourceId);
+
+    /** Identidad de un fragmento indexado: una fuente puede tener un fragmento por idioma. */
+    record IndexKey(String sourceId, KnowledgeChunk.Language language) {
+        public IndexKey {
+            Objects.requireNonNull(sourceId, "sourceId no puede ser nulo");
+            Objects.requireNonNull(language, "language no puede ser nulo");
+        }
+    }
+
+    /**
      * Sobrecarga conveniente para reemplazo atómico a partir de listas paralelas de fragmentos y vectores.
      *
      * @param chunks     lista de fragmentos de conocimiento

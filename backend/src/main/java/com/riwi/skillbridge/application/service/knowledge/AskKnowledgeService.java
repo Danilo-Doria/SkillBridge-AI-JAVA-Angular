@@ -123,7 +123,11 @@ public class AskKnowledgeService implements AskKnowledgeUseCase {
                         c.chunk().content(),
                         normalizeScore(c.cosineSimilarity())
                 ))
-                .toList();
+                .collect(java.util.stream.Collectors.toMap(
+                        KnowledgeSource::sourceId, x -> x,
+                        (a, b) -> a.score() >= b.score() ? a : b,
+                        java.util.LinkedHashMap::new))
+                .values().stream().toList();
 
         List<KnowledgeSource> citedSources = citationValidator.filterValidSources(answerText, candidateSources);
 

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Llama exclusivamente al puerto de entrada AskKnowledgeUseCase (constitución Art. I.2).
  */
 @RestController
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = "app.rag", name = "min-score-threshold")
 @RequestMapping("/api/ai/knowledge")
 public class KnowledgeController {
 

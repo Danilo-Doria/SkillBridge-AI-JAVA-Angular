@@ -18,6 +18,8 @@ public interface JpaKnowledgeChunkRepository extends JpaRepository<KnowledgeChun
 
     Optional<KnowledgeChunkEntity> findBySourceId(String sourceId);
 
+    Optional<KnowledgeChunkEntity> findBySourceIdAndLanguage(String sourceId, String language);
+
     List<KnowledgeChunkEntity> findByContentHash(String contentHash);
 
     List<KnowledgeChunkEntity> findAllByContentHash(String contentHash);
@@ -27,6 +29,20 @@ public interface JpaKnowledgeChunkRepository extends JpaRepository<KnowledgeChun
     boolean existsByContentHash(String contentHash);
 
     void deleteBySourceId(String sourceId);
+
+    void deleteBySourceIdAndLanguage(String sourceId, String language);
+
+    /** Solo identidad y hash (sin proyectar el vector): para decidir qué recalcular. */
+    @Query(value = "SELECT c.source_id AS sourceId, c.language AS language, c.content_hash AS contentHash FROM knowledge.knowledge_chunks c", nativeQuery = true)
+    List<IndexedHashRow> findAllIndexedHashes();
+
+    interface IndexedHashRow {
+        String getSourceId();
+
+        String getLanguage();
+
+        String getContentHash();
+    }
 
     void deleteByContentHash(String contentHash);
 
