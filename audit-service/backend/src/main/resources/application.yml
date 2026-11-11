@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: audit-service
+  data:
+    mongodb:
+      uri: ${AUDIT_MONGO_URI:mongodb://localhost:27017/audit}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:

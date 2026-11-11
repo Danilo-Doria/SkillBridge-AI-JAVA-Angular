@@ -37,7 +37,8 @@ public class PaymentController {
         PaymentResponseDto response = new PaymentResponseDto(
                 result.bookingId(),
                 result.status().name(),
-                result.message()
+                result.message(),
+                result.clientSecret()
         );
 
         return ResponseEntity.ok(response);

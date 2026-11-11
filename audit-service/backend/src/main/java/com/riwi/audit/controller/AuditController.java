@@ -23,7 +23,7 @@ public class AuditController {
 
     @GetMapping("/events")
     public List<BusinessEvent> getEvents() {
-        return auditEventRepository.findAll();
+        return auditEventRepository.findAllByOrderByOccurredAtDesc();
     }
 
     @GetMapping("/events/{eventId}")
@@ -36,7 +36,7 @@ public class AuditController {
     @GetMapping("/stats")
     public Map<String, Object> getStats() {
         List<BusinessEvent> events = auditEventRepository.findAll();
-        
+
         long bookingCreated = events.stream().filter(e -> "BookingCreated".equals(e.getEventType())).count();
         long bookingCancelled = events.stream().filter(e -> "BookingCancelled".equals(e.getEventType())).count();
         long otherEvents = events.size() - bookingCreated - bookingCancelled;

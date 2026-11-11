@@ -1,5 +1,6 @@
 package com.riwi.skillbridge.application.service;
 
+import com.riwi.skillbridge.application.common.CorrelationIdHolder;
 import com.riwi.skillbridge.application.port.in.GenerateRecommendationUseCase;
 import com.riwi.skillbridge.application.port.out.AiRecommendationPort;
 import com.riwi.skillbridge.application.port.out.AiStructuredResponse;
@@ -10,7 +11,6 @@ import com.riwi.skillbridge.application.recommendation.RecommendationResult;
 import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
-import com.riwi.skillbridge.application.common.CorrelationIdHolder;
 import java.time.Instant;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class AiRecommendationService implements GenerateRecommendationUseCase {
+
     private final AiRecommendationPort ai;
     private final OfferingRepositoryPort offerings; 
     private final AuditEventPublisherPort events;

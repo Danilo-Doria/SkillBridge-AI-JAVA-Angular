@@ -67,7 +67,17 @@ services:
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-skillbridge_dev}
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
-      JWT_SECRET: ${JWT_SECRET:-change-this-to-a-long-random-secret-at-least-32-characters}
+      # RS256. Para producción define JWT_PRIVATE_KEY (PEM PKCS#8). En local, sin claves, se generan
+      # efímeras (las sesiones se pierden al reiniciar). Ver docs/contracts/mentorships/security.md
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      JWT_KEY_ID: ${JWT_KEY_ID:-skillbridge-1}
+      JWT_LEGACY_SECRET: ${JWT_LEGACY_SECRET:-}
+      JWT_GENERATE_EPHEMERAL_KEYS: ${JWT_GENERATE_EPHEMERAL_KEYS:-true}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      AI_AUDIO_PROVIDER: ${AI_AUDIO_PROVIDER:-groq}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_AUDIO_MODEL: ${GROQ_AUDIO_MODEL:-whisper-large-v3-turbo}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8088,http://localhost:8090,http://localhost:4200}
@@ -80,6 +90,21 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
       MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_API_URL: ${STRIPE_API_URL:-https://api.stripe.com}
+      STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-stripe}
+      TTS_ENABLED: ${TTS_ENABLED:-false}
+      TTS_MAX_CHARS: ${TTS_MAX_CHARS:-1000}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
+      ELEVENLABS_MODEL_ID: ${ELEVENLABS_MODEL_ID:-eleven_multilingual_v2}
+      ZOOM_ACCOUNT_ID: ${ZOOM_ACCOUNT_ID:-}
+      ZOOM_CLIENT_ID: ${ZOOM_CLIENT_ID:-}
+      ZOOM_CLIENT_SECRET: ${ZOOM_CLIENT_SECRET:-}
+      ZOOM_SDK_KEY: ${ZOOM_SDK_KEY:-}
+      ZOOM_SDK_SECRET: ${ZOOM_SDK_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,6 +129,9 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        API_URL: /api
+        STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
     depends_on:
       backend:
         condition: service_healthy
@@ -170,15 +198,34 @@ services:
       retries: 15
     networks:
     - skillbridge
+  audit-mongo:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: ${AUDIT_MONGO_DB:-audit}
+    ports:
+      - 127.0.0.1:27018:27017
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - audit_mongo_data:/data/db
+    networks:
+      - skillbridge
   audit-backend:
     build:
       context: ./audit-service/backend
     environment:
       PORT: 8081
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      AUDIT_MONGO_URI: mongodb://audit-mongo:27017/${AUDIT_MONGO_DB:-audit}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8090,http://localhost:4200}
     depends_on:
       kafka:
+        condition: service_healthy
+      audit-mongo:
         condition: service_healthy
     ports:
       - 127.0.0.1:8081:8081
@@ -215,3 +262,4 @@ volumes:
   rabbitmq_data: null
   grafana_data: null
   kafka_data: null
+  audit_mongo_data: null

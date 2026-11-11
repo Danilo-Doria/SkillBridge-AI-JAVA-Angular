@@ -5,6 +5,9 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{correlationId:-N/A}] %logger{36} - %msg%n"
 spring:
+  cloud:
+    compatibility-verifier:
+      enabled: false
   autoconfigure:
     exclude:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
@@ -38,7 +41,14 @@ spring:
           options:
             model: ${GEMINI_MODEL:gemini-3.8-flash}
             temperature: 0.2
-            max-output-tokens: 800
+            max-output-tokens: ${GEMINI_MAX_OUTPUT_TOKENS:2048}
+    tts:
+      enabled: ${TTS_ENABLED:false}
+      max-chars: ${TTS_MAX_CHARS:2000}
+      elevenlabs:
+        api-key: ${ELEVENLABS_API_KEY:}
+        voice-id: ${ELEVENLABS_VOICE_ID:}
+        model-id: ${ELEVENLABS_MODEL_ID:eleven_multilingual_v2}
   servlet:
     multipart:
       max-file-size: ${AI_MULTIPART_MAX_FILE_SIZE:10MB}
@@ -110,7 +120,15 @@ springdoc:
     path: /swagger-ui.html
 app:
   jwt:
-    secret: ${JWT_SECRET:change-this-to-a-long-random-secret-at-least-32-characters}
+    # RS256: la clave privada solo existe en este servicio; los servicios satélite validan con la pública.
+    # Sin valores por defecto: si falta JWT_PRIVATE_KEY la aplicación no arranca (SEC-002).
+    private-key: ${JWT_PRIVATE_KEY:}
+    public-key: ${JWT_PUBLIC_KEY:}
+    key-id: ${JWT_KEY_ID:skillbridge-1}
+    # Solo durante la migración desde HS256: valida (no emite) tokens antiguos. Vaciar después.
+    legacy-secret: ${JWT_LEGACY_SECRET:}
+    # Solo desarrollo/tests: genera un par en memoria. NUNCA en producción.
+    generate-ephemeral-keys: ${JWT_GENERATE_EPHEMERAL_KEYS:false}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
     cookie:
       name: ${JWT_COOKIE_NAME:access_token}
@@ -125,6 +143,7 @@ app:
     audio-provider: ${AI_AUDIO_PROVIDER:gemini}
     groq:
       api-key: ${GROQ_API_KEY:}
+      audio-model: ${GROQ_AUDIO_MODEL:whisper-large-v3-turbo}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:10}
     gemini:
       enabled: ${GEMINI_ENABLED:true}
@@ -142,3 +161,19 @@ app:
     topic:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
       audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
+      recommendation-events: ${KAFKA_TOPIC_RECOMMENDATION_EVENTS:recommendation-events}
+  payment:
+    provider: ${PAYMENT_PROVIDER:stripe}
+
+stripe:
+  api-url: ${STRIPE_API_URL:https://api.stripe.com}
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  currency: ${STRIPE_CURRENCY:usd}
+
+zoom:
+  account-id: ${ZOOM_ACCOUNT_ID:}
+  client-id: ${ZOOM_CLIENT_ID:}
+  client-secret: ${ZOOM_CLIENT_SECRET:}
+  sdk-key: ${ZOOM_SDK_KEY:}
+  sdk-secret: ${ZOOM_SDK_SECRET:}

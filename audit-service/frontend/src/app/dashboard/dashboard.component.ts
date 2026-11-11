@@ -36,6 +36,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   filterRole = signal<string>('');
   filterResource = signal<string>('');
   searchQuery = signal<string>('');
+  filterDateFrom = signal<string>(''); // yyyy-MM-dd (input type="date")
+  filterDateTo = signal<string>('');   // yyyy-MM-dd (input type="date")
 
   // Options for selects
   eventTypes = computed(() => Array.from(new Set(this.events().map(e => e.eventType))).sort());
@@ -61,17 +63,37 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     const query = this.searchQuery().toLowerCase();
     if (query) {
-      result = result.filter(e => 
+      result = result.filter(e =>
         this.getUsername(e).toLowerCase().includes(query) ||
         this.getUserId(e).toLowerCase().includes(query) ||
         (e.aggregateId && e.aggregateId.toLowerCase().includes(query)) ||
         (e.correlationId && e.correlationId.toLowerCase().includes(query))
       );
     }
-    
+
+    const from = this.filterDateFrom();
+    if (from) {
+      const fromMs = new Date(from + 'T00:00:00').getTime();
+      result = result.filter(e => new Date(e.occurredAt).getTime() >= fromMs);
+    }
+
+    const to = this.filterDateTo();
+    if (to) {
+      // Incluye todo el día seleccionado (hasta 23:59:59.999)
+      const toMs = new Date(to + 'T23:59:59.999').getTime();
+      result = result.filter(e => new Date(e.occurredAt).getTime() <= toMs);
+    }
+
     // Sort descending by date
     return result.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
   });
+
+  hasDateFilter = computed(() => !!this.filterDateFrom() || !!this.filterDateTo());
+
+  clearDateFilter(): void {
+    this.filterDateFrom.set('');
+    this.filterDateTo.set('');
+  }
 
   // Auth
   currentUser = signal<string>('Admin User');

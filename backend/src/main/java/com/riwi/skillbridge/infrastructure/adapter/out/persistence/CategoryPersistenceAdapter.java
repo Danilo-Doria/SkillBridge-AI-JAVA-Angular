@@ -7,6 +7,8 @@ import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.Jp
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class CategoryPersistenceAdapter implements CategoryRepositoryPort {
@@ -22,6 +24,11 @@ public class CategoryPersistenceAdapter implements CategoryRepositoryPort {
     }
 
     @Override
+    public Optional<Category> findById(UUID id) {
+        return repository.findById(id).map(this::toDomain);
+    }
+
+    @Override
     public boolean existsByNameIgnoreCase(String name) {
         return repository.existsByNameIgnoreCase(name);
     }
@@ -32,6 +39,11 @@ public class CategoryPersistenceAdapter implements CategoryRepositoryPort {
             category.id(), category.name(), category.active(), category.createdAt()
         ));
         return toDomain(saved);
+    }
+
+    @Override
+    public void delete(UUID id) {
+        repository.deleteById(id);
     }
 
     private Category toDomain(CategoryEntity entity) {
