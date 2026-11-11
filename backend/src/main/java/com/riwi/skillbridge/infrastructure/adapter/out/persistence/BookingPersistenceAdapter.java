@@ -130,6 +130,14 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
     }
 
     @Override
+    public List<Booking> findByStatus(BookingStatus status) {
+        return repository.findByStatus(status)
+            .stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
     public PageResult<Booking> findByCustomerEmail(
         String email,
         PageQuery query) {
