@@ -32,13 +32,13 @@ La primera petición devuelve `201 Created`. Repetir la misma clave con el mismo
 ## Suggested next endpoints
 
 ```text
-GET    /api/offerings                     público, catálogo activo
-GET    /api/offerings/me                  PROVIDER
+GET    /api/offerings                     público, catálogo activo (paginado)
+GET    /api/offerings/me                  PROVIDER (paginado)
 POST   /api/offerings                     PROVIDER, ADMIN
 PUT    /api/offerings/{id}                PROVIDER (dueño), ADMIN
 POST   /api/offerings/{id}/deactivate     PROVIDER (dueño), ADMIN
 POST   /api/offerings/{id}/activate       PROVIDER (dueño), ADMIN
-GET    /api/admin/offerings               ADMIN
+GET    /api/admin/offerings               ADMIN (paginado)
 ```
 
 The provider write endpoints should invalidate the public offerings cache through `OfferingCachePort`.
@@ -86,3 +86,19 @@ Respuesta exitosa:
 ```
 
 Audio permitido: WAV, MP3, M4A, MP4 y WEBM. Imagen permitida: JPEG, PNG y WEBP. Los límites se controlan con `AI_MEDIA_MAX_AUDIO_BYTES` y `AI_MEDIA_MAX_IMAGE_BYTES`. Respuestas: `400` para archivo inválido y `503` si Gemini no está disponible.
+
+## Paginación
+
+`GET /api/offerings`, `/api/offerings/me`, `/api/admin/offerings`, `/api/bookings/me` y `/api/admin/users`
+aceptan `page` (base 0, def. 0), `size` (1–100, def. 20) y `sort=campo,asc|desc`, y responden:
+
+```json
+{ "items": [], "page": 0, "size": 20, "totalElements": 0, "totalPages": 0 }
+```
+
+| Endpoint | `sort` por defecto | Campos permitidos |
+|---|---|---|
+| offerings (público, `/me`, admin) | `title,asc` | title, price, category, active, createdAt |
+| `/api/bookings/me` | `scheduledAt,desc` | scheduledAt, status, createdAt |
+
+Parámetros inválidos responden 400.

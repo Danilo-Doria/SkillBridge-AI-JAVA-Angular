@@ -9,6 +9,9 @@ import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.domain.model.Role;
 import org.springframework.stereotype.Service;
 
+import com.riwi.skillbridge.domain.model.PageQuery;
+import com.riwi.skillbridge.domain.model.PageResult;
+
 import java.util.List;
 
 @Service
@@ -33,5 +36,21 @@ public class OfferingQueryService implements ListMyOfferingsUseCase, ListAllOffe
             throw new ForbiddenOperationException("Solo un Admin puede ver todos los offerings");
         }
         return repository.findAll();
+    }
+
+    @Override
+    public PageResult<Offering> listMine(Actor actor, PageQuery query) {
+        if (actor.role() != Role.PROVIDER) {
+            throw new ForbiddenOperationException("Solo un Provider tiene offerings propios");
+        }
+        return repository.findByProviderId(actor.id(), query);
+    }
+
+    @Override
+    public PageResult<Offering> listAll(Actor actor, PageQuery query) {
+        if (actor.role() != Role.ADMIN) {
+            throw new ForbiddenOperationException("Solo un Admin puede ver todos los offerings");
+        }
+        return repository.findAll(query);
     }
 }
