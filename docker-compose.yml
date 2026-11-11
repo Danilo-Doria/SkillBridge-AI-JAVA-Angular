@@ -79,6 +79,7 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_AUDIO_MODEL: ${GROQ_AUDIO_MODEL:-whisper-large-v3-turbo}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_EMBEDDING_API_KEY: ${GEMINI_EMBEDDING_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8088,http://localhost:8090,http://localhost:4200}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
