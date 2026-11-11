@@ -27,12 +27,15 @@ class StripeWebhookControllerTest {
     @Mock
     private PaymentEventPublisherPort paymentEventPublisherPort;
 
+    @Mock
+    private com.riwi.skillbridge.application.service.PaymentApprovedAssembler approvedAssembler;
+
     private StripeWebhookController controller;
     private final String webhookSecret = "whsec_test_secret_key_12345";
 
     @BeforeEach
     void setUp() {
-        controller = new StripeWebhookController(paymentEventPublisherPort, webhookSecret);
+        controller = new StripeWebhookController(paymentEventPublisherPort, approvedAssembler, webhookSecret);
     }
 
     private String generateSignature(String payload, String secret) throws Exception {
@@ -72,6 +75,7 @@ class StripeWebhookControllerTest {
     void testPaymentIntentSucceededPublishesPaymentApproved() throws Exception {
         // [Caso Feliz]: Stripe avisa que el pago fue exitoso, leemos el bookingId y emitimos PaymentApproved.
         UUID bookingId = UUID.randomUUID();
+        when(approvedAssembler.assemble(bookingId, null)).thenReturn(new PaymentApproved(bookingId));
         String payload = """
         {
           "id": "evt_test_succeeded_1",

@@ -11,6 +11,8 @@ spring:
   autoconfigure:
     exclude:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiTextEmbeddingAutoConfiguration
   application:
     name: skillbridge-api
   mail:
@@ -32,6 +34,9 @@ spring:
       enabled: ${NOTIFICATIONS_PAYMENT_REMINDER_ENABLED:true}
       cron: ${NOTIFICATIONS_PAYMENT_REMINDER_CRON:0 0 8 * * *}
   ai:
+    model:
+      embedding:
+        text: google-genai
     openai:
       api-key: ${OPENAI_API_KEY:dummy-key}
       enabled: false
@@ -45,6 +50,12 @@ spring:
             model: ${GEMINI_MODEL:gemini-3.8-flash}
             temperature: 0.2
             max-output-tokens: ${GEMINI_MAX_OUTPUT_TOKENS:2048}
+        embedding:
+          api-key: ${GEMINI_EMBEDDING_API_KEY:}
+          text:
+            options:
+              model: gemini-embedding-001
+              dimensions: 768
     tts:
       enabled: ${TTS_ENABLED:false}
       max-chars: ${TTS_MAX_CHARS:2000}
@@ -123,7 +134,15 @@ springdoc:
     path: /swagger-ui.html
 app:
   jwt:
-    secret: ${JWT_SECRET:change-this-to-a-long-random-secret-at-least-32-characters}
+    # RS256: la clave privada solo existe en este servicio; los servicios satélite validan con la pública.
+    # Sin valores por defecto: si falta JWT_PRIVATE_KEY la aplicación no arranca (SEC-002).
+    private-key: ${JWT_PRIVATE_KEY:}
+    public-key: ${JWT_PUBLIC_KEY:}
+    key-id: ${JWT_KEY_ID:skillbridge-1}
+    # Solo durante la migración desde HS256: valida (no emite) tokens antiguos. Vaciar después.
+    legacy-secret: ${JWT_LEGACY_SECRET:}
+    # Solo desarrollo/tests: genera un par en memoria. NUNCA en producción.
+    generate-ephemeral-keys: ${JWT_GENERATE_EPHEMERAL_KEYS:false}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
     cookie:
       name: ${JWT_COOKIE_NAME:access_token}
@@ -149,6 +168,96 @@ app:
     media:
       max-audio-bytes: ${AI_MEDIA_MAX_AUDIO_BYTES:10485760}
       max-image-bytes: ${AI_MEDIA_MAX_IMAGE_BYTES:5242880}
+    fallback:
+      chat:
+        chain:
+          - provider: gemini
+            model: ${GEMINI_MODEL:gemini-3.8-flash}
+            enabled: true
+            timeout-seconds: 10
+          - provider: openai
+            model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+        retry:
+          max-attempts: 3
+          initial-interval-ms: 500
+          multiplier: 1.5
+      vision:
+        chain:
+          - provider: gemini
+            model: ${GEMINI_VISION_MODEL:gemini-3.8-flash}
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+      stt:
+        chain:
+          - provider: groq
+            model: ${GROQ_AUDIO_MODEL:whisper-large-v3-turbo}
+            enabled: true
+            timeout-seconds: 10
+          - provider: gemini
+            model: gemini-audio
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+      tts:
+        chain:
+          - provider: elevenlabs
+            model: multilingual-v2
+            enabled: true
+            timeout-seconds: 10
+          - provider: noop
+            model: noop
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+      rag:
+        chain:
+          - provider: gemini
+            model: ${GEMINI_MODEL:gemini-3.8-flash}
+            enabled: true
+            timeout-seconds: 10
+          - provider: openai
+            model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+            enabled: true
+            timeout-seconds: 10
+      embedding:
+        chain:
+          - provider: gemini
+            model: text-embedding-004
+            enabled: true
+            timeout-seconds: 10
+          - provider: openai
+            model: text-embedding-3-small
+            enabled: true
+            timeout-seconds: 10
+  rag:
+    top-k: ${RAG_TOP_K:3}
+    # PROVISIONAL (0.5, decidido por el propietario el 2026-11-10). Pendiente de calibrar con el informe real (FR-019, T030).
+    min-score-threshold: ${RAG_MIN_SCORE_THRESHOLD:0.5}
+    timeout-seconds: ${RAG_TIMEOUT_SECONDS:10}
+    max-context-chars: ${RAG_MAX_CONTEXT_CHARS:6000}
+    rrf-k: ${RAG_RRF_K:60}
+    # Recomendaciones: si hay más ofertas activas que este número, solo las N más cercanas a la necesidad llegan al LLM (0 = desactivado).
+    recommendation-shortlist-size: ${RAG_RECOMMENDATION_SHORTLIST_SIZE:15}
   booking:
     cancellation:
       minimum-notice-hours: ${BOOKING_CANCELLATION_MINIMUM_NOTICE_HOURS:24}

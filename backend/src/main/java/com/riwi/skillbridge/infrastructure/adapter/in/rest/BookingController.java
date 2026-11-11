@@ -6,13 +6,13 @@ import com.riwi.skillbridge.application.port.in.CreateBookingUseCase;
 import com.riwi.skillbridge.application.port.in.ListCustomerBookingsUseCase;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.CreateBookingRequest;
+import com.riwi.skillbridge.infrastructure.adapter.in.rest.dto.PageResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -43,9 +43,14 @@ public class BookingController {
     @PreAuthorize("hasAnyRole('CUSTOMER', 'PROVIDER', 'ADMIN')")
     @GetMapping("/me")
     @ResponseStatus(HttpStatus.OK)
-    public List<Booking> getBookingsById(Authentication authentication) {
+    public PageResponse<Booking> getBookingsById(@RequestParam(defaultValue = "0") int page,
+                                                 @RequestParam(defaultValue = "20") int size,
+                                                 @RequestParam(defaultValue = "scheduledAt,desc") String sort,
+                                                 Authentication authentication) {
         String userEmail = authentication.getName();
-        return listCustomerBookingsUseCase.bookingsList(userEmail);
+        return PageResponse.from(
+            listCustomerBookingsUseCase.bookingsList(userEmail, PageParams.toQuery(page, size, sort)),
+            booking -> booking);
     }
 
     @PatchMapping("/{bookingId}/cancel")

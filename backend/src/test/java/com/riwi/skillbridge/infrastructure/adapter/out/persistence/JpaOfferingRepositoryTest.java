@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JpaOfferingRepositoryTest {
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg17")
             .withDatabaseName("skillbridge_test")
             .withUsername("test")
             .withPassword("test");

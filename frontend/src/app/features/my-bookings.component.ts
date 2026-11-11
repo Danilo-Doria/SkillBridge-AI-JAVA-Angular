@@ -281,7 +281,7 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.fetchMyBookings();
     this.handleStripeReturn();
-    this.offeringService.list().subscribe({
+    this.offeringService.listForLookup().subscribe({
       next: (data) => (this.offerings = data),
       error: () => console.warn('No se pudieron cargar las especificaciones de servicios.')
     });
@@ -315,7 +315,8 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
 
   private pollBookingStatus(bookingId: string, attemptsRemaining: number): void {
     this.bookingService.getMyBookings().subscribe({
-      next: (data) => {
+      next: (pageData) => {
+        const data = pageData.items;
         this.bookings = data;
         const booking = data.find((item) => item.id === bookingId);
         if (booking?.status === 'CONFIRMED' || booking?.status === 'COMPLETED') {
@@ -345,8 +346,8 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
     this.errorMessage = null;
 
     this.bookingService.getMyBookings().subscribe({
-      next: (data) => {
-        this.bookings = data;
+      next: (pageData) => {
+        this.bookings = pageData.items;
         this.isLoading = false;
       },
       error: (err) => {

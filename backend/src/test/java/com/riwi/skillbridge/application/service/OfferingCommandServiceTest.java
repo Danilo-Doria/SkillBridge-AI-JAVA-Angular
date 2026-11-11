@@ -1,10 +1,13 @@
 package com.riwi.skillbridge.application.service;
 
 import com.riwi.skillbridge.application.port.in.CreateOfferingUseCase;
+import com.riwi.skillbridge.application.port.in.UpdateOfferingUseCase;
 import com.riwi.skillbridge.application.port.out.OfferingCachePort;
 import com.riwi.skillbridge.application.port.out.OfferingRepositoryPort;
+import com.riwi.skillbridge.application.service.knowledge.KnowledgeIndexService;
 import com.riwi.skillbridge.domain.exception.ForbiddenOperationException;
 import com.riwi.skillbridge.domain.model.Actor;
+import com.riwi.skillbridge.domain.model.MentorshipMode;
 import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.domain.model.Role;
 import com.riwi.skillbridge.domain.policy.OfferingAccessPolicy;
@@ -24,8 +27,9 @@ class OfferingCommandServiceTest {
 
     private final OfferingRepositoryPort repository = mock(OfferingRepositoryPort.class);
     private final OfferingCachePort cache = mock(OfferingCachePort.class);
+    private final KnowledgeIndexService knowledgeIndexService = mock(KnowledgeIndexService.class);
     private final OfferingCommandService service =
-        new OfferingCommandService(repository, cache, new OfferingAccessPolicy(), org.mockito.Mockito.mock(com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort.class));
+        new OfferingCommandService(repository, cache, new OfferingAccessPolicy(), org.mockito.Mockito.mock(com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort.class), knowledgeIndexService);
 
     private final UUID ownerId = UUID.randomUUID();
     private final Offering offering =
@@ -82,5 +86,46 @@ class OfferingCommandServiceTest {
         service.deactivate(new Actor(ownerId, Role.PROVIDER), inactive.id());
 
         verify(repository, never()).save(any());
+    }
+
+    @Test
+    void reindexacion_se_llama_en_las_cuatro_operaciones() {
+        // Arrange
+        UUID offeringId = offering.id();
+        when(repository.findById(offeringId)).thenReturn(Optional.of(offering));
+        when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
+        org.mockito.InOrder inOrder = inOrder(knowledgeIndexService);
+
+        // 1. Crear
+        var createCmd = new CreateOfferingUseCase.Command(
+                UUID.randomUUID(), "Nuevo Java", "desc", "BACKEND", BigDecimal.valueOf(100),
+                MentorshipMode.LIVE, 2
+        );
+        Offering created = service.create(new Actor(ownerId, Role.PROVIDER), createCmd);
+        inOrder.verify(knowledgeIndexService).reindexOffering(created);
+
+        // 2. Actualizar
+        var updateCmd = new UpdateOfferingUseCase.Command(
+                "Java Actualizado", "nueva desc", "BACKEND", BigDecimal.valueOf(120),
+                MentorshipMode.LIVE, 3
+        );
+        Offering updated = service.update(new Actor(ownerId, Role.PROVIDER), offeringId, updateCmd);
+        inOrder.verify(knowledgeIndexService).reindexOffering(updated);
+
+        // 3. Desactivar
+        service.deactivate(new Actor(ownerId, Role.PROVIDER), offeringId);
+        inOrder.verify(knowledgeIndexService).reindexOffering(argThat(o ->
+                o.id().equals(offeringId) && !o.active()
+        ));
+
+        // 4. Activar
+        Offering inactive = offering.deactivate();
+        when(repository.findById(offeringId)).thenReturn(Optional.of(inactive));
+        service.activate(new Actor(ownerId, Role.PROVIDER), offeringId);
+        inOrder.verify(knowledgeIndexService).reindexOffering(argThat(o ->
+                o.id().equals(offeringId) && o.active()
+        ));
+
+        inOrder.verifyNoMoreInteractions();
     }
 }

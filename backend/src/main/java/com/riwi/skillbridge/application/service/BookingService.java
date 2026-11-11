@@ -13,6 +13,8 @@ import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.domain.model.BookingStatusHistory;
 import com.riwi.skillbridge.domain.model.Offering;
+import com.riwi.skillbridge.domain.model.PageQuery;
+import com.riwi.skillbridge.domain.model.PageResult;
 import com.riwi.skillbridge.domain.model.UserAccount;
 import com.riwi.skillbridge.domain.service.BookingCancellationPolicy;
 import org.springframework.stereotype.Service;
@@ -134,6 +136,11 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
             }
             return booking;
         }).toList();
+    }
+
+    @Override
+    public PageResult<Booking> bookingsList(String email, PageQuery query) {
+        return bookingRepository.findByCustomerEmail(email, query);
     }
 
     @Override

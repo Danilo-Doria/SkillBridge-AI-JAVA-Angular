@@ -89,7 +89,7 @@ class GeminiAiAdapterTest {
     @Test
     void geminiAdapterIsNotRegisteredWhenAnotherProviderIsSelected() {
         try (var context = new AnnotationConfigApplicationContext()) {
-            context.getEnvironment().getSystemProperties().put("app.ai.provider", "openai");
+            context.getEnvironment().getPropertySources().addFirst(new org.springframework.core.env.MapPropertySource("test-provider", java.util.Map.of("app.ai.provider", "openai")));
             context.register(GeminiAiAdapter.class);
             context.refresh();
 
