@@ -1,7 +1,8 @@
-﻿import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { apiBase } from './api';
 import { Observable } from 'rxjs';
+import { Page } from './page';
 
 export type BookingStatus = 'CREATED' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
 
@@ -32,8 +33,8 @@ export class BookingService {
     return this.http.post<Booking>(apiBase() + '/bookings', payload, { headers });
   }
 
-  getMyBookings(): Observable<Booking[]> {
-    return this.http.get<Booking[]>(apiBase() + '/bookings/me');
+  getMyBookings(page = 0, size = 20, sort = 'scheduledAt,desc'): Observable<Page<Booking>> {
+    return this.http.get<Page<Booking>>(apiBase() + '/bookings/me', { params: { page, size, sort } });
   }
 
   // Envía la petición al backend para cancelar una reserva usando PUT según el último estándar de develop

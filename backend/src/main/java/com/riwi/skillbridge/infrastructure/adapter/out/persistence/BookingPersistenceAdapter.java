@@ -7,10 +7,16 @@ import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.Bookin
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.UserEntity;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingRepository;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaUserRepository;
+import com.riwi.skillbridge.domain.model.PageQuery;
+import com.riwi.skillbridge.domain.model.PageResult;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -83,6 +89,25 @@ public class BookingPersistenceAdapter implements BookingRepositoryPort {
             .stream()
             .map(this::toDomain)
             .toList();
+    }
+
+    private static final Set<String> SORTABLE = Set.of("scheduledAt", "status", "createdAt");
+
+    @Override
+    public PageResult<Booking> findByCustomerEmail(String email, PageQuery query) {
+        UserEntity user = userRepository.findByEmailIgnoreCase(email)
+            .orElseThrow(() -> new DomainNotFoundException(
+                "Usuario no encontrado con el email: " + email));
+        if (!SORTABLE.contains(query.sortBy())) {
+            throw new IllegalArgumentException("Campo de orden no permitido. Use: " + String.join(", ", SORTABLE));
+        }
+        Sort.Direction direction = query.descending() ? Sort.Direction.DESC : Sort.Direction.ASC;
+        // El desempate por id mantiene estable el orden entre páginas.
+        Sort sort = Sort.by(direction, query.sortBy()).and(Sort.by(Sort.Direction.ASC, "id"));
+        Page<BookingEntity> page = repository.findByCustomerId(user.getId(),
+            PageRequest.of(query.page(), query.size(), sort));
+        return new PageResult<>(page.getContent().stream().map(this::toDomain).toList(),
+            page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     private Booking toDomain(BookingEntity entity) {

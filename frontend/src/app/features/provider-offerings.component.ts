@@ -4,13 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../core/auth.service';
 import { Category, CategoryService } from '../core/category.service';
+import { PagerComponent } from '../shared-pager.component';
 import { Offering, OfferingPayload, OfferingService } from '../core/offering.service';
 import { MentorshipResource, MentorshipResourceService, ResourcePayload, ResourceType } from '../core/mentorship-resource.service';
 import { forkJoin } from 'rxjs';
 
 @Component({
   standalone: true,
-  imports: [FormsModule, CurrencyPipe],
+  imports: [FormsModule, CurrencyPipe, PagerComponent],
   template: `
     <section class="min-h-screen bg-[#FBFBFA] px-4 py-16 sm:px-6 lg:py-24">
       <div class="mx-auto max-w-4xl">
@@ -22,8 +23,8 @@ import { forkJoin } from 'rxjs';
               {{ isAdmin ? 'Todos los servicios' : 'Mis servicios' }}
             </h1>
             <p class="mt-4 text-base text-[#787774]">
-              {{ offerings.length }} {{ offerings.length === 1 ? 'servicio' : 'servicios' }}
-              · {{ activeCount }} {{ activeCount === 1 ? 'activo' : 'activos' }}
+              {{ totalElements }} {{ totalElements === 1 ? 'servicio' : 'servicios' }}
+              · {{ activeCount }} {{ activeCount === 1 ? 'activo' : 'activos' }} en esta página
             </p>
           </div>
 
@@ -93,6 +94,8 @@ import { forkJoin } from 'rxjs';
             </li>
           }
         </ul>
+
+        <app-pager [page]="page" [totalPages]="totalPages" (pageChange)="load($event)" />
 
         @if (resourceOffering) {
           <section class="mt-12 rounded-lg border border-[#EAEAEA] bg-white p-6">
@@ -306,6 +309,11 @@ export class ProviderOfferingsComponent implements OnInit {
   panelOpen = false;
 
   get isAdmin(): boolean { return this.auth.hasRole('ADMIN'); }
+  page = 0;
+  totalPages = 0;
+  totalElements = 0;
+  readonly pageSize = 10;
+
   get activeCount(): number { return this.offerings.filter(o => o.active).length; }
 
   ngOnInit(): void {
@@ -313,10 +321,17 @@ export class ProviderOfferingsComponent implements OnInit {
     this.loadCategories();
   }
 
-  load(): void {
-    const req = this.isAdmin ? this.service.listAll() : this.service.listMine();
+  load(page = this.page): void {
+    this.offeringsLoading = true;
+    const req = this.isAdmin ? this.service.listAll(page, this.pageSize) : this.service.listMine(page, this.pageSize);
     req.subscribe({
-      next: r => { this.offerings = r; this.offeringsLoading = false; },
+      next: r => {
+        this.offerings = r.items;
+        this.page = r.page;
+        this.totalPages = r.totalPages;
+        this.totalElements = r.totalElements;
+        this.offeringsLoading = false;
+      },
       error: (e: HttpErrorResponse) => { this.offeringsLoading = false; this.fail(e, 'No fue posible cargar los servicios.'); },
     });
   }
