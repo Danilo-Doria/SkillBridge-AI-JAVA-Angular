@@ -154,6 +154,87 @@ app:
     media:
       max-audio-bytes: ${AI_MEDIA_MAX_AUDIO_BYTES:10485760}
       max-image-bytes: ${AI_MEDIA_MAX_IMAGE_BYTES:5242880}
+    fallback:
+      chat:
+        chain:
+          - provider: gemini
+            model: ${GEMINI_MODEL:gemini-3.8-flash}
+            enabled: true
+            timeout-seconds: 10
+          - provider: openai
+            model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+        retry:
+          max-attempts: 3
+          initial-interval-ms: 500
+          multiplier: 1.5
+      vision:
+        chain:
+          - provider: gemini
+            model: ${GEMINI_VISION_MODEL:gemini-3.8-flash}
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+      stt:
+        chain:
+          - provider: groq
+            model: ${GROQ_AUDIO_MODEL:whisper-large-v3-turbo}
+            enabled: true
+            timeout-seconds: 10
+          - provider: gemini
+            model: gemini-audio
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+      tts:
+        chain:
+          - provider: elevenlabs
+            model: multilingual-v2
+            enabled: true
+            timeout-seconds: 10
+          - provider: noop
+            model: noop
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+      rag:
+        chain:
+          - provider: gemini
+            model: ${GEMINI_MODEL:gemini-3.8-flash}
+            enabled: true
+            timeout-seconds: 10
+          - provider: openai
+            model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+            enabled: true
+            timeout-seconds: 10
+      embedding:
+        chain:
+          - provider: gemini
+            model: text-embedding-004
+            enabled: true
+            timeout-seconds: 10
+          - provider: openai
+            model: text-embedding-3-small
+            enabled: true
+            timeout-seconds: 10
   booking:
     cancellation:
       minimum-notice-hours: ${BOOKING_CANCELLATION_MINIMUM_NOTICE_HOURS:24}

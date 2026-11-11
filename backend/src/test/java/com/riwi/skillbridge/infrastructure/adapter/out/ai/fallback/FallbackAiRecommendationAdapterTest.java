@@ -260,4 +260,47 @@ class FallbackAiRecommendationAdapterTest {
                     assertThat(aiEx.getErrorType()).isEqualTo(ErrorType.UNAVAILABLE);
                 });
     }
+
+    @Test
+    @DisplayName("Scenario 2.2: Primary candidate has OPEN circuit breaker -> skipped immediately without network call and secondary resolves")
+    void shouldSkipPrimaryCandidateWhenCircuitIsOpen() {
+        com.riwi.skillbridge.infrastructure.config.AiFallbackProperties properties =
+                new com.riwi.skillbridge.infrastructure.config.AiFallbackProperties();
+        com.riwi.skillbridge.infrastructure.adapter.out.ai.resilience.AiCircuitBreakerManager circuitBreakerManager =
+                new com.riwi.skillbridge.infrastructure.adapter.out.ai.resilience.AiCircuitBreakerManager(properties, errorClassifier);
+
+        // Open circuit for primary candidate (chat:gemini:gemini-3.8-flash)
+        circuitBreakerManager.getOrCreateCircuitBreaker("chat", "gemini", "gemini-3.8-flash").transitionToOpenState();
+
+        when(secondaryAdapter.recommend(any(), any())).thenReturn(SUCCESS_RESPONSE);
+
+        List<FallbackAiRecommendationAdapter.CandidateExecutor> candidates = List.of(
+                new FallbackAiRecommendationAdapter.CandidateExecutor(
+                        AiModelCandidate.of("gemini", "gemini-3.8-flash", 1, 10),
+                        primaryAdapter
+                ),
+                new FallbackAiRecommendationAdapter.CandidateExecutor(
+                        AiModelCandidate.of("openai", "gpt-4o-mini", 2, 10),
+                        secondaryAdapter
+                )
+        );
+
+        fallbackAdapter = new FallbackAiRecommendationAdapter(
+                candidates,
+                errorClassifier,
+                new com.riwi.skillbridge.infrastructure.adapter.out.ai.metrics.AiFallbackMetricsRecorder(),
+                circuitBreakerManager
+        );
+
+        long start = System.currentTimeMillis();
+        AiStructuredResponse response = fallbackAdapter.recommend(REQ, OFFERINGS);
+        long duration = System.currentTimeMillis() - start;
+
+        assertThat(response.resolvedByProvider()).isEqualTo("openai");
+        assertThat(response.resolvedByModel()).isEqualTo("gpt-4o-mini");
+
+        // Verify primary candidate delegate was NEVER invoked over network
+        verifyNoInteractions(primaryAdapter);
+        verify(secondaryAdapter, times(1)).recommend(REQ, OFFERINGS);
+    }
 }

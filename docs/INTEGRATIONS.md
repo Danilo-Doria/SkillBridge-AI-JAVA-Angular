@@ -118,6 +118,12 @@ This document catalogs all verified infrastructure, broker, external API, and mi
   - Max image upload size: `app.ai.media.max-image-bytes: 5242880` (5 MB).
   - Max TTS character length: `app.ai.tts.max-chars: 2000` characters.
 - **Observability & Metrics**:
-  - Metrics recorded via `AiFallbackMetricsRecorder` using Micrometer: `ai.fallback.attempts` and `ai.fallback.latency`.
+  - Metrics recorded via `AiFallbackMetricsRecorder` using Micrometer: `ai.fallback.attempts`, `ai.fallback.latency`, and `ai.fallback.provider.used`.
   - Event `RecommendationGenerated` v2 enriched with `provider` and `model` resolution metadata.
   - Candidate execution tracked in logs with `X-Correlation-Id` and SLF4J MDC.
+- **Declarative Configuration & Resilience (HU-28)**:
+  - Typed configuration under `app.ai.fallback.*` for `chat`, `vision`, `stt`, `tts`, `rag`, and `embedding`.
+  - Dual environment variable support: compact syntax (`AI_<CAPABILITY>_FALLBACK_CHAIN=gemini:gemini-3.8-flash,openai:gpt-4o-mini`) with whitespace tolerance, and standard Spring relaxed binding. Full backward compatibility with `AI_PROVIDER` and `AI_AUDIO_PROVIDER`.
+  - Fail-fast startup validation (`AiFallbackValidator`): Aborts boot immediately if a chain is empty, has non-positive timeout (`timeout-seconds <= 0`), or configures unsupported providers.
+  - Independent Circuit Breakers per candidate (`capability:provider:model`) managed by Resilience4j (`AiCircuitBreakerManager`). OPEN circuits are skipped instantly (< 5 ms) without network calls.
+  - Administration & Health: `GET /api/admin/ai/providers` restricted to `ROLE_ADMIN` (returns chain and circuit statuses without exposing secrets), and Actuator `AiFallbackHealthIndicator` reporting `UP`, `DEGRADED`, or `DOWN`.

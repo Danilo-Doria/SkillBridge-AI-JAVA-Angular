@@ -7,6 +7,7 @@ import com.riwi.skillbridge.domain.exception.AiProviderException.ErrorType;
 import com.riwi.skillbridge.infrastructure.adapter.out.ai.candidate.AiModelCandidate;
 import com.riwi.skillbridge.infrastructure.adapter.out.ai.classification.AiErrorClassifier;
 import com.riwi.skillbridge.infrastructure.adapter.out.ai.metrics.AiFallbackMetricsRecorder;
+import com.riwi.skillbridge.infrastructure.adapter.out.ai.resilience.AiCircuitBreakerManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,23 +38,26 @@ public class FallbackSpeechToTextAdapter implements SpeechToTextPort {
     private final List<CandidateExecutor> candidates;
     private final AiErrorClassifier errorClassifier;
     private final AiFallbackMetricsRecorder metricsRecorder;
+    private final AiCircuitBreakerManager circuitBreakerManager;
 
     @Autowired
     public FallbackSpeechToTextAdapter(
             List<CandidateExecutor> candidates,
             AiErrorClassifier errorClassifier,
-            AiFallbackMetricsRecorder metricsRecorder
+            AiFallbackMetricsRecorder metricsRecorder,
+            @Autowired(required = false) AiCircuitBreakerManager circuitBreakerManager
     ) {
         this.candidates = candidates != null ? new ArrayList<>(candidates) : Collections.emptyList();
         this.errorClassifier = errorClassifier != null ? errorClassifier : new AiErrorClassifier();
         this.metricsRecorder = metricsRecorder != null ? metricsRecorder : new AiFallbackMetricsRecorder();
+        this.circuitBreakerManager = circuitBreakerManager;
     }
 
     public FallbackSpeechToTextAdapter(
             List<CandidateExecutor> candidates,
             AiErrorClassifier errorClassifier
     ) {
-        this(candidates, errorClassifier, new AiFallbackMetricsRecorder());
+        this(candidates, errorClassifier, new AiFallbackMetricsRecorder(), null);
     }
 
     @Override
@@ -70,6 +74,13 @@ public class FallbackSpeechToTextAdapter implements SpeechToTextPort {
             AiModelCandidate candidate = executor.candidate();
             long startTime = System.currentTimeMillis();
 
+            if (circuitBreakerManager != null && !circuitBreakerManager.tryAcquirePermission("stt", candidate.providerName(), candidate.modelIdentifier())) {
+                log.warn("Circuit Breaker OPEN for STT candidate=[{}] priority={} - skipping network call correlationId={}",
+                        candidate.candidateKey(), candidate.priorityOrder(), correlationId);
+                metricsRecorder.recordAttempt("stt", candidate.providerName(), candidate.modelIdentifier(), false, "CIRCUIT_OPEN", 0);
+                continue;
+            }
+
             log.info("Attempting STT transcription with candidate=[{}] file='{}' correlationId={}",
                     candidate.candidateKey(), fileName, correlationId);
 
@@ -77,7 +88,12 @@ public class FallbackSpeechToTextAdapter implements SpeechToTextPort {
                 String transcription = executor.delegate().transcribe(audio, contentType, fileName);
                 long latencyMs = System.currentTimeMillis() - startTime;
 
+                if (circuitBreakerManager != null) {
+                    circuitBreakerManager.onSuccess("stt", candidate.providerName(), candidate.modelIdentifier(), latencyMs);
+                }
+
                 metricsRecorder.recordAttempt("stt", candidate.providerName(), candidate.modelIdentifier(), true, null, latencyMs);
+                metricsRecorder.recordProviderUsed("stt", candidate.providerName(), candidate.modelIdentifier());
 
                 log.info("STT transcription succeeded candidate=[{}] latencyMs={} correlationId={}",
                         candidate.candidateKey(), latencyMs, correlationId);
@@ -86,6 +102,10 @@ public class FallbackSpeechToTextAdapter implements SpeechToTextPort {
             } catch (Throwable ex) {
                 long latencyMs = System.currentTimeMillis() - startTime;
                 AiErrorClassifier.ClassificationResult classification = errorClassifier.classify(ex);
+
+                if (circuitBreakerManager != null) {
+                    circuitBreakerManager.onError("stt", candidate.providerName(), candidate.modelIdentifier(), latencyMs, ex);
+                }
 
                 metricsRecorder.recordAttempt(
                         "stt",
