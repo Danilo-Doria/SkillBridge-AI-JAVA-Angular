@@ -93,3 +93,17 @@ Two tests in the backend are explicitly disabled in source code:
    - `.github/workflows/ci.yml` runs only `backend` and `frontend`. Tests in `audit-service/backend/src/test` are never run automatically in CI.
 4. **Makefile Target Syntax Defect (`QA-001`)**:
    - `Makefile` line 12 has an indentation syntax error, preventing developers from running `make test-back` without fixing the Makefile first.
+
+## 6. Matriz de pruebas del asistente RAG (HU-26)
+
+| Prueba | Requiere Docker | Qué cubre |
+|---|---|---|
+| `Bm25ScorerTest`, `CosineSimilarityTest`, `ReciprocalRankFusionTest`, `ThresholdRuleTest` | No | Dominio puro |
+| `AskKnowledgeServiceTest`, `KnowledgeEarlyRejectionTest` | No | Flujo, umbral, rechazo temprano sin LLM |
+| `KnowledgeAskFlowIT` | No | Flujo HTTP con corpus real y dobles deterministas (ES/EN, datos privados, inyección, 400, 401, timeout 503, embeddings caídos 503) |
+| `KnowledgeEvaluationTest` | No | Genera `specs/026-rag-knowledge/evaluation-report.md` (dobles deterministas: no mide calidad con Gemini) |
+| `KnowledgeControllerTest` | No | Contrato REST (MockMvc) |
+| `AiRecommendationShortlistTest` | No | Preselección RAG de ofertas y fallbacks (FR-020) |
+| `PgVectorKnowledgeAdapterTest` | **Sí** (`pgvector/pgvector:pg17`) | Búsqueda y `contentHash` sobre PostgreSQL real |
+
+`KnowledgeAskFlowIT` se ejecuta con `mvn test -Dtest=KnowledgeAskFlowIT` (no usa contenedores).

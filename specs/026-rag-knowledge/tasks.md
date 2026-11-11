@@ -122,7 +122,7 @@
 - [x] T024 [P] [US1] Sincronizar categorías: `CategoryService` (`backend/src/main/java/com/riwi/skillbridge/application/service/CategoryService.java`) no invalida caché. Añadir la notificación al `KnowledgeIndexService` en crear, actualizar y eliminar (FR-015). Depende de T022.
   - Criterios: `CategoryServiceTest` existente sigue en verde, y una prueba nueva verifica que un cambio de categoría reindexa solo ese fragmento.
 
-- [ ] T025 [US1] Prueba de aceptación `KnowledgeAskFlowIT` en `backend/src/test/java/com/riwi/skillbridge/`, con doble determinista de embeddings y espía del LLM generativo. Caso: pregunta sobre cancelación en ES y en EN (FR-016). Depende de T021, T022 y T023.
+- [x] T025 [US1] Prueba de aceptación `KnowledgeAskFlowIT` en `backend/src/test/java/com/riwi/skillbridge/`, con doble determinista de embeddings y espía del LLM generativo. Caso: pregunta sobre cancelación en ES y en EN (FR-016). Depende de T021, T022 y T023. — _Hecha sin BD:_ `KnowledgeAskFlowIT` usa servicio y corpus reales con dobles deterministas (MockMvc, 8 pruebas en verde con `mvn test -Dtest=KnowledgeAskFlowIT`). El camino con PostgreSQL real queda cubierto por `PgVectorKnowledgeAdapterTest` (7/7 con Docker) y por el arranque completo de `BookingCancellationIT`.
   - Criterios: `mvn -f backend/pom.xml verify -Dit.test=KnowledgeAskFlowIT` ejecutado con salida observada. Sin red ni claves reales (SC-007).
 
 ---
@@ -133,17 +133,17 @@
 
 **Independent Test**: pregunta «¿Cómo reparar la transmisión de un diésel?» → 200, `hasSufficientContext: false`, `sources: []`, cero llamadas al LLM (espía).
 
-- [ ] T026 [US2] Prueba unitaria `KnowledgeEarlyRejectionTest` en `backend/src/test/java/com/riwi/skillbridge/application/service/knowledge/`. Con un espía de `KnowledgeAnswerPort`, verifica que por debajo del umbral no hay llamadas al LLM y que la respuesta es determinista (FR-006, SC-002).
+- [x] T026 [US2] Prueba unitaria `KnowledgeEarlyRejectionTest` en `backend/src/test/java/com/riwi/skillbridge/application/service/knowledge/`. Con un espía de `KnowledgeAnswerPort`, verifica que por debajo del umbral no hay llamadas al LLM y que la respuesta es determinista (FR-006, SC-002). — `KnowledgeEarlyRejectionTest` 3/3.
   - Criterios: el mensaje de «sin información» es constante y no inventa datos (SC-005). El test corre sin red.
 
-- [ ] T027 [US2] Pruebas de casos límite en `KnowledgeAskFlowIT`: pregunta de datos privados («reservas de otros clientes», «correos de mentores») devuelve `hasSufficientContext: false`; prompt injection no revela directivas internas; pregunta de 501 caracteres devuelve 400. Depende de T025.
+- [x] T027 [US2] Pruebas de casos límite en `KnowledgeAskFlowIT`: pregunta de datos privados («reservas de otros clientes», «correos de mentores») devuelve `hasSufficientContext: false`; prompt injection no revela directivas internas; pregunta de 501 caracteres devuelve 400. Depende de T025. — casos en `KnowledgeAskFlowIT` (datos privados, inyección, 501 caracteres).
   - Criterios: ninguna respuesta incluye correos, contraseñas ni datos de pago (SC-004).
 
 - [x] T028 [US2] Escribir el conjunto de evaluación `backend/src/test/resources/knowledge-eval/questions.json` con al menos 30 preguntas en ES y EN, con fragmentos esperados y casos sin respuesta. Esta tarea es un borrador que revisa el propietario antes de usarse: define qué cuenta como acierto. Depende de T005 y del corpus existente.
   - Criterios: al menos 30 preguntas, de las cuales al menos 6 son sin respuesta. Cada pregunta indica `expectedSourceIds` o `answerable: false`. Incluye pares ES↔EN sobre la misma política (FR-019).
   - Criterios: el archivo indica que es un borrador pendiente de revisión por el propietario (ACCIÓN DEL PROPIETARIO: revisar y aprobar).
 
-- [ ] T029 [US2] Implementar el informe de evaluación `KnowledgeEvaluationTest` en `backend/src/test/java/com/riwi/skillbridge/application/service/knowledge/`. Calcula `hit@k`, `MRR` y falsos positivos para tres estrategias: BM25 solo, embeddings solos e híbrida. Depende de T028 y T019.
+- [x] T029 [US2] Implementar el informe de evaluación `KnowledgeEvaluationTest` en `backend/src/test/java/com/riwi/skillbridge/application/service/knowledge/`. Calcula `hit@k`, `MRR` y falsos positivos para tres estrategias: BM25 solo, embeddings solos e híbrida. Depende de T028 y T019. — `KnowledgeEvaluationTest` genera `evaluation-report.md`; cifras con dobles deterministas, no con Gemini.
   - Criterios: el informe se escribe en `specs/026-rag-knowledge/evaluation-report.md` con las tres filas y las métricas. Las cifras salen de una ejecución real (salida observada), no de estimaciones.
 
 - [ ] T030 [US2] (ACCIÓN DEL PROPIETARIO) Revisar el informe de T029 y decidir `minScoreThreshold` y `rrfK`. Actualizar `application.yml` y ADR-0008 (sección «Fusión híbrida») con los valores elegidos y la justificación. Depende de T029.
@@ -174,10 +174,10 @@
 
 **Independent Test**: sin `GEMINI_EMBEDDING_API_KEY` o con timeout, la respuesta es 503 ProblemDetail.
 
-- [ ] T034 [US4] Prueba de timeout en `KnowledgeAskFlowIT`: un LLM que tarda más de `timeoutSeconds` provoca 503 en un plazo no mayor a `timeoutSeconds + 1` s (SC-006, FR-008). Depende de T025 y T018.
+- [x] T034 [US4] Prueba de timeout en `KnowledgeAskFlowIT`: un LLM que tarda más de `timeoutSeconds` provoca 503 en un plazo no mayor a `timeoutSeconds + 1` s (SC-006, FR-008). Depende de T025 y T018. — en `KnowledgeAskFlowIT` (503 medido en ~228 ms con LLM falso).
   - Criterios: el tiempo medido aparece en la salida de la prueba.
 
-- [ ] T035 [US4] Prueba de fallo de embeddings: sin `GEMINI_EMBEDDING_API_KEY`, o con el doble de embeddings caído, la pregunta devuelve 503 ProblemDetail y nunca una respuesta solo con BM25 (FR-017, SC-005). Depende de T014 y T025.
+- [x] T035 [US4] Prueba de fallo de embeddings: sin `GEMINI_EMBEDDING_API_KEY`, o con el doble de embeddings caído, la pregunta devuelve 503 ProblemDetail y nunca una respuesta solo con BM25 (FR-017, SC-005). Depende de T014 y T025. — en `KnowledgeAskFlowIT` (embeddings caídos → 503, el LLM no se invoca).
   - Criterios: el test verifica que el mensaje no contiene datos fijos ni precios.
 
 - [x] T036 [US4] Prueba de no-mocks en producción: el perfil por defecto no activa ningún adaptador mock de conocimiento. `app.ai.provider=mock` solo se activa de forma explícita (FR-009, constitución Art. V.3). Depende de T014 y T018.
@@ -188,15 +188,32 @@
 
 ---
 
+## Phase 7: Preselección RAG para recomendaciones (FR-020)
+
+**Goal**: el LLM de recomendaciones no lee todo el catálogo; recibe solo las ofertas más relevantes.
+
+- [x] T042 `KnowledgeSearchPort.searchByType(query, topK, SourceType)` y su implementación en `PgVectorKnowledgeAdapter` (filtra por tipo antes de rankear). Prueba `PgVectorKnowledgeAdapterTest` (pgvector real).
+- [x] T043 `AiRecommendationService`: preselección con `app.rag.recommendation-shortlist-size` (15), con fallback al catálogo completo. `AiRecommendationShortlistTest` 7/7.
+- [x] T044 Configuración: `application.yml`, `docker-compose.yml`, `.env.example` (`RAG_RECOMMENDATION_SHORTLIST_SIZE`).
+- [x] T045 Verificación real con Gemini: con tamaño 2 sobre 3 ofertas, el log muestra «Preselección RAG: 2 de 3» y la recomendación de «Java con Spring Boot» devuelve la oferta Java (200).
+- [x] T046 Texto indexado de ofertas enriquecido (`KnowledgeIndexService.offeringContent`: título, categoría, modalidad, duración, precio y descripción). `KnowledgeIndexServiceTest` actualizada (15/15).
+- [x] T047 Catálogo de prueba `scripts/dev/seed-rag-offerings.sql` (43 ofertas en 12 temas, idempotente) y objetivos `specs/026-rag-knowledge/recommendation-eval.json` (20).
+- [x] T048 Comparación real con Gemini (46 ofertas activas, 20 objetivos): catálogo completo 20/20 top-1; preselección N=10 20/20; N=5 19/20 (falló «monolito → microservicios»). Ver `progress.md`.
+- [x] T049 Arranque diferencial: `KnowledgeIndexService.loadInitialIndex` reutiliza los vectores con `contentHash` vigente, calcula solo lo nuevo o cambiado en lotes de 50, elimina lo sobrante y aplica todo con `KnowledgeIndexPort.applyChanges` en una transacción (FR-015, FR-018). Pruebas: `KnowledgeIndexServiceTest` y `PgVectorKnowledgeAdapterTest`. Verificado en vivo: tras 3 reinicios 54 de 55 filas conservan su `updated_at`.
+- [x] T050 Desactivar una oferta/categoría o eliminar una categoría la retira del índice (`KnowledgeIndexPort.deleteBySourceId`); antes quedaba hasta el siguiente reinicio. Verificado en vivo: 55 → 54 → 55 fragmentos al desactivar y reactivar.
+
+---
+
 ## Final Phase: Polish y verificación cruzada
 
-- [ ] T038 Sincronizar documentación: `docs/MODULES/backend.md`, `docs/INTEGRATIONS.md`, `docs/API.md` y `docs/TESTING.md` (constitución Art. VIII.1). Depende de T025.
+- [x] T038 Sincronizar documentación: `docs/MODULES/backend.md`, `docs/INTEGRATIONS.md`, `docs/API.md` y `docs/TESTING.md` (constitución Art. VIII.1). Depende de T025. — secciones HU-26 añadidas a backend.md, INTEGRATIONS.md, API.md y TESTING.md.
   - Criterios: los puertos nuevos, el endpoint y la matriz de pruebas aparecen en los documentos.
 
 - [ ] T039 (ACCIÓN DEL PROPIETARIO) Decidir si se enmienda la constitución Art. II.1 para listar `EmbeddingPort` y el resto de puertos de conocimiento. Depende de T012.
   - Criterios: la decisión queda registrada como enmienda aprobada o rechazada en `.specify/memory/constitution.md`.
 
-- [ ] T040 Ejecutar la suite completa y reportar resultados observados: `mvn -f backend/pom.xml test`, `mvn -f backend/pom.xml verify` (requiere Docker), `npm run build` y `npm test -- --watch=false --browsers=ChromeHeadless` en `frontend/`. Depende de T033 y T038.
+- [x] T040 Ejecutar la suite completa y reportar resultados observados: `mvn -f backend/pom.xml test`, `mvn -f backend/pom.xml verify` (requiere Docker), `npm run build` y `npm test -- --watch=false --browsers=ChromeHeadless` en `frontend/`. Depende de T033 y T038.
+  - _Estado 2026-11-10:_ `mvn verify` BUILD SUCCESS (509 unitarias, 1 omitida; 20 de integración, 4 omitidas ya deshabilitadas). `npm run build` exit 0. `npm test` (Karma con Brave vía `CHROME_BIN`, exit 0): 34 de 34 en verde.
   - Criterios: cada comando reporta exit code y salida. Lo no ejecutado se marca `NOT RUN — Not executed in this session` con la causa (constitución Art. V.1).
 
 - [ ] T041 Validar la guía `specs/026-rag-knowledge/quickstart.md` contra el sistema en marcha, incluido el paso de fallo de embeddings (paso 5). Depende de T040.

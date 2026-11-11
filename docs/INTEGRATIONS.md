@@ -112,3 +112,12 @@ This document catalogs all verified infrastructure, broker, external API, and mi
   - Max audio upload size: `app.ai.media.max-audio-bytes: 10485760` (10 MB).
   - Max image upload size: `app.ai.media.max-image-bytes: 5242880` (5 MB).
   - Max TTS character length: `app.ai.tts.max-chars: 2000` characters.
+
+## 8. Embeddings y RAG (HU-26)
+
+| Pieza | Detalle |
+|---|---|
+| Embeddings | `gemini-embedding-001`, 768 dimensiones, clave propia `GEMINI_EMBEDDING_API_KEY` (nunca se reutiliza `GEMINI_API_KEY`). Sin clave: 503 controlado, no hay respuesta solo con BM25. |
+| Almacén vectorial | PostgreSQL 17 con extensión `pgvector` (imagen `pgvector/pgvector:pg17`), schema `knowledge`, índice HNSW `vector_cosine_ops`. En Railway hay que crear la extensión (`CREATE EXTENSION vector;`, T002 pendiente). |
+| Generación | `GeminiKnowledgeAnswerAdapter` tras `KnowledgeAnswerPort`, con timeout en cliente. |
+| Corpus público | `backend/src/main/resources/knowledge/*.md` con `visibility: public`; no se indexa `docs/`. |
