@@ -1,12 +1,13 @@
 import { Component, OnInit, inject } from "@angular/core";
 import { CurrencyPipe } from "@angular/common";
 import { Router } from "@angular/router";
+import { PagerComponent } from "../shared-pager.component";
 import { Offering, OfferingService } from "../core/offering.service";
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CurrencyPipe],
+  imports: [CurrencyPipe, PagerComponent],
   template: `
     <!-- Hero principal -->
     <section class="relative overflow-hidden bg-slate-950 text-white">
@@ -51,7 +52,7 @@ import { Offering, OfferingService } from "../core/offering.service";
 
           @if (offerings.length > 0) {
             <span class="w-fit rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm ring-1 ring-slate-200">
-              {{ offerings.length }} servicios
+              {{ totalElements }} servicios
             </span>
           }
         </div>
@@ -111,20 +112,35 @@ import { Offering, OfferingService } from "../core/offering.service";
             <p class="mt-2 text-sm text-slate-500">Actualmente no encontramos servicios en el catálogo.</p>
           </div>
         }
+
+        <app-pager [page]="page" [totalPages]="totalPages" (pageChange)="load($event)" />
       </div>
     </section>
   `,
 })
 export class HomeComponent implements OnInit {
   offerings: Offering[] = [];
+  page = 0;
+  totalPages = 0;
+  totalElements = 0;
+  readonly pageSize = 9;
   error = "";
 
   private service = inject(OfferingService);
   private router = inject(Router);
 
   ngOnInit(): void {
-    this.service.list().subscribe({
-      next: (r) => (this.offerings = r),
+    this.load(0);
+  }
+
+  load(page: number): void {
+    this.service.list(page, this.pageSize).subscribe({
+      next: (r) => {
+        this.offerings = r.items;
+        this.page = r.page;
+        this.totalPages = r.totalPages;
+        this.totalElements = r.totalElements;
+      },
       error: () => (this.error = "No fue posible cargar el catálogo."),
     });
   }

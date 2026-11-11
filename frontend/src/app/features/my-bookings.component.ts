@@ -289,7 +289,7 @@ export class MyBookingsComponent implements OnInit {
 
   ngOnInit(): void {
     this.fetchMyBookings();
-    this.offeringService.list().subscribe({
+    this.offeringService.listForLookup().subscribe({
       next: (data) => (this.offerings = data),
       error: () => console.warn('No se pudieron cargar las especificaciones de servicios.')
     });
@@ -300,8 +300,8 @@ export class MyBookingsComponent implements OnInit {
     this.errorMessage = null;
 
     this.bookingService.getMyBookings().subscribe({
-      next: (data) => {
-        this.bookings = data;
+      next: (pageData) => {
+        this.bookings = pageData.items;
         this.isLoading = false;
       },
       error: (err) => {

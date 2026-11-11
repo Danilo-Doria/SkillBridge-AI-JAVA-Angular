@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../core/auth.service';
 import { Category, CategoryService } from '../core/category.service';
+import { PagerComponent } from '../shared-pager.component';
 import { Offering, OfferingPayload, OfferingService } from '../core/offering.service';
 
 @Component({
   standalone: true,
-  imports: [FormsModule, CurrencyPipe],
+  imports: [FormsModule, CurrencyPipe, PagerComponent],
   template: `
     <section class="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-7xl">
@@ -155,7 +156,7 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
               <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
                 <h2 class="text-base font-bold text-slate-900">Servicios creados</h2>
                 <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">
-                  {{ offerings.length }}
+                  {{ totalElements }}
                 </span>
               </div>
 
@@ -199,6 +200,7 @@ import { Offering, OfferingPayload, OfferingService } from '../core/offering.ser
                   </div>
                 }
               </div>
+              <app-pager [page]="page" [totalPages]="totalPages" (pageChange)="load($event)" />
             </section>
 
             <!-- Listado de Categorías -->
@@ -237,6 +239,10 @@ export class ProviderOfferingsComponent implements OnInit {
   private auth = inject(AuthService);
 
   offerings: Offering[] = [];
+  page = 0;
+  totalPages = 0;
+  totalElements = 0;
+  readonly pageSize = 10;
   categories: Category[] = [];
   form: Partial<OfferingPayload> = {};
   newCategoryName = '';
@@ -255,10 +261,15 @@ export class ProviderOfferingsComponent implements OnInit {
     this.loadCategories();
   }
 
-  load(): void {
-    const req = this.isAdmin ? this.service.listAll() : this.service.listMine();
+  load(page = this.page): void {
+    const req = this.isAdmin ? this.service.listAll(page, this.pageSize) : this.service.listMine(page, this.pageSize);
     req.subscribe({
-      next: r => this.offerings = r,
+      next: r => {
+        this.offerings = r.items;
+        this.page = r.page;
+        this.totalPages = r.totalPages;
+        this.totalElements = r.totalElements;
+      },
       error: e => this.fail(e, 'No fue posible cargar los servicios.'),
     });
   }

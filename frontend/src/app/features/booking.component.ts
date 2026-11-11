@@ -116,7 +116,7 @@ export class BookingComponent implements OnInit {
   private route = inject(ActivatedRoute);
 
   ngOnInit(): void {
-    this.offeringsService.list().subscribe({
+    this.offeringsService.listForLookup().subscribe({
       next: (list) => {
         this.offerings = list;
 
