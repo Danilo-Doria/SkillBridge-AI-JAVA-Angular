@@ -1,12 +1,12 @@
-package com.riwi.skillbridge.application.service.knowledge;
+package com.riwi.skillbridge.infrastructure.adapter.in.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.riwi.skillbridge.application.port.in.AskKnowledgeUseCase;
 import com.riwi.skillbridge.application.port.out.EmbeddingPort;
+import com.riwi.skillbridge.application.service.knowledge.AskKnowledgeService;
+import com.riwi.skillbridge.application.service.knowledge.DeterministicKnowledgeFixture;
 import com.riwi.skillbridge.domain.exception.AiProviderException;
 import com.riwi.skillbridge.domain.service.knowledge.HybridRanker;
-import com.riwi.skillbridge.infrastructure.adapter.in.rest.GlobalExceptionHandler;
-import com.riwi.skillbridge.infrastructure.adapter.in.rest.KnowledgeController;
 import com.riwi.skillbridge.infrastructure.config.SecurityConfiguration;
 import com.riwi.skillbridge.infrastructure.security.AuthCookieService;
 import com.riwi.skillbridge.infrastructure.security.DatabaseUserDetailsService;

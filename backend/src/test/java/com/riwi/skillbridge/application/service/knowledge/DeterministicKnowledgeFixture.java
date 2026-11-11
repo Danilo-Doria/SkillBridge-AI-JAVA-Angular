@@ -19,9 +19,9 @@ import java.util.stream.Collectors;
  * El "embedding" es una bolsa de palabras con hashing (prefijo de 5 letras): no es semántico real,
  * por lo que las cifras que produce solo validan el cableado y el comportamiento, no la calidad con Gemini.
  */
-final class DeterministicKnowledgeFixture {
+public final class DeterministicKnowledgeFixture {
 
-    static final int DIMS = 1024;
+    public static final int DIMS = 1024;
 
     private static final java.util.Set<String> STOP = java.util.Set.of(
             "de", "la", "el", "los", "las", "un", "una", "unos", "unas", "que", "en", "y", "o", "con", "por", "para",
@@ -33,11 +33,11 @@ final class DeterministicKnowledgeFixture {
 
     private DeterministicKnowledgeFixture() { }
 
-    static List<KnowledgeChunk> corpus() {
+    public static List<KnowledgeChunk> corpus() {
         return new KnowledgeCorpusLoader(new ClasspathKnowledgeCorpusSource()).load();
     }
 
-    static boolean isZero(double[] v) {
+    public static boolean isZero(double[] v) {
         for (double x : v) {
             if (x != 0.0) {
                 return false;
@@ -46,7 +46,7 @@ final class DeterministicKnowledgeFixture {
         return true;
     }
 
-    static double[] embed(String text) {
+    public static double[] embed(String text) {
         double[] v = new double[DIMS];
         for (String t : HybridRanker.tokenize(text)) {
             if (STOP.contains(t)) {
@@ -59,18 +59,18 @@ final class DeterministicKnowledgeFixture {
     }
 
     /** Búsqueda en memoria sobre el corpus real con la estrategia indicada. */
-    static class InMemorySearch implements KnowledgeSearchPort {
+    public static class InMemorySearch implements KnowledgeSearchPort {
         final List<KnowledgeChunk> chunks;
         final HybridRanker.Strategy strategy;
         final EmbeddingPort embedder;
 
-        InMemorySearch(List<KnowledgeChunk> chunks, HybridRanker.Strategy strategy, EmbeddingPort embedder) {
+        public InMemorySearch(List<KnowledgeChunk> chunks, HybridRanker.Strategy strategy, EmbeddingPort embedder) {
             this.chunks = chunks;
             this.strategy = strategy;
             this.embedder = embedder;
         }
 
-        InMemorySearch(List<KnowledgeChunk> chunks, HybridRanker.Strategy strategy) {
+        public InMemorySearch(List<KnowledgeChunk> chunks, HybridRanker.Strategy strategy) {
             this(chunks, strategy, texts -> texts.stream().map(DeterministicKnowledgeFixture::embed).toList());
         }
 
@@ -93,10 +93,10 @@ final class DeterministicKnowledgeFixture {
     }
 
     /** LLM falso: responde citando los sourceId recibidos; cuenta las llamadas (espía). */
-    static class SpyAnswerPort implements KnowledgeAnswerPort {
-        final AtomicInteger calls = new AtomicInteger();
-        volatile long delayMillis = 0;
-        volatile RuntimeException failure;
+    public static class SpyAnswerPort implements KnowledgeAnswerPort {
+        public final AtomicInteger calls = new AtomicInteger();
+        public volatile long delayMillis = 0;
+        public volatile RuntimeException failure;
 
         @Override
         public String generateAnswer(String question, List<KnowledgeChunk> validatedChunks) {
