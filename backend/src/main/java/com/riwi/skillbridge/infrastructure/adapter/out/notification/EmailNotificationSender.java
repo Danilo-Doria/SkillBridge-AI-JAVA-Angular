@@ -2,6 +2,7 @@ package com.riwi.skillbridge.infrastructure.adapter.out.notification;
 
 import com.riwi.skillbridge.application.port.out.NotificationMessage;
 import com.riwi.skillbridge.application.port.out.NotificationSenderPort;
+import com.riwi.skillbridge.application.port.out.NotificationType;
 import com.riwi.skillbridge.application.port.out.PermanentNotificationException;
 import com.riwi.skillbridge.application.port.out.UserRepositoryPort;
 import com.riwi.skillbridge.domain.model.UserAccount;
@@ -13,11 +14,21 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+
 @Component
 @ConditionalOnProperty(name = "notifications.sender", havingValue = "email")
 public class EmailNotificationSender implements NotificationSenderPort {
 
     private static final Logger log = LoggerFactory.getLogger(EmailNotificationSender.class);
+    private static final DateTimeFormatter DEADLINE_DATE_FORMATTER = DateTimeFormatter
+        .ofPattern("dd 'de' MMMM", Locale.forLanguageTag("es"))
+        .withZone(ZoneId.of("UTC"));
+    private static final DateTimeFormatter DEADLINE_TIME_FORMATTER = DateTimeFormatter
+        .ofPattern("hh:mm a", Locale.US)
+        .withZone(ZoneId.of("UTC"));
 
     private final JavaMailSender mailSender;
     private final UserRepositoryPort users;
@@ -57,13 +68,25 @@ public class EmailNotificationSender implements NotificationSenderPort {
         return switch (message.notificationType()) {
             case BOOKING_CREATED -> "Reserva creada";
             case BOOKING_CANCELLED -> "Reserva cancelada";
+            case PAYMENT_REMINDER -> "Recordatorio: Pago pendiente de tu mentoría";
         };
     }
 
     private String body(UserAccount user, NotificationMessage message) {
+        if (message.notificationType() == NotificationType.PAYMENT_REMINDER) {
+            String deadlinePart = message.paymentDeadline() != null
+                ? " Recuerda que su límite de pago es hasta el "
+                    + DEADLINE_DATE_FORMATTER.format(message.paymentDeadline())
+                    + " a las " + DEADLINE_TIME_FORMATTER.format(message.paymentDeadline())
+                    + " UTC."
+                : " Recuerda completar el pago para confirmar tu sesión antes del límite.";
+            return "Hola " + user.name() + ", tu reserva " + message.bookingId() + " está pendiente de pago." + deadlinePart;
+        }
+
         String action = switch (message.notificationType()) {
             case BOOKING_CREATED -> "fue creada";
             case BOOKING_CANCELLED -> "fue cancelada";
+            case PAYMENT_REMINDER -> "";
         };
         return "Hola " + user.name() + ", tu reserva " + message.bookingId() + " " + action + ".";
     }

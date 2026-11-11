@@ -26,10 +26,7 @@ public class PaymentController {
         PaymentCommand command = new PaymentCommand(
                 idempotencyKey,
                 request.bookingId(),
-                request.amount(),
-                request.cardNumber(),
-                request.expiryDate(),
-                request.cvv()
+                request.amount()
         );
 
         PaymentResult result = authorizePaymentUseCase.authorize(command);

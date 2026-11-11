@@ -120,94 +120,11 @@ import { Stripe, StripeElements, StripePaymentElement } from '@stripe/stripe-js'
                   </details>
                 }
 
-                <!-- CASO 1: Contenedor Oficial de Stripe Elements -->
+                <!-- Contenedor Oficial de Stripe Elements -->
                 @if (stripeAvailable) {
                   <div>
                     <label class="mb-1.5 block text-xs font-medium text-[#787774]">Información de la tarjeta</label>
                     <div #paymentElementContainer id="payment-element" class="rounded-md border border-[#EAEAEA] p-3 bg-white"></div>
-                  </div>
-                }
-
-                <!-- CASO 2: Inputs nativos para modo de prueba simulado (fallback cuando no hay STRIPE_PUBLISHABLE_KEY) -->
-                @if (!stripeAvailable && !stripeConfigured) {
-                  <div>
-                    <label class="mb-1.5 block text-xs font-medium text-[#787774]">Número de tarjeta (Modo Simulado)</label>
-                    <div class="relative">
-                      <input
-                        type="text"
-                        name="cardNumber"
-                        #cardInput="ngModel"
-                        [ngModel]="cardData.cardNumber"
-                        (ngModelChange)="formatCardNumber($event)"
-                        placeholder="0000 0000 0000 0000"
-                        minlength="19"
-                        maxlength="19"
-                        pattern="^[0-9 ]+$"
-                        inputmode="numeric"
-                        required
-                        class="block w-full rounded-md border bg-white px-3 py-2 text-sm text-[#111111] tabular-nums outline-none transition-colors duration-150 placeholder:text-[#9B9A97]"
-                        [ngClass]="!(cardInput.dirty || cardInput.touched) ? 'border-[#EAEAEA] hover:border-[#C9C8C4] focus:border-[#111111]' : (cardInput.invalid ? 'border-[#9F2F2D]' : 'border-[#346538]')"
-                      >
-                      @if (cardInput.errors?.['pattern'] && (cardInput.dirty || cardInput.touched)) {
-                        <p class="mt-1 text-xs text-[#9F2F2D]">
-                          Solo se aceptan números.
-                        </p>
-                      }
-                    </div>
-                  </div>
-
-                  <div class="flex gap-3">
-                    <div class="w-1/2">
-                      <label class="mb-1.5 block text-xs font-medium text-[#787774]">Vencimiento</label>
-                      <div class="relative">
-                        <input
-                          type="text"
-                          name="expiryDate"
-                          #expiryInput="ngModel"
-                          [ngModel]="cardData.expiryDate"
-                          (ngModelChange)="formatExpiry($event)"
-                          placeholder="MM/YY"
-                          minlength="5"
-                          maxlength="5"
-                          pattern="^(0[1-9]|1[0-2])\/[0-9]{2}$"
-                          inputmode="numeric"
-                          required
-                          class="block w-full rounded-md border bg-white px-3 py-2 text-sm text-[#111111] tabular-nums outline-none transition-colors duration-150 placeholder:text-[#9B9A97]"
-                          [ngClass]="!(expiryInput.dirty || expiryInput.touched) ? 'border-[#EAEAEA] hover:border-[#C9C8C4] focus:border-[#111111]' : (expiryInput.invalid ? 'border-[#9F2F2D]' : 'border-[#346538]')"
-                        >
-                        @if (expiryInput.errors?.['pattern'] && (expiryInput.dirty || expiryInput.touched)) {
-                          <p class="mt-1 text-xs text-[#9F2F2D]">
-                            Usa MM/YY.
-                          </p>
-                        }
-                      </div>
-                    </div>
-
-                    <div class="w-1/2">
-                      <label class="mb-1.5 block text-xs font-medium text-[#787774]">CVV</label>
-                      <div class="relative">
-                        <input
-                          type="password"
-                          name="cvv"
-                          #cvvInput="ngModel"
-                          [ngModel]="cardData.cvv"
-                          (ngModelChange)="formatCvv($event)"
-                          placeholder="***"
-                          minlength="3"
-                          maxlength="3"
-                          pattern="^[0-9]+$"
-                          inputmode="numeric"
-                          required
-                          class="block w-full rounded-md border bg-white px-3 py-2 text-sm text-[#111111] outline-none transition-colors duration-150 placeholder:text-[#9B9A97]"
-                          [ngClass]="!(cvvInput.dirty || cvvInput.touched) ? 'border-[#EAEAEA] hover:border-[#C9C8C4] focus:border-[#111111]' : (cvvInput.invalid ? 'border-[#9F2F2D]' : 'border-[#346538]')"
-                        >
-                        @if (cvvInput.errors?.['pattern'] && (cvvInput.dirty || cvvInput.touched)) {
-                          <p class="mt-1 text-xs text-[#9F2F2D]">
-                            Solo números.
-                          </p>
-                        }
-                      </div>
-                    </div>
                   </div>
                 }
 
@@ -226,7 +143,7 @@ import { Stripe, StripeElements, StripePaymentElement } from '@stripe/stripe-js'
             </button>
             <button
               type="submit"
-              [disabled]="loading || initializingStripe || (stripeConfigured && !stripeAvailable) || (!stripeAvailable && !stripeConfigured && !paymentForm.valid)"
+              [disabled]="loading || initializingStripe || !stripeAvailable"
               class="cursor-pointer rounded-md bg-[#111111] px-5 py-2 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100"
             >
               {{ loading ? 'Procesando...' : 'Confirmar pago' }}
@@ -257,8 +174,6 @@ export class PaymentModal implements OnInit, OnDestroy {
   // Estado del componente
   initializingStripe = true;
   stripeAvailable = false;
-  /** Evita que un error de Stripe Elements active por accidente el formulario simulado. */
-  stripeConfigured = false;
   loading = false;
   errorMsg = '';
 
@@ -289,13 +204,6 @@ export class PaymentModal implements OnInit, OnDestroy {
     }
   ];
 
-  // Datos para fallback simulado (en caso de que no haya clave de Stripe configurada)
-  cardData = {
-    cardNumber: '',
-    expiryDate: '',
-    cvv: ''
-  };
-
   constructor(
     private http: HttpClient,
     private stripeService: StripeService
@@ -323,12 +231,11 @@ export class PaymentModal implements OnInit, OnDestroy {
     this.errorMsg = '';
 
     const publishableKey = this.stripeService.getPublishableKey();
-    this.stripeConfigured = Boolean(publishableKey);
     if (!publishableKey) {
-      // Si no se proporcionó la clave pública de Stripe, caemos al modo simulado transparente
-      console.info('[PaymentModal] STRIPE_PUBLISHABLE_KEY no encontrada. Activando modo simulado.');
+      console.error('[PaymentModal] STRIPE_PUBLISHABLE_KEY no encontrada.');
       this.stripeAvailable = false;
       this.initializingStripe = false;
+      this.errorMsg = 'La pasarela de pagos no se encuentra disponible temporalmente. Intenta recargar la página.';
       return;
     }
 
@@ -348,6 +255,13 @@ export class PaymentModal implements OnInit, OnDestroy {
       const response = await this.http.post<any>(apiBase() + '/payments/authorize', payload, {
         headers: { 'Idempotency-Key': idempotencyKey }
       }).toPromise();
+
+      if (response?.status === 'DECLINED') {
+        this.stripeAvailable = false;
+        this.initializingStripe = false;
+        this.errorMsg = response.message || 'La reserva no puede ser pagada porque su plazo ha expirado.';
+        return;
+      }
 
       if (!response?.clientSecret) {
         throw new Error('El servidor no retornó el clientSecret para la pasarela.');
@@ -389,22 +303,21 @@ export class PaymentModal implements OnInit, OnDestroy {
       }, 50);
 
     } catch (err: any) {
-      console.warn('[PaymentModal] No se pudo inicializar Stripe Elements:', err.message || err);
+      console.error('[PaymentModal Error]: Detalle técnico para desarrolladores:', err?.message || err);
       this.stripeAvailable = false;
       this.initializingStripe = false;
-      this.errorMsg = 'No se pudo cargar Stripe Elements: ' + (err?.message || 'revisa la conexión con js.stripe.com y vuelve a intentarlo.');
+      this.errorMsg = 'No pudimos conectar con la pasarela de pagos segura en este momento. Por favor, intenta de nuevo o recarga la página.';
     }
   }
 
   /**
-   * Ejecuta el pago mediante Stripe Elements o mediante el modo simulado.
+   * Ejecuta el pago mediante Stripe Elements.
    */
   async submitPayment() {
     this.loading = true;
     this.errorMsg = '';
 
     if (this.stripeAvailable && this.stripe && this.elements) {
-      // Flujo Real con Stripe Elements
       try {
         const { error, paymentIntent } = await this.stripe.confirmPayment({
           elements: this.elements,
@@ -416,7 +329,12 @@ export class PaymentModal implements OnInit, OnDestroy {
 
         if (error) {
           this.loading = false;
-          this.errorMsg = error.message || 'El pago no pudo ser procesado. Intenta de nuevo.';
+          console.error('[PaymentModal Error]: Detalle de error en confirmación:', error);
+          // Stripe Elements ya muestra los errores de tarjeta y validación directamente bajo el campo afectado.
+          // Solo asignamos errorMsg al banner superior si es un error general del sistema para evitar duplicidad.
+          if (error.type !== 'card_error' && error.type !== 'validation_error') {
+            this.errorMsg = error.message || 'El pago no pudo ser procesado. Intenta de nuevo.';
+          }
           return;
         }
 
@@ -425,19 +343,18 @@ export class PaymentModal implements OnInit, OnDestroy {
           this.paymentSuccess.emit();
         } else {
           this.loading = false;
-          this.errorMsg = 'El estado de la transacción es: ' + (paymentIntent?.status || 'desconocido');
+          console.warn('[PaymentModal]: Estado de transacción no completado:', paymentIntent?.status);
+          this.errorMsg = 'No fue posible completar la transacción. Por favor verifica tus fondos o intenta con otro medio de pago.';
         }
       } catch (err: any) {
         this.loading = false;
-        this.errorMsg = 'Error al comunicar con la pasarela: ' + (err.message || 'desconocido');
+        console.error('[PaymentModal Error]: Detalle técnico al comunicar con la pasarela:', err?.message || err);
+        this.errorMsg = 'Ocurrió un inconveniente al procesar el pago. Por favor intenta de nuevo en unos momentos.';
       }
-
-    } else if (!this.stripeConfigured) {
-      // Flujo de Respaldo Simulado
-      this.submitSimulatedPayment();
     } else {
       this.loading = false;
-      this.errorMsg = 'Stripe Elements no está disponible. Cierra esta ventana, recarga la página e inténtalo de nuevo.';
+      console.warn('[PaymentModal]: Stripe Elements no está disponible o no se configuró.');
+      this.errorMsg = 'El servicio de pago no se encuentra disponible temporalmente. Cierra esta ventana, recarga la página e inténtalo de nuevo.';
     }
   }
 
@@ -445,103 +362,5 @@ export class PaymentModal implements OnInit, OnDestroy {
     const returnUrl = new URL(window.location.href);
     returnUrl.searchParams.set('payment_booking_id', this.bookingId);
     return returnUrl.toString();
-  }
-
-  /**
-   * Lógica de respaldo para el modo de prueba simulado.
-   */
-  private submitSimulatedPayment() {
-    if (this.cardData.expiryDate.length === 5) {
-      const parts = this.cardData.expiryDate.split('/');
-      const month = parseInt(parts[0], 10);
-      const year = parseInt('20' + parts[1], 10);
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth() + 1;
-
-      if (month < 1 || month > 12) {
-        this.errorMsg = 'El mes de vencimiento es inválido.';
-        this.loading = false;
-        return;
-      }
-
-      if (year < currentYear || (year === currentYear && month < currentMonth)) {
-        this.errorMsg = 'La tarjeta ingresada está vencida.';
-        this.loading = false;
-        return;
-      }
-    }
-
-    if (this.cardData.cvv === '000') {
-      setTimeout(() => {
-        this.errorMsg = "Pago rechazado: Por políticas de seguridad, los códigos de verificación (CVV) con valor '000' no son admitidos.";
-        this.loading = false;
-      }, 600);
-      return;
-    }
-
-    const idempotencyKey = crypto.randomUUID();
-    const payload = {
-      bookingId: this.bookingId,
-      amount: this.amount,
-      cardNumber: this.cardData.cardNumber.replace(/\s/g, ''),
-      expiryDate: this.cardData.expiryDate,
-      cvv: this.cardData.cvv
-    };
-
-    this.http.post<any>(apiBase() + '/payments/authorize', payload, {
-      headers: { 'Idempotency-Key': idempotencyKey }
-    }).subscribe({
-      next: (response) => {
-        this.loading = false;
-        if (response['status'] === 'APPROVED') {
-          this.paymentSuccess.emit();
-        } else {
-          let msg = response['message'];
-          if (msg === 'Card declined deterministically' || this.cardData.cardNumber.endsWith('0000')) {
-            this.errorMsg = "Pago rechazado: Por políticas de seguridad, las tarjetas con terminación '0000' no están habilitadas para realizar transacciones.";
-          } else {
-            this.errorMsg = 'Pago rechazado: ' + msg + '. Intenta con otra tarjeta.';
-          }
-        }
-      },
-      error: (err) => {
-        this.loading = false;
-        this.errorMsg = 'Ocurrió un error técnico procesando el pago. Por favor intenta de nuevo.';
-        console.error(err);
-      }
-    });
-  }
-
-  // Métodos auxiliares para formateo en modo simulado
-  formatCardNumber(value: string) {
-    const isOnlyNumbersAndSpaces = /^[0-9\s]*$/.test(value);
-    let input = value.replace(/\s/g, '').substring(0, 16);
-    if (isOnlyNumbersAndSpaces) {
-      let formatted = '';
-      for (let i = 0; i < input.length; i++) {
-        if (i > 0 && i % 4 === 0) formatted += ' ';
-        formatted += input[i];
-      }
-      setTimeout(() => this.cardData.cardNumber = formatted);
-    } else {
-      setTimeout(() => this.cardData.cardNumber = value.substring(0, 19));
-    }
-  }
-
-  formatExpiry(value: string) {
-    const isOnlyNumbersAndSlash = /^[0-9\/]*$/.test(value);
-    let input = value.replace(/\//g, '').substring(0, 4);
-    if (isOnlyNumbersAndSlash) {
-      if (input.length > 2) input = input.substring(0, 2) + '/' + input.substring(2);
-      setTimeout(() => this.cardData.expiryDate = input);
-    } else {
-      setTimeout(() => this.cardData.expiryDate = value.substring(0, 5));
-    }
-  }
-
-  formatCvv(value: string) {
-    let input = value.substring(0, 3);
-    setTimeout(() => this.cardData.cvv = input);
   }
 }

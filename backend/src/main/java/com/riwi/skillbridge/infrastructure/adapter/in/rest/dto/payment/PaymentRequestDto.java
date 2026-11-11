@@ -5,8 +5,5 @@ import java.util.UUID;
 
 public record PaymentRequestDto(
     UUID bookingId,
-    BigDecimal amount,
-    String cardNumber,
-    String expiryDate,
-    String cvv
+    BigDecimal amount
 ) {}
