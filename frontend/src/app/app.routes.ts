@@ -12,6 +12,8 @@ import { ProviderOfferingsComponent } from './features/provider-offerings.compon
 import { AdminUsersComponent } from './features/admin-users.component';
 import { CustomerProviderRequestComponent } from './features/customer-provider-request.component';
 import { AdminProviderRequestsComponent } from './features/admin-provider-requests.component';
+import { TrendingComponent } from './features/trending.component';
+import { MyMentorshipsComponent } from './features/my-mentorships.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -24,6 +26,8 @@ export const routes: Routes = [
   { path: 'book', component: BookingComponent, canActivate: [authGuard] },
   { path: 'bookings/me', component: MyBookingsComponent, canActivate: [authGuard] },
   { path: 'provider/request', component: CustomerProviderRequestComponent, canActivate: [authGuard] },
+  { path: 'trending', component: TrendingComponent, canActivate: [authGuard] },
+  { path: 'mentorships/me', component: MyMentorshipsComponent, canActivate: [authGuard] },
 
   // Solo Provider y Admin:
   { path: 'provider/offerings', component: ProviderOfferingsComponent, canActivate: [roleGuard('PROVIDER', 'ADMIN')] },

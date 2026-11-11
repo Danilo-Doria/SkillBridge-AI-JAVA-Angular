@@ -8,6 +8,8 @@ import com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
 import com.riwi.skillbridge.domain.model.Actor;
 import com.riwi.skillbridge.domain.model.Offering;
+import com.riwi.skillbridge.domain.model.PageQuery;
+import com.riwi.skillbridge.domain.model.PageResult;
 import com.riwi.skillbridge.domain.model.Role;
 import com.riwi.skillbridge.domain.policy.OfferingAccessPolicy;
 import org.junit.jupiter.api.Test;
@@ -74,6 +76,22 @@ class OfferingCacheConsistencyTest {
         assertEquals(1, catalog.listActive().size());
     }
 
+    @Test
+    void catalogo_paginado_devuelve_paginas_consistentes_y_no_depende_de_la_cache() {
+        for (int i = 1; i <= 5; i++) createOne("Servicio " + i);
+        catalog.listActive();                         // calienta la cache con 5 elementos
+        createOne("Servicio 6");                      // la pagina siempre va al repositorio
+
+        var first = catalog.listActive(new PageQuery(0, 4, "title", false));
+        var second = catalog.listActive(new PageQuery(1, 4, "title", false));
+
+        assertEquals(4, first.items().size());
+        assertEquals(2, second.items().size());
+        assertEquals(6, first.totalElements());
+        assertEquals(2, first.totalPages());
+        assertEquals(1, second.page());
+    }
+
     private static class InMemoryRepository implements OfferingRepositoryPort {
         private final Map<UUID, Offering> store = new LinkedHashMap<>();
 
@@ -83,6 +101,17 @@ class OfferingCacheConsistencyTest {
         @Override public List<Offering> findAll() { return List.copyOf(store.values()); }
         @Override public List<Offering> findByProviderId(UUID providerId) {
             return store.values().stream().filter(o -> o.providerId().equals(providerId)).toList();
+        }
+        @Override public PageResult<Offering> findAllActive(PageQuery q) { return page(findAllActive(), q); }
+        @Override public PageResult<Offering> findAll(PageQuery q) { return page(findAll(), q); }
+        @Override public PageResult<Offering> findByProviderId(UUID providerId, PageQuery q) {
+            return page(findByProviderId(providerId), q);
+        }
+        private static PageResult<Offering> page(List<Offering> all, PageQuery q) {
+            int from = Math.min(q.page() * q.size(), all.size());
+            int to = Math.min(from + q.size(), all.size());
+            int pages = (int) Math.ceil(all.size() / (double) q.size());
+            return new PageResult<>(all.subList(from, to), q.page(), q.size(), all.size(), pages);
         }
         @Override public Optional<Offering> findById(UUID id) { return Optional.ofNullable(store.get(id)); }
         @Override public Offering save(Offering offering) { store.put(offering.id(), offering); return offering; }

@@ -5,6 +5,7 @@ import com.riwi.skillbridge.domain.event.PaymentApproved;
 import com.riwi.skillbridge.domain.event.PaymentRejected;
 import com.stripe.net.Webhook;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -20,17 +21,21 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("Pruebas Unitarias - Webhook de Stripe")
 class StripeWebhookControllerTest {
 
     @Mock
     private PaymentEventPublisherPort paymentEventPublisherPort;
+
+    @Mock
+    private com.riwi.skillbridge.application.service.PaymentApprovedAssembler approvedAssembler;
 
     private StripeWebhookController controller;
     private final String webhookSecret = "whsec_test_secret_key_12345";
 
     @BeforeEach
     void setUp() {
-        controller = new StripeWebhookController(paymentEventPublisherPort, webhookSecret);
+        controller = new StripeWebhookController(paymentEventPublisherPort, approvedAssembler, webhookSecret);
     }
 
     private String generateSignature(String payload, String secret) throws Exception {
@@ -41,7 +46,9 @@ class StripeWebhookControllerTest {
     }
 
     @Test
+    @DisplayName("Caso Triste / Seguridad: Rechaza petición sin firma de Stripe")
     void testMissingSignatureReturnsBadRequest() {
+        // [Caso Triste / Seguridad]: Si el webhook no trae la firma de Stripe, se rechaza con error 400.
         ResponseEntity<Map<String, Object>> response = controller.handleStripeWebhook("{}", null);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -50,7 +57,9 @@ class StripeWebhookControllerTest {
     }
 
     @Test
+    @DisplayName("Caso Triste / Seguridad: Rechaza petición con firma alterada o falsa")
     void testInvalidSignatureReturnsBadRequest() {
+        // [Caso Triste / Seguridad]: Si la firma no coincide con nuestro secreto, se rechaza con error 400.
         String payload = "{\"id\":\"evt_123\",\"type\":\"payment_intent.succeeded\"}";
         String invalidSig = "t=123456789,v1=bad_signature_hash";
 
@@ -62,8 +71,11 @@ class StripeWebhookControllerTest {
     }
 
     @Test
+    @DisplayName("Caso Feliz: Notificación de pago exitoso y confirmación de reserva")
     void testPaymentIntentSucceededPublishesPaymentApproved() throws Exception {
+        // [Caso Feliz]: Stripe avisa que el pago fue exitoso, leemos el bookingId y emitimos PaymentApproved.
         UUID bookingId = UUID.randomUUID();
+        when(approvedAssembler.assemble(bookingId, null)).thenReturn(new PaymentApproved(bookingId));
         String payload = """
         {
           "id": "evt_test_succeeded_1",
@@ -99,7 +111,9 @@ class StripeWebhookControllerTest {
     }
 
     @Test
+    @DisplayName("Caso Triste: Notificación de pago fallido y aviso de rechazo")
     void testPaymentIntentFailedPublishesPaymentRejected() throws Exception {
+        // [Caso Triste]: Stripe avisa que la tarjeta falló, leemos el motivo y emitimos PaymentRejected.
         UUID bookingId = UUID.randomUUID();
         String payload = """
         {
@@ -140,7 +154,9 @@ class StripeWebhookControllerTest {
     }
 
     @Test
+    @DisplayName("Caso Borde: Notificación válida sin bookingId no emite eventos")
     void testEventWithoutBookingIdDoesNotPublishDomainEvent() throws Exception {
+        // [Caso Borde]: Si llega un evento sin ID de reserva, respondemos 200 a Stripe pero no tocamos nada.
         String payload = """
         {
           "id": "evt_test_no_meta",
