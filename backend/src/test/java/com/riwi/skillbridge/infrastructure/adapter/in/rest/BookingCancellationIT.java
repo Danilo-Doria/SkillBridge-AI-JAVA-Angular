@@ -75,7 +75,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "app.cors.allowed-origins=http://localhost:4200",
     "spring.rabbitmq.listener.simple.retry.initial-interval=100ms",
     "spring.kafka.listener.auto-startup=false",
-    "spring.autoconfigure.exclude=org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration"
+    "spring.autoconfigure.exclude=org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration,"
+        + "org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration,"
+        + "org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiTextEmbeddingAutoConfiguration"
 })
 @AutoConfigureMockMvc
 @Testcontainers
@@ -92,7 +94,7 @@ class BookingCancellationIT {
 
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg17")
         .withDatabaseName("skillbridge_test")
         .withUsername("test")
         .withPassword("test");

@@ -9,11 +9,13 @@ import com.riwi.skillbridge.application.port.out.OfferingRepositoryPort;
 import com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
 import com.riwi.skillbridge.application.common.CorrelationIdHolder;
+import com.riwi.skillbridge.application.service.knowledge.KnowledgeIndexService;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
 import com.riwi.skillbridge.domain.exception.ForbiddenOperationException;
 import com.riwi.skillbridge.domain.model.Actor;
 import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.domain.policy.OfferingAccessPolicy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -27,15 +29,26 @@ public class OfferingCommandService implements CreateOfferingUseCase, UpdateOffe
     private final OfferingCachePort cache;
     private final OfferingAccessPolicy policy;
     private final AuditEventPublisherPort auditPublisher;
+    private final KnowledgeIndexService knowledgeIndexService;
+
+    @Autowired
+    public OfferingCommandService(OfferingRepositoryPort repository,
+                                  OfferingCachePort cache,
+                                  OfferingAccessPolicy policy,
+                                  AuditEventPublisherPort auditPublisher,
+                                  @Autowired(required = false) KnowledgeIndexService knowledgeIndexService) {
+        this.repository = repository;
+        this.cache = cache;
+        this.policy = policy;
+        this.auditPublisher = auditPublisher;
+        this.knowledgeIndexService = knowledgeIndexService;
+    }
 
     public OfferingCommandService(OfferingRepositoryPort repository,
                                   OfferingCachePort cache,
                                   OfferingAccessPolicy policy,
                                   AuditEventPublisherPort auditPublisher) {
-        this.repository = repository;
-        this.cache = cache;
-        this.policy = policy;
-        this.auditPublisher = auditPublisher;
+        this(repository, cache, policy, auditPublisher, null);
     }
 
     @Override
@@ -45,6 +58,9 @@ public class OfferingCommandService implements CreateOfferingUseCase, UpdateOffe
             command.description(), command.category(), command.price(),
             command.mode(), command.durationHours()));
         cache.evictActiveOfferings();
+        if (knowledgeIndexService != null) {
+            knowledgeIndexService.reindexOffering(saved);
+        }
         
         publishAudit("OfferingCreated", actor, "CREATE", "OFFERING", saved.id().toString());
         return saved;
@@ -58,6 +74,9 @@ public class OfferingCommandService implements CreateOfferingUseCase, UpdateOffe
             command.description(), command.category(), command.price(),
             command.mode(), command.durationHours()));
         cache.evictActiveOfferings();
+        if (knowledgeIndexService != null) {
+            knowledgeIndexService.reindexOffering(saved);
+        }
         
         publishAudit("OfferingUpdated", actor, "UPDATE", "OFFERING", saved.id().toString());
         return saved;
@@ -68,8 +87,11 @@ public class OfferingCommandService implements CreateOfferingUseCase, UpdateOffe
         Offering offering = load(offeringId);
         policy.assertCanModify(actor, offering);
         if (!offering.active()) return;          // idempotente
-        repository.save(offering.deactivate());
+        Offering saved = repository.save(offering.deactivate());
         cache.evictActiveOfferings();
+        if (knowledgeIndexService != null) {
+            knowledgeIndexService.reindexOffering(saved);
+        }
         
         publishAudit("OfferingDeactivated", actor, "DEACTIVATE", "OFFERING", offering.id().toString());
     }
@@ -79,8 +101,11 @@ public class OfferingCommandService implements CreateOfferingUseCase, UpdateOffe
         Offering offering = load(offeringId);
         policy.assertCanModify(actor, offering);
         if (offering.active()) return;           // idempotente
-        repository.save(offering.activate());
+        Offering saved = repository.save(offering.activate());
         cache.evictActiveOfferings();
+        if (knowledgeIndexService != null) {
+            knowledgeIndexService.reindexOffering(saved);
+        }
         
         publishAudit("OfferingActivated", actor, "ACTIVATE", "OFFERING", offering.id().toString());
     }

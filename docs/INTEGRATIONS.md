@@ -127,3 +127,12 @@ This document catalogs all verified infrastructure, broker, external API, and mi
   - Fail-fast startup validation (`AiFallbackValidator`): Aborts boot immediately if a chain is empty, has non-positive timeout (`timeout-seconds <= 0`), or configures unsupported providers.
   - Independent Circuit Breakers per candidate (`capability:provider:model`) managed by Resilience4j (`AiCircuitBreakerManager`). OPEN circuits are skipped instantly (< 5 ms) without network calls.
   - Administration & Health: `GET /api/admin/ai/providers` restricted to `ROLE_ADMIN` (returns chain and circuit statuses without exposing secrets), and Actuator `AiFallbackHealthIndicator` reporting `UP`, `DEGRADED`, or `DOWN`.
+
+## 8. Embeddings y RAG (HU-26)
+
+| Pieza | Detalle |
+|---|---|
+| Embeddings | `gemini-embedding-001`, 768 dimensiones, clave propia `GEMINI_EMBEDDING_API_KEY` (nunca se reutiliza `GEMINI_API_KEY`). Sin clave: 503 controlado, no hay respuesta solo con BM25. |
+| Almacén vectorial | PostgreSQL 17 con extensión `pgvector` (imagen `pgvector/pgvector:pg17`), schema `knowledge`, índice HNSW `vector_cosine_ops`. En Railway hay que crear la extensión (`CREATE EXTENSION vector;`, T002 pendiente). |
+| Generación | `GeminiKnowledgeAnswerAdapter` tras `KnowledgeAnswerPort`, con timeout en cliente. |
+| Corpus público | `backend/src/main/resources/knowledge/*.md` con `visibility: public`; no se indexa `docs/`. |

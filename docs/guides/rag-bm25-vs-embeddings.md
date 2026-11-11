@@ -75,9 +75,9 @@ pgvector es una extensión de PostgreSQL que añade el tipo vector y estos índi
 
 Ninguno es «mejor». **Se complementan**.
 
-## 6. Búsqueda híbrida (no se usa en SkillBridge)
+## 6. Búsqueda híbrida (se usa en SkillBridge desde el MVP)
 
-Combinar las dos técnicas fusionando rankings (por ejemplo con *Reciprocal Rank Fusion*, que suma `1 / (c + posición)` por cada ranking en que aparece un fragmento) suele dar lo mejor de ambas. **En este proyecto se decidió usar solo embeddings** (ADR-0008); se explica aquí como contexto de la técnica.
+Combinar las dos técnicas fusionando rankings (por ejemplo con *Reciprocal Rank Fusion*, que suma `1 / (c + posición)` por cada ranking en que aparece un fragmento) suele dar lo mejor de ambas. **SkillBridge la usa desde el MVP** (ADR-0008): BM25 para nombres exactos y embeddings para paráfrasis y cruce de idiomas. El umbral de rechazo se aplica a la similitud coseno, no a la puntuación fusionada.
 
 ## 7. Cómo saber cuál funciona mejor: evaluar
 
@@ -108,4 +108,4 @@ Resultado esperado a comprobar: los embeddings ganan en inglés sobre ofertas en
 1. Construir el conjunto de evaluación en español e inglés, incluidas preguntas sin respuesta.
 2. Implementar el adaptador vectorial y medir `hit@k`, `MRR` y falsos positivos.
 3. Experimentar: cambiar el umbral, el `topK` y el modelo de embeddings, y ver el efecto en las métricas.
-4. Si algún día quieres comparar con una línea base léxica, el puerto `KnowledgeSearchPort` permite añadir un adaptador BM25 sin tocar el resto.
+4. Medir las tres estrategias (BM25 solo, embeddings solos e híbrida) y comprobar si la fusión mejora `hit@k` o `MRR`.
