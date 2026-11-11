@@ -64,7 +64,7 @@ EmailNotificationSender (JavaMailSender hacia Mailpit)
 2. **`PaymentReminderService` (Aplicación / Caso de uso):**
    * Consulta las reservas con estado `CREATED` mediante `BookingRepositoryPort.findByStatus(...)`.
    * Para cada reserva, consulta la regla de negocio pura en `booking.isEligibleForPaymentReminder(now)`.
-   * Si es elegible: publica el mensaje en RabbitMQ y persiste `lastPaymentReminderSentAt = now` en la base de datos (PostgreSQL vía `V13`).
+   * Si es elegible: publica el mensaje en RabbitMQ y persiste `lastPaymentReminderSentAt = now` en la base de datos (PostgreSQL vía `V15`).
 3. **`Booking` (Dominio puro):**
    * Calcula `paymentDeadline()` (`scheduledAt - 12h`).
    * Valida: `status == CREATED`, `now < deadline`, `now >= deadline - 7 días`, y transcurso $\ge$ 24 horas desde el último recordatorio enviado.
