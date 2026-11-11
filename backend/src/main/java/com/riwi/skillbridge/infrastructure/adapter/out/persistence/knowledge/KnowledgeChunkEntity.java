@@ -5,8 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.ColumnTransformer;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -48,7 +46,6 @@ public class KnowledgeChunkEntity {
     private Integer durationHours;
 
     @Column(name = "embedding", nullable = false, columnDefinition = "vector(768)")
-    @JdbcTypeCode(SqlTypes.OTHER)
     @ColumnTransformer(write = "CAST(? AS vector)", read = "embedding::text")
     private String embedding;
 
