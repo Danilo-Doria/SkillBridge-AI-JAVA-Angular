@@ -7,37 +7,43 @@ import com.riwi.skillbridge.application.port.out.AiStructuredResponse;
 import com.riwi.skillbridge.application.port.out.KnowledgeCandidate;
 import com.riwi.skillbridge.application.port.out.KnowledgeSearchPort;
 import com.riwi.skillbridge.application.port.out.OfferingRepositoryPort;
-import com.riwi.skillbridge.domain.exception.AiProviderException;
-import com.riwi.skillbridge.domain.knowledge.KnowledgeChunk;
+import com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort;
+import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
+import com.riwi.skillbridge.application.port.out.event.RecommendationGeneratedPayload;
 import com.riwi.skillbridge.application.recommendation.Recommendation;
 import com.riwi.skillbridge.application.recommendation.RecommendationRequest;
 import com.riwi.skillbridge.application.recommendation.RecommendationResult;
+import com.riwi.skillbridge.domain.exception.AiProviderException;
+import com.riwi.skillbridge.domain.knowledge.KnowledgeChunk;
 import com.riwi.skillbridge.domain.model.Offering;
-import com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort;
-import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
-import java.time.Instant;
+import com.riwi.skillbridge.domain.model.RecommendationInputType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 public class AiRecommendationService implements GenerateRecommendationUseCase {
 
+    private static final Logger log = LoggerFactory.getLogger(AiRecommendationService.class);
+
     private final AiRecommendationPort ai;
-    private final OfferingRepositoryPort offerings; 
+    private final OfferingRepositoryPort offerings;
     private final AuditEventPublisherPort events;
     private final KnowledgeSearchPort knowledgeSearch;
     private final int shortlistSize;
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AiRecommendationService.class);
 
     /** Sin preselección: el LLM recibe todas las ofertas activas (comportamiento anterior). */
     public AiRecommendationService(AiRecommendationPort ai, OfferingRepositoryPort offerings, AuditEventPublisherPort events) {
@@ -94,35 +100,90 @@ public class AiRecommendationService implements GenerateRecommendationUseCase {
 
     @Override
     public RecommendationResult recommend(RecommendationRequest request) {
-        UUID id = UUID.randomUUID(); 
+        UUID id = UUID.randomUUID();
         String correlation = CorrelationIdHolder.get() == null ? UUID.randomUUID().toString() : CorrelationIdHolder.get();
-        events.publish(new BusinessEvent<>(UUID.randomUUID(), "RecommendationRequested", id.toString(), "Recommendation", Instant.now(), correlation, 1, request.inputType(), String.valueOf(request.userId()), null, null, "REQUEST", "RECOMMENDATION", id.toString()));
-        
+
+        events.publish(new BusinessEvent<>(
+                UUID.randomUUID(),
+                "RecommendationRequested",
+                id.toString(),
+                "Recommendation",
+                Instant.now(),
+                correlation,
+                1,
+                request,
+                String.valueOf(request.userId()),
+                null,
+                null,
+                "REQUEST",
+                "RECOMMENDATION",
+                id.toString()
+        ));
+
         List<Offering> active = offerings.findAllActive();
-        
+
+        long startNanos = System.currentTimeMillis();
         AiStructuredResponse aiResponse = ai.recommend(request, shortlist(request, active));
-        
+        long latencyMs = System.currentTimeMillis() - startNanos;
+
+        String provider = aiResponse.resolvedByProvider() != null ? aiResponse.resolvedByProvider() : "unknown";
+        String model = aiResponse.resolvedByModel() != null ? aiResponse.resolvedByModel() : "unknown";
+
+        log.info("AI recommendation completed recommendationId={} provider={} model={} latencyMs={} correlationId={}",
+                id, provider, model, latencyMs, correlation);
+
         Map<UUID, String> titles = active.stream()
-            .collect(Collectors.toMap(Offering::id, Offering::title, (a, b) -> a));
+                .collect(Collectors.toMap(Offering::id, Offering::title, (a, b) -> a));
 
         List<Recommendation> selected = aiResponse.recommendations().stream()
-            .map(item -> {
-                try {
-                    UUID offeringId = UUID.fromString(item.offeringId());
-                    String title = titles.get(offeringId);
-                    if (title == null) {
-                        return null; // La IA citó una oferta que no existe o no está activa: se descarta
+                .map(item -> {
+                    try {
+                        UUID offeringId = UUID.fromString(item.offeringId());
+                        String title = titles.get(offeringId);
+                        if (title == null) {
+                            return null; // La IA citó una oferta que no existe o no está activa: se descarta
+                        }
+                        return new Recommendation(offeringId, title, item.score(), item.reason());
+                    } catch (IllegalArgumentException e) {
+                        return null; // Ignore if the AI hallucinated an invalid UUID
                     }
-                    return new Recommendation(offeringId, title, item.score(), item.reason());
-                } catch (IllegalArgumentException e) {
-                    return null; // Ignore if the AI hallucinated an invalid UUID
-                }
-            })
-            .filter(java.util.Objects::nonNull)
-            .collect(Collectors.toList());
-            
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
         RecommendationResult result = new RecommendationResult(id, aiResponse.explanation(), request.inputType(), request.normalizedNeed(), selected);
-        events.publish(new BusinessEvent<>(UUID.randomUUID(), "RecommendationGenerated", id.toString(), "Recommendation", Instant.now(), correlation, 1, request.inputType(), String.valueOf(request.userId()), null, null, "GENERATE", "RECOMMENDATION", id.toString()));
+
+        RecommendationInputType domainInputType = request.inputType() != null
+                ? RecommendationInputType.valueOf(request.inputType().name())
+                : RecommendationInputType.TEXT;
+
+        RecommendationGeneratedPayload payload = new RecommendationGeneratedPayload(
+                id,
+                request.userId(),
+                request.normalizedNeed(),
+                domainInputType,
+                model,
+                latencyMs,
+                provider
+        );
+
+        events.publish(new BusinessEvent<>(
+                UUID.randomUUID(),
+                "RecommendationGenerated",
+                id.toString(),
+                "Recommendation",
+                Instant.now(),
+                correlation,
+                2,
+                payload,
+                String.valueOf(request.userId()),
+                null,
+                null,
+                "GENERATE",
+                "RECOMMENDATION",
+                id.toString()
+        ));
+
         return result;
     }
 }

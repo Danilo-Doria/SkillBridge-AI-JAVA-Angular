@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (requiere aprobación humana). Sustituye parcialmente a [ADR-001](ADR-001-AI-PROVIDER-ABSTRACTION.md): reemplaza la selección de **un único adaptador activo por propiedad**; conserva los puertos, el aislamiento del dominio y el uso de Spring AI.
+Accepted. Implementado en HU-27 (mecanismo central, adaptadores compuestos, clasificación tipada, HTTP 503 sin mocks, y observabilidad). Sustituye parcialmente a [ADR-001](ADR-001-AI-PROVIDER-ABSTRACTION.md): reemplaza la selección de **un único adaptador activo por propiedad**; conserva los puertos, el aislamiento del dominio y el uso de Spring AI.
 
 ## Date
 

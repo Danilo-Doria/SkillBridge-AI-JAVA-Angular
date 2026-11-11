@@ -213,8 +213,10 @@ class OpenAiAiAdapterTest {
                 "Should handle: " + error.getMessage()
             );
 
-            assertEquals(ErrorType.UNAVAILABLE, exception.getErrorType(),
-                "Error should be mapped to UNAVAILABLE: " + error.getMessage());
+            ErrorType expected = error.getMessage().toLowerCase().contains("timeout")
+                    ? ErrorType.TIMEOUT : ErrorType.UNAVAILABLE;
+            assertEquals(expected, exception.getErrorType(),
+                "Error should be mapped appropriately: " + error.getMessage());
         }
     }
 }
