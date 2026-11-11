@@ -1,14 +1,10 @@
 package com.riwi.skillbridge.application.service.knowledge;
 
+import com.riwi.skillbridge.application.port.out.KnowledgeCorpusSourcePort;
+import com.riwi.skillbridge.application.port.out.KnowledgeSourceDocument;
 import com.riwi.skillbridge.domain.knowledge.KnowledgeChunk;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -19,105 +15,48 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 /**
  * Cargador del corpus de conocimiento de la plataforma (HU-26, FR-004, FR-014).
  * <p>
- * Lee exclusivamente archivos Markdown bajo {@code knowledge/*.md}, parsea el encabezado
- * YAML frontmatter (sourceId, type, title, visibility) e indexa solo los archivos con
- * {@code visibility: public}, dividiendo el contenido por sección de idioma (ES y EN).
+ * Bean {@code @Component} que depende exclusivamente del puerto de salida {@link KnowledgeCorpusSourcePort} para
+ * obtener los documentos fuente, parsea el encabezado YAML frontmatter (sourceId, type,
+ * title, visibility) e indexa solo los archivos con {@code visibility: public},
+ * dividiendo el contenido por sección de idioma (ES y EN).
  */
 @Component
 public class KnowledgeCorpusLoader {
 
-    public static final String DEFAULT_RESOURCE_PATTERN = "classpath*:knowledge/*.md";
-    private static final String REQUIRED_PATH_KEYWORD = "knowledge";
-    private static final String FORBIDDEN_PATH_KEYWORD = "docs";
+    private final KnowledgeCorpusSourcePort corpusSourcePort;
 
-    private final ResourcePatternResolver resourcePatternResolver;
-    private final String resourcePattern;
-
-    public KnowledgeCorpusLoader() {
-        this(new PathMatchingResourcePatternResolver(), DEFAULT_RESOURCE_PATTERN);
-    }
-
-    public KnowledgeCorpusLoader(ResourcePatternResolver resourcePatternResolver) {
-        this(resourcePatternResolver, DEFAULT_RESOURCE_PATTERN);
-    }
-
-    public KnowledgeCorpusLoader(ResourcePatternResolver resourcePatternResolver, String resourcePattern) {
-        validateResourcePattern(resourcePattern);
-        this.resourcePatternResolver = Objects.requireNonNull(resourcePatternResolver, "resourcePatternResolver no puede ser nulo");
-        this.resourcePattern = resourcePattern;
+    public KnowledgeCorpusLoader(KnowledgeCorpusSourcePort corpusSourcePort) {
+        this.corpusSourcePort = Objects.requireNonNull(corpusSourcePort, "corpusSourcePort no puede ser nulo");
     }
 
     /**
-     * Carga e indexa todos los fragmentos públicos del corpus configurado.
+     * Carga e indexa todos los fragmentos públicos del corpus configurado a través del puerto.
      *
      * @return lista inmutable de fragmentos de conocimiento cargados
      */
     public List<KnowledgeChunk> load() {
-        return loadFromPattern(this.resourcePattern);
+        return loadFromDocuments(this.corpusSourcePort.loadDocuments());
     }
 
     /**
-     * Carga fragmentos a partir de un patrón de recursos específico.
+     * Procesa una lista de documentos de conocimiento sin procesar y genera los fragmentos correspondientes.
      *
-     * @param pattern patrón de recursos (debe contener 'knowledge' y no contener 'docs')
+     * @param documents documentos a procesar
      * @return lista inmutable de fragmentos de conocimiento
      */
-    public List<KnowledgeChunk> loadFromPattern(String pattern) {
-        validateResourcePattern(pattern);
-        try {
-            Resource[] resources = resourcePatternResolver.getResources(pattern);
-            return loadFromResources(resources);
-        } catch (IOException e) {
-            throw new IllegalStateException("Error al resolver los recursos de conocimiento con el patrón: " + pattern, e);
-        }
-    }
-
-    /**
-     * Carga fragmentos a partir de un arreglo de recursos {@link Resource}.
-     *
-     * @param resources recursos a procesar
-     * @return lista inmutable de fragmentos de conocimiento
-     */
-    public List<KnowledgeChunk> loadFromResources(Resource... resources) {
-        if (resources == null || resources.length == 0) {
+    public List<KnowledgeChunk> loadFromDocuments(List<KnowledgeSourceDocument> documents) {
+        if (documents == null || documents.isEmpty()) {
             return List.of();
         }
 
         List<KnowledgeChunk> chunks = new ArrayList<>();
-        for (Resource resource : resources) {
-            if (resource == null || !resource.exists()) {
-                continue;
-            }
-
-            String filename = resource.getFilename();
-            if (filename == null || !filename.endsWith(".md")) {
-                continue;
-            }
-
-            try {
-                String uriStr = resource.getURI().toString().toLowerCase(Locale.ROOT);
-                if (hasPathSegment(uriStr, FORBIDDEN_PATH_KEYWORD) || !hasPathSegment(uriStr, REQUIRED_PATH_KEYWORD)) {
-                    continue;
-                }
-            } catch (IOException ignored) {
-                // Si el URI no puede obtenerse (ej. en ciertos entornos virtuales), se continúa con la lectura
-            }
-
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
-                StringBuilder builder = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    builder.append(line).append('\n');
-                }
-                chunks.addAll(parse(builder.toString()));
-            } catch (IOException e) {
-                throw new IllegalStateException("Error al leer el recurso de conocimiento: " + filename, e);
+        for (KnowledgeSourceDocument document : documents) {
+            if (document != null && document.content() != null) {
+                chunks.addAll(parse(document.content()));
             }
         }
 
@@ -310,29 +249,6 @@ public class KnowledgeCorpusLoader {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("Algoritmo de hash SHA-256 no disponible", e);
         }
-    }
-
-    private void validateResourcePattern(String pattern) {
-        if (pattern == null || pattern.isBlank()) {
-            throw new IllegalArgumentException("El patrón de recursos no puede ser nulo ni estar vacío");
-        }
-        String lower = pattern.toLowerCase(Locale.ROOT);
-        if (hasPathSegment(lower, FORBIDDEN_PATH_KEYWORD)) {
-            throw new IllegalArgumentException("Acceso prohibido: no se permite la lectura de la ruta 'docs/' (FR-004)");
-        }
-        if (!hasPathSegment(lower, REQUIRED_PATH_KEYWORD)) {
-            throw new IllegalArgumentException("Acceso restringido: solo se permite la lectura dentro del directorio 'knowledge/' (FR-004)");
-        }
-    }
-
-    /**
-     * Comprueba que {@code segment} aparece como segmento completo de ruta, no como parte de otro nombre.
-     * Así {@code /mi-proyecto-docs/} no cuenta como {@code docs} (evita descartar todo el corpus en silencio).
-     */
-    static boolean hasPathSegment(String text, String segment) {
-        return Pattern.compile("(?<![\\w.-])" + Pattern.quote(segment) + "(?![\\w.-])")
-                .matcher(text)
-                .find();
     }
 
     private record Section(KnowledgeChunk.Language language, String content) {}

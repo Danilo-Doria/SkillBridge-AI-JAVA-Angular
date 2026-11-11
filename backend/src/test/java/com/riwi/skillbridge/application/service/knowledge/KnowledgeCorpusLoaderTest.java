@@ -1,6 +1,8 @@
 package com.riwi.skillbridge.application.service.knowledge;
 
+import com.riwi.skillbridge.application.port.out.KnowledgeSourceDocument;
 import com.riwi.skillbridge.domain.knowledge.KnowledgeChunk;
+import com.riwi.skillbridge.infrastructure.adapter.out.knowledge.ClasspathKnowledgeCorpusSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -8,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -23,7 +26,7 @@ class KnowledgeCorpusLoaderTest {
 
     @BeforeEach
     void setUp() {
-        loader = new KnowledgeCorpusLoader();
+        loader = new KnowledgeCorpusLoader(new ClasspathKnowledgeCorpusSource());
     }
 
     @Nested
@@ -201,11 +204,13 @@ class KnowledgeCorpusLoaderTest {
     @DisplayName("Path Validation & Security Restrictions (FR-004)")
     class SecurityRestrictionsTests {
 
+        private final ClasspathKnowledgeCorpusSource source = new ClasspathKnowledgeCorpusSource();
+
         @Test
         @DisplayName("Should reject path patterns pointing to docs/")
         void shouldRejectPatternsContainingDocs() {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                    () -> loader.loadFromPattern("classpath*:docs/*.md"));
+                    () -> source.loadFromPattern("classpath*:docs/*.md"));
             assertTrue(ex.getMessage().contains("docs/"), "El mensaje debe indicar la prohibición de docs/");
         }
 
@@ -213,7 +218,7 @@ class KnowledgeCorpusLoaderTest {
         @DisplayName("Should reject patterns not containing knowledge/")
         void shouldRejectPatternsNotContainingKnowledge() {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                    () -> loader.loadFromPattern("classpath*:other/*.md"));
+                    () -> source.loadFromPattern("classpath*:other/*.md"));
             assertTrue(ex.getMessage().contains("knowledge/"), "El mensaje debe indicar la restricción a knowledge/");
         }
 
@@ -221,14 +226,14 @@ class KnowledgeCorpusLoaderTest {
         @ValueSource(strings = {"", "   "})
         @DisplayName("Should reject empty or blank patterns")
         void shouldRejectEmptyOrBlankPatterns(String blankPattern) {
-            assertThrows(IllegalArgumentException.class, () -> loader.loadFromPattern(blankPattern));
+            assertThrows(IllegalArgumentException.class, () -> source.loadFromPattern(blankPattern));
         }
 
         @Test
         @DisplayName("Constructor should reject invalid initial resource pattern")
         void constructorShouldValidatePattern() {
             assertThrows(IllegalArgumentException.class,
-                    () -> new KnowledgeCorpusLoader(new org.springframework.core.io.support.PathMatchingResourcePatternResolver(), "classpath*:docs/*.md"));
+                    () -> new ClasspathKnowledgeCorpusSource(new PathMatchingResourcePatternResolver(), "classpath*:docs/*.md"));
         }
     }
 
@@ -351,10 +356,21 @@ class KnowledgeCorpusLoaderTest {
                 }
             };
 
-            List<KnowledgeChunk> chunks = loader.loadFromResources(resource);
+            ClasspathKnowledgeCorpusSource source = new ClasspathKnowledgeCorpusSource();
+            List<KnowledgeSourceDocument> docs = source.loadFromResources(resource);
+            KnowledgeCorpusLoader customLoader = new KnowledgeCorpusLoader(() -> docs);
+            List<KnowledgeChunk> chunks = customLoader.load();
             assertEquals(1, chunks.size());
             assertEquals("policy-mock", chunks.getFirst().sourceId());
             assertEquals("Mock Policy", chunks.getFirst().title());
+        }
+
+        @Test
+        @DisplayName("Constructor should reject null KnowledgeCorpusSourcePort and have single constructor")
+        void constructorShouldRequireSourcePort() {
+            assertThrows(NullPointerException.class, () -> new KnowledgeCorpusLoader(null));
+            assertEquals(1, KnowledgeCorpusLoader.class.getConstructors().length,
+                    "KnowledgeCorpusLoader debe tener un único constructor que recibe KnowledgeCorpusSourcePort");
         }
     }
 }
