@@ -103,23 +103,23 @@
   - Criterios: el servicio solo depende de puertos (constitución Art. I.2). La firma de `AskKnowledgeUseCase` devuelve `KnowledgeAnswer`.
   - Criterios: `AskKnowledgeServiceTest` con dobles de los puertos verifica el camino feliz y que `sources` solo contiene fragmentos citados.
 
-- [ ] T020 [US1] Crear el DTO y el controlador `KnowledgeController` en `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/rest/`. Endpoint `POST /api/ai/knowledge/ask` con `@NotBlank` y `@Size(max = 500)` sobre `question`. Llama solo a `AskKnowledgeUseCase`. Depende de T019.
+- [x] T020 [US1] Crear el DTO y el controlador `KnowledgeController` en `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/rest/`. Endpoint `POST /api/ai/knowledge/ask` con `@NotBlank` y `@Size(max = 500)` sobre `question`. Llama solo a `AskKnowledgeUseCase`. Depende de T019.
   - Criterios: la respuesta 200 sigue exactamente el contrato `contracts/knowledge-ask.md` (`answer`, `hasSufficientContext`, `sources[sourceId,title,snippet,score]`). Los errores pasan por `GlobalExceptionHandler` en ProblemDetail (FR-002).
   - Criterios: el controlador no importa repositorios ni entidades (constitución Art. I.2).
 
-- [ ] T021 [US1] Prueba de controlador `KnowledgeControllerTest` (MockMvc) en `backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/in/rest/`. Depende de T020.
+- [x] T021 [US1] Prueba de controlador `KnowledgeControllerTest` (MockMvc) en `backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/in/rest/`. Depende de T020.
   - Criterios: verifica 200 con la forma del contrato, 400 para `"   "` y para 501 caracteres, y 401 sin autenticación (FR-001, SC-001).
   - Criterios: `mvn -f backend/pom.xml test -Dtest=KnowledgeControllerTest` ejecutado y su salida observada en la sesión.
 
-- [ ] T022 [US1] Implementar `KnowledgeIndexService` en `backend/src/main/java/com/riwi/skillbridge/application/service/knowledge/`. Carga inicial al arrancar por lotes: corpus de `.md` (T011), ofertas activas (`OfferingRepositoryPort.findAllActive()`) y categorías activas (`CategoryRepositoryPort.findAllActive()`). Depende de T011, T014, T015 y T019.
+- [x] T022 [US1] Implementar `KnowledgeIndexService` en `backend/src/main/java/com/riwi/skillbridge/application/service/knowledge/`. Carga inicial al arrancar por lotes: corpus de `.md` (T011), ofertas activas (`OfferingRepositoryPort.findAllActive()`) y categorías activas (`CategoryRepositoryPort.findAllActive()`). Depende de T011, T014, T015 y T019.
   - Criterios: la carga inicial usa `EmbeddingPort` por lotes y reemplaza el índice de forma atómica (FR-015, FR-018). El arranque registra el número de fragmentos indexados sin imprimir contenido.
   - Criterios: `KnowledgeIndexServiceTest` verifica que solo se recalculan los fragmentos con `contentHash` cambiado (FR-018).
 
-- [ ] T023 [US1] Sincronizar ofertas: `OfferingCommandService` (`backend/src/main/java/com/riwi/skillbridge/application/service/OfferingCommandService.java`) ya invalida la caché en cuatro operaciones. Añadir la reindexación de los fragmentos cambiados con `KnowledgeIndexService` en las mismas cuatro operaciones. No se engancha a Kafka (decisión 2 de la spec). Depende de T022.
+- [x] T023 [US1] Sincronizar ofertas: `OfferingCommandService` (`backend/src/main/java/com/riwi/skillbridge/application/service/OfferingCommandService.java`) ya invalida la caché en cuatro operaciones. Añadir la reindexación de los fragmentos cambiados con `KnowledgeIndexService` en las mismas cuatro operaciones. No se engancha a Kafka (decisión 2 de la spec). Depende de T022.
   - Criterios: tras crear, actualizar, activar o desactivar una oferta, la siguiente consulta refleja el cambio (prueba de integración en T029).
   - Criterios: `OfferingCommandServiceTest` existente sigue en verde.
 
-- [ ] T024 [P] [US1] Sincronizar categorías: `CategoryService` (`backend/src/main/java/com/riwi/skillbridge/application/service/CategoryService.java`) no invalida caché. Añadir la notificación al `KnowledgeIndexService` en crear, actualizar y eliminar (FR-015). Depende de T022.
+- [x] T024 [P] [US1] Sincronizar categorías: `CategoryService` (`backend/src/main/java/com/riwi/skillbridge/application/service/CategoryService.java`) no invalida caché. Añadir la notificación al `KnowledgeIndexService` en crear, actualizar y eliminar (FR-015). Depende de T022.
   - Criterios: `CategoryServiceTest` existente sigue en verde, y una prueba nueva verifica que un cambio de categoría reindexa solo ese fragmento.
 
 - [ ] T025 [US1] Prueba de aceptación `KnowledgeAskFlowIT` en `backend/src/test/java/com/riwi/skillbridge/`, con doble determinista de embeddings y espía del LLM generativo. Caso: pregunta sobre cancelación en ES y en EN (FR-016). Depende de T021, T022 y T023.
@@ -160,10 +160,10 @@
 - [x] T031 [P] [US3] Crear el cliente HTTP en `frontend/src/app/core/knowledge.api.ts` que llama a `POST /api/ai/knowledge/ask` con `apiBase()` (`frontend/src/app/core/api.ts`) y envía `X-XSRF-TOKEN` (constitución Art. III.2).
   - Criterios: tipos `KnowledgeAnswer` y `KnowledgeSource` coinciden con `contracts/knowledge-ask.md`. No se guarda el token en `localStorage`.
 
-- [ ] T032 [US3] Actualizar `frontend/src/app/features/ai.component.ts` con un modo de pregunta de conocimiento: respuesta reactiva con Signals, aviso neutro cuando `hasSufficientContext: false` (sin sección de fuentes), y tarjetas de fuentes con título, extracto y relevancia en porcentaje (User Story 3, escenarios 1 y 2). Depende de T031.
+- [x] T032 [US3] Actualizar `frontend/src/app/features/ai.component.ts` con un modo de pregunta de conocimiento: respuesta reactiva con Signals, aviso neutro cuando `hasSufficientContext: false` (sin sección de fuentes), y tarjetas de fuentes con título, extracto y relevancia en porcentaje (User Story 3, escenarios 1 y 2). Depende de T031.
   - Criterios: `ng build` pasa. Las clases usan Tailwind v4 y Signals (AGENTS.md §1).
 
-- [ ] T033 [US3] Manejo de error en el mismo componente: con 503 o timeout muestra mensaje amigable con opción de reintentar, y conserva el texto del campo de entrada (User Story 3, escenario 3). Depende de T032.
+- [x] T033 [US3] Manejo de error en el mismo componente: con 503 o timeout muestra mensaje amigable con opción de reintentar, y conserva el texto del campo de entrada (User Story 3, escenario 3). Depende de T032.
   - Criterios: prueba Karma en `frontend/src/app/features/ai.component.spec.ts` cubre los tres escenarios. Se ejecuta con `npm test -- --watch=false --browsers=ChromeHeadless` y se reporta la salida observada.
 
 ---
@@ -183,7 +183,7 @@
 - [x] T036 [US4] Prueba de no-mocks en producción: el perfil por defecto no activa ningún adaptador mock de conocimiento. `app.ai.provider=mock` solo se activa de forma explícita (FR-009, constitución Art. V.3). Depende de T014 y T018.
   - Criterios: `grep -rn "Mock\|mock" backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/ai` no devuelve implementaciones que devuelvan datos fijos.
 
-- [ ] T037 [US4] Prueba de higiene de logs: con una pregunta con texto sensible, los logs no contienen el texto completo de la pregunta ni claves (FR-010). Depende de T018.
+- [x] T037 [US4] Prueba de higiene de logs: con una pregunta con texto sensible, los logs no contienen el texto completo de la pregunta ni claves (FR-010). Depende de T018.
   - Criterios: el test captura los logs del `AskKnowledgeService` y verifica `correlationId` presente, texto de pregunta ausente.
 
 ---
