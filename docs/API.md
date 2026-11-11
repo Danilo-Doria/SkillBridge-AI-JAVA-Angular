@@ -87,6 +87,15 @@ Respuesta exitosa:
 
 Audio permitido: WAV, MP3, M4A, MP4 y WEBM. Imagen permitida: JPEG, PNG y WEBP. Los límites se controlan con `AI_MEDIA_MAX_AUDIO_BYTES` y `AI_MEDIA_MAX_IMAGE_BYTES`. Respuestas: `400` para archivo inválido y `503` si Gemini no está disponible.
 
+## Asistente de conocimiento (HU-26) — autenticado
+
+`POST /api/ai/knowledge/ask` — cuerpo `{ "question": "..." }` (1–500 caracteres no blancos).
+
+200: `{ "answer": string, "hasSufficientContext": boolean, "sources": [{ "sourceId", "title", "snippet", "score" }] }`.
+Si la similitud coseno máxima está bajo el umbral: `hasSufficientContext: false`, `sources: []` y no se llama al LLM.
+Errores (ProblemDetail): 400 pregunta inválida, 401 sin sesión, 429 cuota del proveedor, 503 timeout/proveedor/embeddings no disponibles.
+Contrato completo: `specs/026-rag-knowledge/contracts/knowledge-ask.md`.
+
 ## Paginación
 
 `GET /api/offerings`, `/api/offerings/me`, `/api/admin/offerings`, `/api/bookings/me` y `/api/admin/users`
@@ -102,3 +111,4 @@ aceptan `page` (base 0, def. 0), `size` (1–100, def. 20) y `sort=campo,asc|des
 | `/api/bookings/me` | `scheduledAt,desc` | scheduledAt, status, createdAt |
 
 Parámetros inválidos responden 400.
+

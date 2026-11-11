@@ -123,3 +123,16 @@ mvn test
 # Note: Requires Docker daemon running on the host
 mvn verify
 ```
+
+## 7. Asistente de conocimiento RAG (HU-26)
+
+- **Endpoint:** `POST /api/ai/knowledge/ask` (`KnowledgeController`) → `AskKnowledgeUseCase` (`AskKnowledgeService`).
+- **Puertos de salida:** `KnowledgeSearchPort`, `KnowledgeIndexPort`, `EmbeddingPort`, `KnowledgeAnswerPort`, `KnowledgeCorpusSourcePort`.
+- **Adaptadores:** `PgVectorKnowledgeAdapter` (búsqueda híbrida BM25 + coseno + RRF sobre `knowledge.knowledge_chunks`), `GeminiEmbeddingAdapter` (`GEMINI_EMBEDDING_API_KEY`, 768 dimensiones), `GeminiKnowledgeAnswerAdapter`, `ClasspathKnowledgeCorpusSource` (`classpath:knowledge/*.md`).
+- **Dominio puro:** `domain/knowledge/*`, `domain/service/knowledge/` (`Bm25Scorer`, `CosineSimilarity`, `ReciprocalRankFusion`, `HybridRanker`, `ThresholdRule`).
+- **Cableado:** `KnowledgeConfiguration`. Solo se activa con `app.rag.min-score-threshold`; el valor 0.5 es **provisional** (T030). La carga inicial del índice corre en un `ApplicationRunner`; si falla, el backend arranca igual y registra un aviso.
+- **Sincronización:** `OfferingCommandService` y `CategoryService` reindexan los fragmentos cambiados (por `contentHash`).
+- **Esquema:** migración `V14__knowledge_chunks.sql`; unicidad por `(source_id, language)` porque cada documento genera un fragmento ES y otro EN.
+- **Claves:** `app.rag.*` (`RAG_TOP_K`, `RAG_MIN_SCORE_THRESHOLD`, `RAG_TIMEOUT_SECONDS`, `RAG_MAX_CONTEXT_CHARS`, `RAG_RRF_K`).
+- **Recomendaciones con RAG (FR-020):** `AiRecommendationService` preselecciona con `KnowledgeSearchPort.searchByType(..., OFFERING)` las `app.rag.recommendation-shortlist-size` (15) ofertas más cercanas antes de llamar al LLM, solo cuando el catálogo activo es mayor. Ante fallo del RAG usa el catálogo completo.
+- **Índice diferencial (FR-015/FR-018):** al arrancar, `KnowledgeIndexService.loadInitialIndex` reutiliza los vectores con `contentHash` vigente, embebe solo lo cambiado (lotes de 50) y aplica altas y bajas con `KnowledgeIndexPort.applyChanges` en una transacción. Desactivar una oferta o categoría, o eliminar una categoría, la retira con `deleteBySourceId`.
