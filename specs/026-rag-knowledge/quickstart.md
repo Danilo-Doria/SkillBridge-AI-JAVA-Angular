@@ -50,7 +50,7 @@ Login con un usuario Customer; guardar la cookie `access_token`. Para `POST` con
 
 | Caso | Pregunta | Esperado |
 |---|---|---|
-| Política en español | «¿Con cuánta anticipación puedo cancelar una reserva?» | `200`, `hasSufficientContext: true`, `sources` incluye `cancellation-policy` |
+| Política en español | «¿Con cuánta anticipación puedo cancelar una reserva?» | `200`, `hasSufficientContext: true`, `sources` incluye `policy-cancellation` |
 | Política en inglés (FR-016) | «How early can I cancel my booking?» | `200`, mismo `sourceId` en `sources` |
 | Oferta en español con pregunta en inglés (FR-016) | «Which mentorships are live?» | `200`, fuentes de tipo `OFFERING` |
 | Fuera de dominio (FR-006) | «¿Cómo reparar la transmisión de un diésel?» | `200`, `hasSufficientContext: false`, `sources: []`, sin llamada al LLM |

@@ -21,7 +21,7 @@
 
 **Propósito**: cerrar las verificaciones abiertas del plan antes de escribir código de producción.
 
-- [ ] T001 [P] Verificar en el jar de `spring-ai-starter-model-google-genai-embedding:1.1.8` si existe la opción de dimensión (`output_dimensionality` o `dimensions`) para `gemini-embedding-001`. Actualizar R1 y R2 de `specs/026-rag-knowledge/research.md` con el resultado.
+- [x] T001 [P] Verificar en el jar de `spring-ai-starter-model-google-genai-embedding:1.1.8` si existe la opción de dimensión (`output_dimensionality` o `dimensions`) para `gemini-embedding-001`. Actualizar R1 y R2 de `specs/026-rag-knowledge/research.md` con el resultado.
   - Criterios: el resultado queda escrito en R1/R2 como `[VERIFIED]` con la clase o propiedad encontrada, o como `[UNKNOWN]` con el motivo. No se modifica código.
 
 - [ ] T002 [P] (ACCIÓN DEL PROPIETARIO) Confirmar en el panel de Railway que hay una plantilla pgvector con PostgreSQL 17 disponible, y ejecutar `CREATE EXTENSION IF NOT EXISTS vector;` en la base de producción. Anotar el resultado en R3 de `research.md`.
@@ -30,13 +30,13 @@
 - [ ] T003 [P] (ACCIÓN DEL PROPIETARIO) En la consola de Google AI con las dos cuentas, confirmar si la cuota de `gemini-embedding-001` se cuenta por cuenta o por proyecto. Anotar el resultado en R5 de `research.md`.
   - Criterios: R5 indica la unidad de cuota confirmada y la fecha de la comprobación.
 
-- [ ] T004 Spike local en Docker: arrancar `pgvector/pgvector:pg17`, crear el schema `knowledge` y una tabla de prueba con `vector(768)` e índice HNSW `vector_cosine_ops`. Documentar el resultado en R8 y en el supuesto de límite de dimensiones de `plan.md`.
+- [x] T004 Spike local en Docker: arrancar `pgvector/pgvector:pg17`, crear el schema `knowledge` y una tabla de prueba con `vector(768)` e índice HNSW `vector_cosine_ops`. Documentar el resultado en R8 y en el supuesto de límite de dimensiones de `plan.md`.
   - Criterios: `CREATE INDEX` con HNSW sobre `vector(768)` termina sin error (salida observada). Si Docker no está disponible, se reporta `NOT RUN — Not executed in this session` con la causa.
 
-- [ ] T005 Crear la migración `backend/src/main/resources/db/migration/V14__knowledge_chunks.sql` con el SQL de `data-model.md` (schema `knowledge`, tabla `knowledge_chunks`, índice HNSW). Depende de T004.
+- [x] T005 Crear la migración `backend/src/main/resources/db/migration/V14__knowledge_chunks.sql` con el SQL de `data-model.md` (schema `knowledge`, tabla `knowledge_chunks`, índice HNSW). Depende de T004.
   - Criterios: el archivo coincide con el SQL de `data-model.md`. No se modifica ninguna migración V1–V13 (constitución Art. VI.2). `mvn -f backend/pom.xml -o validate` pasa.
 
-- [ ] T006 Cambiar la imagen de PostgreSQL a `pgvector/pgvector:pg17` en `docker-compose.yml` (servicio `postgres`) y en `BookingCancellationIT.java`, `BookingPersistenceAdapterTest.java` y `JpaOfferingRepositoryTest.java`. Depende de T004.
+- [x] T006 Cambiar la imagen de PostgreSQL a `pgvector/pgvector:pg17` en `docker-compose.yml` (servicio `postgres`) y en `BookingCancellationIT.java`, `BookingPersistenceAdapterTest.java` y `JpaOfferingRepositoryTest.java`. Depende de T004.
   - Criterios: las 4 referencias usan la misma imagen. `grep -rn "postgres:17-alpine" docker-compose.yml backend/src/test` no devuelve resultados. Las pruebas que no requieren Docker siguen compilando (`mvn -o validate`).
 
 ---
@@ -45,41 +45,41 @@
 
 **Propósito**: dominio puro, puertos y adaptadores base. Ninguna historia puede empezar antes de terminar esta fase.
 
-- [ ] T007 Crear los modelos de dominio puros en `backend/src/main/java/com/riwi/skillbridge/domain/knowledge/`: `KnowledgeQuery`, `KnowledgeChunk` (con `SourceType` `OFFERING|CATEGORY|POLICY_DOC` y `Language` `ES|EN|MIXED`), `KnowledgeSource`, `KnowledgeAnswer`. Son records o enums sin imports de Spring ni JPA.
+- [x] T007 Crear los modelos de dominio puros en `backend/src/main/java/com/riwi/skillbridge/domain/knowledge/`: `KnowledgeQuery`, `KnowledgeChunk` (con `SourceType` `OFFERING|CATEGORY|POLICY_DOC` y `Language` `ES|EN|MIXED`), `KnowledgeSource`, `KnowledgeAnswer`. Son records o enums sin imports de Spring ni JPA.
   - Criterios: cada campo del `KnowledgeChunk` sigue `data-model.md`: `sourceId` identificador único (`offering:<id>`, `category:<id>` o el `sourceId` del `.md`); `title` no vacío. `KnowledgeQuery.question` cumple FR-002 textual: «longitud mínima de 1 carácter no blanco y longitud máxima de 500 caracteres».
   - Criterios: prueba unitaria `KnowledgeQueryTest` cubre vacío, solo espacios, 1 carácter, 500 y 501 caracteres.
   - Criterios: `grep -rn "org.springframework\|jakarta" domain/knowledge` no devuelve resultados.
 
-- [ ] T008 [P] Implementar la similitud coseno pura y la regla de umbral en `backend/src/main/java/com/riwi/skillbridge/domain/service/knowledge/CosineSimilarity.java` y `.../ThresholdRule.java`. La regla: «rechazo si la similitud coseno máxima es menor que `minScoreThreshold`» (FR-006).
+- [x] T008 [P] Implementar la similitud coseno pura y la regla de umbral en `backend/src/main/java/com/riwi/skillbridge/domain/service/knowledge/CosineSimilarity.java` y `.../ThresholdRule.java`. La regla: «rechazo si la similitud coseno máxima es menor que `minScoreThreshold`» (FR-006).
   - Criterios: `CosineSimilarityTest` verifica vectores iguales (1.0), ortogonales (0.0), opuestos (-1.0) y vector nulo (error controlado). `ThresholdRuleTest` verifica que la regla usa solo la similitud coseno, nunca la puntuación fusionada.
 
-- [ ] T009 [P] Implementar BM25 puro en `backend/src/main/java/com/riwi/skillbridge/domain/service/knowledge/Bm25Scorer.java` con `k1 = 1.2` y `b = 0.75` (R6). Sin dependencias externas.
+- [x] T009 [P] Implementar BM25 puro en `backend/src/main/java/com/riwi/skillbridge/domain/service/knowledge/Bm25Scorer.java` con `k1 = 1.2` y `b = 0.75` (R6). Sin dependencias externas.
   - Criterios: `Bm25ScorerTest` verifica que un término raro puntúa más que uno común, que una palabra repetida tiene rendimientos decrecientes, y que un documento largo se penaliza con `b > 0`. Los valores esperados se calculan a mano en el test.
 
-- [ ] T010 [P] Implementar Reciprocal Rank Fusion puro en `backend/src/main/java/com/riwi/skillbridge/domain/service/knowledge/ReciprocalRankFusion.java`, con `score(d) = Σ 1 / (k + rango_r(d))` y `k = 60` por defecto (R6, ADR-0008).
+- [x] T010 [P] Implementar Reciprocal Rank Fusion puro en `backend/src/main/java/com/riwi/skillbridge/domain/service/knowledge/ReciprocalRankFusion.java`, con `score(d) = Σ 1 / (k + rango_r(d))` y `k = 60` por defecto (R6, ADR-0008).
   - Criterios: `ReciprocalRankFusionTest` verifica que un documento que aparece en ambos rankings supera a uno que aparece en uno solo, y que `k` es configurable. El cálculo esperado está escrito a mano en el test.
 
-- [ ] T011 Crear `KnowledgeCorpusLoader` en `backend/src/main/java/com/riwi/skillbridge/application/service/knowledge/`. Lee `backend/src/main/resources/knowledge/*.md`, parsea el encabezado (`sourceId`, `type`, `visibility`) e indexa solo los archivos con `visibility: public`, por sección de idioma (FR-004, FR-014). Depende de T007.
+- [x] T011 Crear `KnowledgeCorpusLoader` en `backend/src/main/java/com/riwi/skillbridge/application/service/knowledge/`. Lee `backend/src/main/resources/knowledge/*.md`, parsea el encabezado (`sourceId`, `type`, `visibility`) e indexa solo los archivos con `visibility: public`, por sección de idioma (FR-004, FR-014). Depende de T007.
   - Criterios: `KnowledgeCorpusLoaderTest` verifica que un archivo sin `visibility: public` se descarta. Verifica que los 3 documentos reales (`cancellation-policy.md`, `mentorships-how-it-works.md`, `platform-faq.md`) producen fragmentos con `sourceId` no vacío y `language` ES o EN.
   - Criterios: el loader no lee `docs/` ni ningún otro directorio (FR-004, exclusión de documentación interna).
 
-- [ ] T012 Crear los puertos: `backend/src/main/java/com/riwi/skillbridge/application/port/in/AskKnowledgeUseCase.java` (entrada) y en `application/port/out/`: `KnowledgeSearchPort`, `KnowledgeIndexPort`, `EmbeddingPort`, `KnowledgeAnswerPort`. Depende de T007.
+- [x] T012 Crear los puertos: `backend/src/main/java/com/riwi/skillbridge/application/port/in/AskKnowledgeUseCase.java` (entrada) y en `application/port/out/`: `KnowledgeSearchPort`, `KnowledgeIndexPort`, `EmbeddingPort`, `KnowledgeAnswerPort`. Depende de T007.
   - Criterios: las interfaces usan solo tipos de dominio. `KnowledgeSearchPort` devuelve candidatos fusionados con su similitud coseno. `EmbeddingPort` expone `embed(List<String>)`. `KnowledgeAnswerPort` recibe contexto ya validado.
   - Criterios: `grep -rn "org.springframework" application/port` no devuelve resultados (constitución Art. I.2).
 
-- [ ] T013 [P] Crear `KnowledgeProperties` en `backend/src/main/java/com/riwi/skillbridge/infrastructure/config/` con prefijo `app.rag` (`topK=3`, `minScoreThreshold`, `timeoutSeconds`, `maxContextChars=6000`, `rrfK=60`). Añadir los valores en `backend/src/main/resources/application.yml`.
+- [x] T013 [P] Crear `KnowledgeProperties` en `backend/src/main/java/com/riwi/skillbridge/infrastructure/config/` con prefijo `app.rag` (`topK=3`, `minScoreThreshold`, `timeoutSeconds`, `maxContextChars=6000`, `rrfK=60`). Añadir los valores en `backend/src/main/resources/application.yml`.
   - Criterios: `KnowledgePropertiesTest` verifica los valores por defecto. `minScoreThreshold` no tiene valor por defecto inventado: se deja explícito como pendiente de calibración (FR-019) y el arranque lo exige.
 
-- [ ] T014 Implementar `GeminiEmbeddingAdapter` en `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/ai/`, detrás de `EmbeddingPort`. Usa `spring-ai-starter-model-google-genai-embedding` con `GEMINI_EMBEDDING_API_KEY` (no `GEMINI_API_KEY`), `gemini-embedding-001` y 768 dimensiones. Depende de T001, T012 y T013.
+- [x] T014 Implementar `GeminiEmbeddingAdapter` en `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/ai/`, detrás de `EmbeddingPort`. Usa `spring-ai-starter-model-google-genai-embedding` con `GEMINI_EMBEDDING_API_KEY` (no `GEMINI_API_KEY`), `gemini-embedding-001` y 768 dimensiones. Depende de T001, T012 y T013.
   - Criterios: sin `GEMINI_EMBEDDING_API_KEY`, el adaptador no arranca y el puerto lanza una excepción mapeada a 503 (FR-017). Nunca reutiliza la clave del LLM.
   - Criterios: el timeout se aplica en el cliente (FR-008). `GeminiEmbeddingAdapterTest` con un doble de la API verifica el timeout y el mapeo de error a `AiProviderException`.
   - Criterios: `docker-compose.yml` y `application.yml` referencian `GEMINI_EMBEDDING_API_KEY`; no se escribe ninguna clave real en el repositorio (AGENTS.md §3).
 
-- [ ] T015 Implementar la persistencia pgvector: `KnowledgeChunkEntity` (JPA, `@Table(schema = "knowledge")`), `JpaKnowledgeChunkRepository` y `PgVectorKnowledgeAdapter` en `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/persistence/knowledge/`. Implementa `KnowledgeSearchPort` (búsqueda por similitud coseno) y `KnowledgeIndexPort` (upsert por `contentHash`, reemplazo atómico). Depende de T005, T007 y T012.
+- [x] T015 Implementar la persistencia pgvector: `KnowledgeChunkEntity` (JPA, `@Table(schema = "knowledge")`), `JpaKnowledgeChunkRepository` y `PgVectorKnowledgeAdapter` en `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/persistence/knowledge/`. Implementa `KnowledgeSearchPort` (búsqueda por similitud coseno) y `KnowledgeIndexPort` (upsert por `contentHash`, reemplazo atómico). Depende de T005, T007 y T012.
   - Criterios: la entidad y las consultas nativas usan el nombre calificado `knowledge.knowledge_chunks`. La conversión entidad↔dominio está en el adaptador (constitución Art. I.3). `vector(768)` coincide con la dimensión de `EmbeddingPort`.
   - Criterios: el reemplazo del índice es transaccional: una lectura concurrente nunca ve un índice parcial (FR-015).
 
-- [ ] T016 Prueba de persistencia `PgVectorKnowledgeAdapterTest` en `backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/out/persistence/knowledge/` con Testcontainers `pgvector/pgvector:pg17`. Depende de T006 y T015.
+- [x] T016 Prueba de persistencia `PgVectorKnowledgeAdapterTest` en `backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/out/persistence/knowledge/` con Testcontainers `pgvector/pgvector:pg17`. Depende de T006 y T015.
   - Criterios: la prueba corre `mvn -f backend/pom.xml test -Dtest=PgVectorKnowledgeAdapterTest` y verifica que la búsqueda devuelve el fragmento más cercano y que un `contentHash` igual no recalcula el vector (FR-018).
   - Criterios: si Docker no está disponible, se reporta `NOT RUN — Not executed in this session` con la causa (constitución Art. V.1).
 
@@ -89,17 +89,17 @@
 
 **Goal**: un Customer autenticado pregunta y recibe respuesta redactada con fuentes citadas.
 
-**Independent Test**: `POST /api/ai/knowledge/ask` con una pregunta sobre cancelación devuelve 200, `hasSufficientContext: true` y `sources` con `cancellation-policy` (`contracts/knowledge-ask.md`).
+**Independent Test**: `POST /api/ai/knowledge/ask` con una pregunta sobre cancelación devuelve 200, `hasSufficientContext: true` y `sources` con `policy-cancellation` (`contracts/knowledge-ask.md`).
 
-- [ ] T017 [US1] Crear `KnowledgePromptBuilder` y `SourceCitationValidator` en `backend/src/main/java/com/riwi/skillbridge/application/service/knowledge/`. El builder sanitiza delimitadores de la pregunta y de los fragmentos (FR-010), recorta el contexto a `maxContextChars` y usa instrucciones de sistema inalterables. El validador devuelve solo los `sourceId` citados en la respuesta que existen en el contexto (FR-007, SC-003).
+- [x] T017 [US1] Crear `KnowledgePromptBuilder` y `SourceCitationValidator` en `backend/src/main/java/com/riwi/skillbridge/application/service/knowledge/`. El builder sanitiza delimitadores de la pregunta y de los fragmentos (FR-010), recorta el contexto a `maxContextChars` y usa instrucciones de sistema inalterables. El validador devuelve solo los `sourceId` citados en la respuesta que existen en el contexto (FR-007, SC-003).
   - Criterios: `KnowledgePromptBuilderTest` verifica que una pregunta con «Ignora todas las instrucciones previas» queda dentro del bloque de usuario y que el contexto no excede 6.000 caracteres.
   - Criterios: `SourceCitationValidatorTest` verifica que un `sourceId` alucinado por el LLM se descarta (edge case «Alucinación de identificadores»).
 
-- [ ] T018 [US1] Implementar `GeminiKnowledgeAnswerAdapter` en `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/ai/`, detrás de `KnowledgeAnswerPort`, con timeout real en cliente (FR-008) y registro de `correlationId`, número de fragmentos y tipo de error, sin texto de la pregunta (FR-010). Depende de T012 y T013.
+- [x] T018 [US1] Implementar `GeminiKnowledgeAnswerAdapter` en `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/ai/`, detrás de `KnowledgeAnswerPort`, con timeout real en cliente (FR-008) y registro de `correlationId`, número de fragmentos y tipo de error, sin texto de la pregunta (FR-010). Depende de T012 y T013.
   - Criterios: `GeminiKnowledgeAnswerAdapterTest` con un doble lento verifica que la llamada se corta dentro de `timeoutSeconds + 1` s (SC-006).
   - Criterios: `AiProviderException` con `TIMEOUT` o `UNAVAILABLE` se mapea a 503 y `RATE_LIMIT` a 429 (contrato).
 
-- [ ] T019 [US1] Implementar `AskKnowledgeService` en `backend/src/main/java/com/riwi/skillbridge/application/service/knowledge/`, que implementa `AskKnowledgeUseCase`. Flujo: sanitizar → `KnowledgeSearchPort` (BM25 + coseno + RRF) → `ThresholdRule` → `KnowledgePromptBuilder` → `KnowledgeAnswerPort` → `SourceCitationValidator`. Depende de T008–T012, T017 y T018.
+- [x] T019 [US1] Implementar `AskKnowledgeService` en `backend/src/main/java/com/riwi/skillbridge/application/service/knowledge/`, que implementa `AskKnowledgeUseCase`. Flujo: sanitizar → `KnowledgeSearchPort` (BM25 + coseno + RRF) → `ThresholdRule` → `KnowledgePromptBuilder` → `KnowledgeAnswerPort` → `SourceCitationValidator`. Depende de T008–T012, T017 y T018.
   - Criterios: el servicio solo depende de puertos (constitución Art. I.2). La firma de `AskKnowledgeUseCase` devuelve `KnowledgeAnswer`.
   - Criterios: `AskKnowledgeServiceTest` con dobles de los puertos verifica el camino feliz y que `sources` solo contiene fragmentos citados.
 
@@ -139,7 +139,7 @@
 - [ ] T027 [US2] Pruebas de casos límite en `KnowledgeAskFlowIT`: pregunta de datos privados («reservas de otros clientes», «correos de mentores») devuelve `hasSufficientContext: false`; prompt injection no revela directivas internas; pregunta de 501 caracteres devuelve 400. Depende de T025.
   - Criterios: ninguna respuesta incluye correos, contraseñas ni datos de pago (SC-004).
 
-- [ ] T028 [US2] Escribir el conjunto de evaluación `backend/src/test/resources/knowledge-eval/questions.json` con al menos 30 preguntas en ES y EN, con fragmentos esperados y casos sin respuesta. Esta tarea es un borrador que revisa el propietario antes de usarse: define qué cuenta como acierto. Depende de T005 y del corpus existente.
+- [x] T028 [US2] Escribir el conjunto de evaluación `backend/src/test/resources/knowledge-eval/questions.json` con al menos 30 preguntas en ES y EN, con fragmentos esperados y casos sin respuesta. Esta tarea es un borrador que revisa el propietario antes de usarse: define qué cuenta como acierto. Depende de T005 y del corpus existente.
   - Criterios: al menos 30 preguntas, de las cuales al menos 6 son sin respuesta. Cada pregunta indica `expectedSourceIds` o `answerable: false`. Incluye pares ES↔EN sobre la misma política (FR-019).
   - Criterios: el archivo indica que es un borrador pendiente de revisión por el propietario (ACCIÓN DEL PROPIETARIO: revisar y aprobar).
 
@@ -157,7 +157,7 @@
 
 **Independent Test**: en el chat, una pregunta sobre mentorías muestra texto, tarjetas con título, extracto y porcentaje de relevancia.
 
-- [ ] T031 [P] [US3] Crear el cliente HTTP en `frontend/src/app/core/knowledge.api.ts` que llama a `POST /api/ai/knowledge/ask` con `apiBase()` (`frontend/src/app/core/api.ts`) y envía `X-XSRF-TOKEN` (constitución Art. III.2).
+- [x] T031 [P] [US3] Crear el cliente HTTP en `frontend/src/app/core/knowledge.api.ts` que llama a `POST /api/ai/knowledge/ask` con `apiBase()` (`frontend/src/app/core/api.ts`) y envía `X-XSRF-TOKEN` (constitución Art. III.2).
   - Criterios: tipos `KnowledgeAnswer` y `KnowledgeSource` coinciden con `contracts/knowledge-ask.md`. No se guarda el token en `localStorage`.
 
 - [ ] T032 [US3] Actualizar `frontend/src/app/features/ai.component.ts` con un modo de pregunta de conocimiento: respuesta reactiva con Signals, aviso neutro cuando `hasSufficientContext: false` (sin sección de fuentes), y tarjetas de fuentes con título, extracto y relevancia en porcentaje (User Story 3, escenarios 1 y 2). Depende de T031.
@@ -180,7 +180,7 @@
 - [ ] T035 [US4] Prueba de fallo de embeddings: sin `GEMINI_EMBEDDING_API_KEY`, o con el doble de embeddings caído, la pregunta devuelve 503 ProblemDetail y nunca una respuesta solo con BM25 (FR-017, SC-005). Depende de T014 y T025.
   - Criterios: el test verifica que el mensaje no contiene datos fijos ni precios.
 
-- [ ] T036 [US4] Prueba de no-mocks en producción: el perfil por defecto no activa ningún adaptador mock de conocimiento. `app.ai.provider=mock` solo se activa de forma explícita (FR-009, constitución Art. V.3). Depende de T014 y T018.
+- [x] T036 [US4] Prueba de no-mocks en producción: el perfil por defecto no activa ningún adaptador mock de conocimiento. `app.ai.provider=mock` solo se activa de forma explícita (FR-009, constitución Art. V.3). Depende de T014 y T018.
   - Criterios: `grep -rn "Mock\|mock" backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/ai` no devuelve implementaciones que devuelvan datos fijos.
 
 - [ ] T037 [US4] Prueba de higiene de logs: con una pregunta con texto sensible, los logs no contienen el texto completo de la pregunta ni claves (FR-010). Depende de T018.

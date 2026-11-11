@@ -31,7 +31,7 @@ X-XSRF-TOKEN: <si la petición usa cookie>
   "answer": "string",
   "hasSufficientContext": true,
   "sources": [
-    { "sourceId": "cancellation-policy", "title": "string", "snippet": "string", "score": 0.82 }
+    { "sourceId": "policy-cancellation", "title": "string", "snippet": "string", "score": 0.82 }
   ]
 }
 ```
