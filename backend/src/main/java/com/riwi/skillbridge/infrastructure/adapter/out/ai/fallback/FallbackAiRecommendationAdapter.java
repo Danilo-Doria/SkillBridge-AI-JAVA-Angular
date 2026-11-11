@@ -10,6 +10,7 @@ import com.riwi.skillbridge.domain.model.Offering;
 import com.riwi.skillbridge.infrastructure.adapter.out.ai.candidate.AiModelCandidate;
 import com.riwi.skillbridge.infrastructure.adapter.out.ai.classification.AiErrorClassifier;
 import com.riwi.skillbridge.infrastructure.adapter.out.ai.metrics.AiFallbackMetricsRecorder;
+import com.riwi.skillbridge.infrastructure.adapter.out.ai.resilience.AiCircuitBreakerManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,23 +48,42 @@ public class FallbackAiRecommendationAdapter implements AiRecommendationPort {
     private final List<CandidateExecutor> candidates;
     private final AiErrorClassifier errorClassifier;
     private final AiFallbackMetricsRecorder metricsRecorder;
+    private final AiCircuitBreakerManager circuitBreakerManager;
 
     @Autowired
     public FallbackAiRecommendationAdapter(
             List<CandidateExecutor> candidates,
             AiErrorClassifier errorClassifier,
-            AiFallbackMetricsRecorder metricsRecorder
+            AiFallbackMetricsRecorder metricsRecorder,
+            @Autowired(required = false) AiCircuitBreakerManager circuitBreakerManager
     ) {
         this.candidates = candidates != null ? new ArrayList<>(candidates) : Collections.emptyList();
         this.errorClassifier = errorClassifier != null ? errorClassifier : new AiErrorClassifier();
         this.metricsRecorder = metricsRecorder != null ? metricsRecorder : new AiFallbackMetricsRecorder();
+        this.circuitBreakerManager = circuitBreakerManager;
+    }
+
+    public FallbackAiRecommendationAdapter(
+            List<CandidateExecutor> candidates,
+            AiErrorClassifier errorClassifier,
+            AiFallbackMetricsRecorder metricsRecorder
+    ) {
+        this(candidates, errorClassifier, metricsRecorder, null);
     }
 
     public FallbackAiRecommendationAdapter(
             List<CandidateExecutor> candidates,
             AiErrorClassifier errorClassifier
     ) {
-        this(candidates, errorClassifier, new AiFallbackMetricsRecorder());
+        this(candidates, errorClassifier, new AiFallbackMetricsRecorder(), null);
+    }
+
+    public FallbackAiRecommendationAdapter(
+            List<CandidateExecutor> candidates,
+            AiErrorClassifier errorClassifier,
+            AiCircuitBreakerManager circuitBreakerManager
+    ) {
+        this(candidates, errorClassifier, new AiFallbackMetricsRecorder(), circuitBreakerManager);
     }
 
     @Override
@@ -81,6 +101,13 @@ public class FallbackAiRecommendationAdapter implements AiRecommendationPort {
             AiModelCandidate candidate = executor.candidate();
             long startTime = System.currentTimeMillis();
 
+            if (circuitBreakerManager != null && !circuitBreakerManager.tryAcquirePermission("chat", candidate.providerName(), candidate.modelIdentifier())) {
+                log.warn("Circuit Breaker OPEN for candidate=[{}] priority={} - skipping network call correlationId={}",
+                        candidate.candidateKey(), candidate.priorityOrder(), correlationId);
+                metricsRecorder.recordAttempt("recommendation", candidate.providerName(), candidate.modelIdentifier(), false, "CIRCUIT_OPEN", 0);
+                continue;
+            }
+
             log.info("Attempting AI recommendation candidate=[{}] priority={} correlationId={}",
                     candidate.candidateKey(), candidate.priorityOrder(), correlationId);
 
@@ -88,7 +115,12 @@ public class FallbackAiRecommendationAdapter implements AiRecommendationPort {
                 AiStructuredResponse response = executor.delegate().recommend(request, offerings);
                 long latencyMs = System.currentTimeMillis() - startTime;
 
+                if (circuitBreakerManager != null) {
+                    circuitBreakerManager.onSuccess("chat", candidate.providerName(), candidate.modelIdentifier(), latencyMs);
+                }
+
                 metricsRecorder.recordAttempt("recommendation", candidate.providerName(), candidate.modelIdentifier(), true, null, latencyMs);
+                metricsRecorder.recordProviderUsed("recommendation", candidate.providerName(), candidate.modelIdentifier());
 
                 log.info("AI recommendation succeeded with candidate=[{}] latencyMs={} correlationId={}",
                         candidate.candidateKey(), latencyMs, correlationId);
@@ -103,6 +135,10 @@ public class FallbackAiRecommendationAdapter implements AiRecommendationPort {
             } catch (Throwable ex) {
                 long latencyMs = System.currentTimeMillis() - startTime;
                 AiErrorClassifier.ClassificationResult classification = errorClassifier.classify(ex);
+
+                if (circuitBreakerManager != null) {
+                    circuitBreakerManager.onError("chat", candidate.providerName(), candidate.modelIdentifier(), latencyMs, ex);
+                }
 
                 metricsRecorder.recordAttempt(
                         "recommendation",

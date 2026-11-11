@@ -49,4 +49,17 @@ public class AiFallbackMetricsRecorder {
                 .register(meterRegistry)
                 .record(Duration.ofMillis(Math.max(0, latencyMs)));
     }
+
+    public void recordProviderUsed(String capability, String provider, String model) {
+        if (meterRegistry == null) {
+            return;
+        }
+
+        meterRegistry.counter(
+                "ai.fallback.provider.used",
+                "capability", capability != null ? capability : "unknown",
+                "provider", provider != null ? provider : "unknown",
+                "model", model != null ? model : "unknown"
+        ).increment();
+    }
 }
