@@ -78,8 +78,8 @@ public class EmailNotificationSender implements NotificationSenderPort {
                 ? " Recuerda que su límite de pago es hasta el "
                     + DEADLINE_DATE_FORMATTER.format(message.paymentDeadline())
                     + " a las " + DEADLINE_TIME_FORMATTER.format(message.paymentDeadline())
-                    + " UTC (12 h antes de iniciar la sesión)."
-                : " Recuerda completar el pago para confirmar tu sesión antes del límite (12 h antes de iniciar la sesión).";
+                    + " UTC."
+                : " Recuerda completar el pago para confirmar tu sesión antes del límite.";
             return "Hola " + user.name() + ", tu reserva " + message.bookingId() + " está pendiente de pago." + deadlinePart;
         }
 

@@ -134,5 +134,5 @@ docker compose up -d --build backend
 2. Verás en la bandeja de entrada:
    * **De:** `no-reply@skillbridge.local`
    * **Asunto:** `Recordatorio: Pago pendiente de tu mentoría`
-   * **Cuerpo:** `Hola [Usuario], tu reserva [ID] está pendiente de pago. Recuerda que su límite de pago es hasta el [Fecha límite, ej: 18 de noviembre, 12:00 PM UTC] (12 h antes de iniciar la sesión).`
+   * **Cuerpo:** `Hola [Usuario], tu reserva [ID] está pendiente de pago. Recuerda que su límite de pago es hasta el [Fecha límite, ej: 18 de noviembre a las 12:00 PM UTC].`
 
