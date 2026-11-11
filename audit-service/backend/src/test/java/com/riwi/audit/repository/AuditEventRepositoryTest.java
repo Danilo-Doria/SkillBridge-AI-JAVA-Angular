@@ -70,4 +70,23 @@ class AuditEventRepositoryTest {
         assertThat(events.get(0).getEventId()).isEqualTo(newer.getEventId());
         assertThat(events.get(1).getEventId()).isEqualTo(older.getEventId());
     }
+
+    @Test
+    void shouldFindOnlyEventsFromCorrelationOrderedByOccurrence() {
+        BusinessEvent unrelated = newEvent("Unrelated");
+        unrelated.setCorrelationId("other-correlation");
+        BusinessEvent later = newEvent("PaymentApproved");
+        later.setOccurredAt(Instant.now());
+        BusinessEvent earlier = newEvent("BookingCreated");
+        earlier.setOccurredAt(Instant.now().minusSeconds(60));
+
+        repository.save(unrelated);
+        repository.save(later);
+        repository.save(earlier);
+
+        var events = repository.findByCorrelationIdOrderByOccurredAtAsc("corr-1");
+
+        assertThat(events).extracting(BusinessEvent::getEventId)
+            .containsExactly(earlier.getEventId(), later.getEventId());
+    }
 }

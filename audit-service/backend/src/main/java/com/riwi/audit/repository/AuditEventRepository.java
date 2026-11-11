@@ -14,4 +14,6 @@ import java.util.UUID;
 public interface AuditEventRepository extends MongoRepository<BusinessEvent, UUID> {
 
     List<BusinessEvent> findAllByOrderByOccurredAtDesc();
+
+    List<BusinessEvent> findByCorrelationIdOrderByOccurredAtAsc(String correlationId);
 }

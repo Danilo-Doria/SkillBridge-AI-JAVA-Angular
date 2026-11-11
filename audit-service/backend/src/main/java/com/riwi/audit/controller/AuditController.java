@@ -33,6 +33,11 @@ public class AuditController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/events/correlation/{correlationId}")
+    public List<BusinessEvent> getEventsByCorrelationId(@PathVariable String correlationId) {
+        return auditEventRepository.findByCorrelationIdOrderByOccurredAtAsc(correlationId);
+    }
+
     @GetMapping("/stats")
     public Map<String, Object> getStats() {
         List<BusinessEvent> events = auditEventRepository.findAll();
