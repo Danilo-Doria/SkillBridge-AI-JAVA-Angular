@@ -1,6 +1,5 @@
 package com.riwi.skillbridge.application.port.out.event;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -19,7 +18,9 @@ public record BusinessEvent<T>(
     String correlationId,
     int version,
     
-    @JsonIgnore
+    // Read-only from Kafka's point of view: serialized through getPayloadForAudit() (merged with actor fields),
+    // but still deserialized back into this component. A plain @JsonIgnore made every consumer see payload == null.
+    @JsonProperty(value = "payload", access = JsonProperty.Access.WRITE_ONLY)
     T payload,
     
     String actorUserId,
