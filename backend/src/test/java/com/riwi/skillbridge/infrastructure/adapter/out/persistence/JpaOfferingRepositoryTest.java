@@ -36,8 +36,9 @@ class JpaOfferingRepositoryTest {
     JpaOfferingRepository repository;
 
     @Test
-    void flywayShouldSeedThreeActiveOfferings() {
-        assertThat(repository.findByActiveTrueOrderByTitleAsc()).hasSize(3);
+    void flywayShouldSeedTwentyActiveOfferings() {
+        // 3 ofertas de V1 + 17 de V18
+        assertThat(repository.findByActiveTrueOrderByTitleAsc()).hasSize(20);
     }
 }
 
