@@ -25,4 +25,12 @@ public final class AuditClient {
         if (response.statusCode() >= 400) throw new IllegalStateException("audit-service returned HTTP " + response.statusCode());
         return response.body();
     }
+
+    public String get(String path) throws Exception {
+        var builder = HttpRequest.newBuilder(URI.create(baseUrl + path)).GET();
+        if (bearerToken != null && !bearerToken.isBlank()) builder.header("Authorization", "Bearer " + bearerToken);
+        var response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) throw new IllegalStateException("service returned HTTP " + response.statusCode());
+        return response.body();
+    }
 }
