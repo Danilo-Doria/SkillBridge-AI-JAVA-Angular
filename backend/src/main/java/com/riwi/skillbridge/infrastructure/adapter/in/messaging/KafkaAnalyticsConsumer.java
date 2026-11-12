@@ -90,10 +90,12 @@ public class KafkaAnalyticsConsumer {
 
         // Update daily metric counters
         LocalDate eventDate = toLocalDate(event.occurredAt());
-        analyticsRepository.incrementRecommendations(payload.userId(), eventDate);
+        // One count per recommended offering (the metric table is keyed by offering, not by user).
+        payload.offeringIds().forEach(offeringId ->
+                analyticsRepository.incrementRecommendations(offeringId, eventDate));
 
-        log.info("Analytics updated for RecommendationGenerated: userId={}, date={}",
-                payload.userId(), eventDate);
+        log.info("Analytics updated for RecommendationGenerated: offerings={}, date={}",
+                payload.offeringIds().size(), eventDate);
     }
 
     // ── Booking events ───────────────────────────────────────────────────────

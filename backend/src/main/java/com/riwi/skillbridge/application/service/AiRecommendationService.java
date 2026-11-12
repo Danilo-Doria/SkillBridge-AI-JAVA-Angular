@@ -164,7 +164,8 @@ public class AiRecommendationService implements GenerateRecommendationUseCase {
                 domainInputType,
                 model,
                 latencyMs,
-                provider
+                provider,
+                selected.stream().map(Recommendation::offeringId).distinct().toList()
         );
 
         events.publish(new BusinessEvent<>(
