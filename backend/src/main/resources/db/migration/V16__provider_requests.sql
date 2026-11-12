@@ -1,4 +1,4 @@
-CREATE TABLE provider_requests (
+CREATE TABLE IF NOT EXISTS provider_requests (
                                  id              UUID PRIMARY KEY,
                                  user_id         UUID NOT NULL REFERENCES app_users (id),
                                  status          VARCHAR(20) NOT NULL,
@@ -12,8 +12,8 @@ CREATE TABLE provider_requests (
 );
 
 -- A lo sumo una solicitud PENDING por usuario, incluso con peticiones simultáneas
-CREATE UNIQUE INDEX uq_provider_requests_pending
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_requests_pending
   ON provider_requests (user_id) WHERE status = 'PENDING';
 
-CREATE INDEX ix_provider_requests_status_created
+CREATE INDEX IF NOT EXISTS ix_provider_requests_status_created
   ON provider_requests (status, created_at);
