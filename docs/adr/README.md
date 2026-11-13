@@ -14,6 +14,7 @@ Registro de las decisiones técnicas relevantes. Un ADR **no se reescribe** cuan
 | [0006](0006-hybrid-monolith-and-services.md) | Arquitectura híbrida: monolito + servicios satélite | **Proposed** | Contratos en [`../contracts/`](../contracts/) |
 | [0007](0007-ai-provider-fallback-chain.md) | Cadena de fallback de proveedores de IA | **Proposed** | Sustituye parcialmente a ADR-001 · HU-27/28 |
 | [0008](0008-rag-retrieval-embeddings-and-vector-store.md) | Recuperación del RAG con embeddings y almacén vectorial | **Proposed** | Modifica la decisión de recuperación de HU-26 · guía: [BM25 frente a embeddings](../guides/rag-bm25-vs-embeddings.md) |
+| [0009](0009-edge-gateway-kafka-only-native-images.md) | Gateway Traefik, Kafka como único broker e imágenes GraalVM native en Oracle Cloud | **Proposed** | Sustituye la regla 2 de ADR-0006 · spec: [`../../specs/104-microservices-gateway/`](../../specs/104-microservices-gateway/) |
 | [ADR-001](ADR-001-AI-PROVIDER-ABSTRACTION.md) | Abstracción de proveedores de IA | Accepted, **parcialmente sustituido por 0007** | Con [errata 2026-11-09](ADR-001-AI-PROVIDER-ABSTRACTION.md#errata-2026-11-09) |
 
 ## Aviso sobre la numeración
@@ -23,7 +24,7 @@ Hay dos identificadores parecidos que **no son lo mismo**:
 - **`0001`** es *monolito modular primero*.
 - **`ADR-001`** es *abstracción de proveedores de IA*. Es un nombre heredado de la HU-15 que se conserva porque `CLAUDE.md`, `INTEGRATIONS.md` y las specs ya lo referencian.
 
-Los ADR nuevos usan el formato `NNNN-titulo-en-minusculas.md`. El siguiente libre es **0009**.
+Los ADR nuevos usan el formato `NNNN-titulo-en-minusculas.md`. El siguiente libre es **0010**.
 
 ## Material de apoyo (no son ADR)
 

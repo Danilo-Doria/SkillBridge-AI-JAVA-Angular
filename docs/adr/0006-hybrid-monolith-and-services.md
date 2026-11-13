@@ -80,3 +80,9 @@ de evento desconocidos sin descartarlos ni bloquear el consumidor.
 - Spark queda como job, no como servicio: menos superficie operativa.
 - Se necesita enrutamiento por prefijo en el borde. **[UNKNOWN]** no verificado si
   `frontend/nginx.conf.template` hace proxy de API.
+
+## Errata 2026-11-13
+
+La **regla 2** de la sección 2 ("hechos punto a punto → RabbitMQ", exchange `payment.events`) queda
+**sustituida por ADR-0009**: Kafka pasa a ser el único broker (topic `payment-events`). La incógnita sobre
+el enrutamiento por prefijo en el borde se resuelve con Traefik (ADR-0009). El resto de este ADR no cambia.
