@@ -41,6 +41,7 @@ public class BusinessEvent {
     private String aggregateType;
     @Indexed(name = "occurredAt_idx")
     private Instant occurredAt;
+    @Indexed
     private String correlationId;
     private int version;
     private Map<String, Object> payload; // using Map to dynamically read any payload

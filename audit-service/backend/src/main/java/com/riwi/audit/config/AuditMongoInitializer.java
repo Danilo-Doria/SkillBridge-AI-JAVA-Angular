@@ -54,6 +54,17 @@ public class AuditMongoInitializer implements ApplicationRunner {
         indexOps.ensureIndex(new Index().on("eventType", org.springframework.data.domain.Sort.Direction.ASC)
             .named("eventType_idx"));
 
+        applyV2CorrelationIndex(indexOps);
+
         log.info("[AUDIT-MONGO] Índices V1 verificados en '{}'.", COLLECTION);
+    }
+
+    /** V2 — índice para reconstruir el rastro completo de una operación distribuida. */
+    private void applyV2CorrelationIndex(IndexOperations indexOps) {
+        indexOps.ensureIndex(new Index()
+            .on("correlationId", org.springframework.data.domain.Sort.Direction.ASC)
+            .on("occurredAt", org.springframework.data.domain.Sort.Direction.ASC)
+            .named("correlationId_occurredAt_idx"));
+        log.info("[AUDIT-MONGO] Índice V2 de correlación verificado en '{}'.", COLLECTION);
     }
 }
