@@ -2,6 +2,7 @@ package com.riwi.audit.repository;
 
 import com.riwi.audit.model.BusinessEvent;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 
 import java.util.List;
 import java.util.UUID;
@@ -15,5 +16,6 @@ public interface AuditEventRepository extends MongoRepository<BusinessEvent, UUI
 
     List<BusinessEvent> findAllByOrderByOccurredAtDesc();
 
+    @Query(value = "{ 'correlationId': ?0 }", sort = "{ 'occurredAt': 1 }")
     List<BusinessEvent> findByCorrelationIdOrderByOccurredAtAsc(String correlationId);
 }
