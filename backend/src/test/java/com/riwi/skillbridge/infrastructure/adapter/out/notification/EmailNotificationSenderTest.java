@@ -17,6 +17,7 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -62,6 +63,47 @@ class EmailNotificationSenderTest {
         assertThat(sentMail.getTo()).containsExactly("juan@example.com");
         assertThat(sentMail.getSubject()).isEqualTo("Reserva creada");
         assertThat(sentMail.getText()).contains("Hola Juan Perez, tu reserva " + bookingId + " fue creada.");
+    }
+
+    @Test
+    @DisplayName("Debe armar correo de recordatorio de pago con asunto y cuerpo pertinentes")
+    void shouldBuildAndSendPaymentReminderEmail() {
+        UUID userId = UUID.randomUUID();
+        UUID bookingId = UUID.randomUUID();
+        NotificationMessage message = NotificationMessage.paymentReminder(bookingId, userId);
+
+        UserAccount user = new UserAccount(userId, "Maria Gomez", "maria@example.com", "pass", Role.CUSTOMER, UserStatus.ACTIVE);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        emailSender.send(message);
+
+        ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender, times(1)).send(messageCaptor.capture());
+
+        SimpleMailMessage sentMail = messageCaptor.getValue();
+        assertThat(sentMail.getTo()).containsExactly("maria@example.com");
+        assertThat(sentMail.getSubject()).isEqualTo("Recordatorio: Pago pendiente de tu mentoría");
+        assertThat(sentMail.getText()).contains("pendiente de pago");
+    }
+
+    @Test
+    @DisplayName("Debe armar correo de recordatorio de pago con fecha y hora limite de vencimiento")
+    void shouldIncludeDeadlineInPaymentReminderEmailWhenProvided() {
+        UUID userId = UUID.randomUUID();
+        UUID bookingId = UUID.randomUUID();
+        Instant deadline = Instant.parse("2026-11-18T12:00:00Z");
+        NotificationMessage message = NotificationMessage.paymentReminder(bookingId, userId, deadline);
+
+        UserAccount user = new UserAccount(userId, "Maria Gomez", "maria@example.com", "pass", Role.CUSTOMER, UserStatus.ACTIVE);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        emailSender.send(message);
+
+        ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender, times(1)).send(messageCaptor.capture());
+
+        SimpleMailMessage sentMail = messageCaptor.getValue();
+        assertThat(sentMail.getText()).contains("su límite de pago es hasta el 18 de noviembre a las 12:00 PM UTC");
     }
 
     @Test

@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JpaOfferingRepositoryTest {
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg17")
             .withDatabaseName("skillbridge_test")
             .withUsername("test")
             .withPassword("test");
@@ -36,8 +36,9 @@ class JpaOfferingRepositoryTest {
     JpaOfferingRepository repository;
 
     @Test
-    void flywayShouldSeedThreeActiveOfferings() {
-        assertThat(repository.findByActiveTrueOrderByTitleAsc()).hasSize(3);
+    void flywayShouldSeedTwentyActiveOfferings() {
+        // 3 ofertas de V1 + 17 de V18
+        assertThat(repository.findByActiveTrueOrderByTitleAsc()).hasSize(20);
     }
 }
 

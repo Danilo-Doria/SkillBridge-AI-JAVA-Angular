@@ -100,15 +100,39 @@ This document catalogs all verified infrastructure, broker, external API, and mi
 
 ---
 
-## 7. AI & Multimodal Providers
+## 7. AI & Multimodal Providers (Fallback Chain Architecture)
 
-- **Provider Switching Architecture**: Complies with [docs/adr/ADR-001-AI-PROVIDER-ABSTRACTION.md](adr/ADR-001-AI-PROVIDER-ABSTRACTION.md).
-- **Configuration Switches**:
-  - `app.ai.provider: ${AI_PROVIDER:gemini}` (activates `GeminiAiAdapter` or `OpenAiAiAdapter` via `@ConditionalOnProperty`).
-  - `app.ai.audio-provider: ${AI_AUDIO_PROVIDER:gemini}` (activates `GroqSpeechToTextAdapter` or `GeminiSpeechToTextAdapter`).
-  - `spring.ai.tts.enabled: ${TTS_ENABLED:false}` (activates `ElevenLabsTextToSpeechAdapter` or `NoOpTextToSpeechAdapter`).
+- **Provider Switching Architecture**: Complies with [ADR-0007](adr/0007-ai-provider-fallback-chain.md) (supersedes single-adapter model from ADR-001).
+- **Composite Fallback Adapters**:
+  - `FallbackAiRecommendationAdapter`: Primary composite adapter implementing `AiRecommendationPort` (`gemini:gemini-3.8-flash` → `openai:gpt-4o-mini`).
+  - `FallbackSpeechToTextAdapter`: Primary composite adapter implementing `SpeechToTextPort` (`groq:whisper-large-v3-turbo` → `gemini:gemini-audio`).
+  - `FallbackVisionAdapter`: Primary composite adapter implementing `VisionPort` (`gemini:gemini-3.8-flash` → fallback).
+  - `FallbackTextToSpeechAdapter`: Primary composite adapter implementing `TextToSpeechPort` (`elevenlabs:multilingual-v2` → `noop:noop`).
+- **Error Classification & Recoverability**:
+  - Centralized in `AiErrorClassifier` based strictly on exception hierarchy and upstream HTTP status codes (no arbitrary string matching).
+  - **Recoverable**: HTTP 429 (rate limit), 5xx (server error), timeouts (`TimeoutException`, `SocketTimeoutException`), network disconnects, and malformed LLM JSON.
+  - **Non-Recoverable**: HTTP 4xx client errors, `IllegalArgumentException`, input validation failures (aborts fallback immediately).
 - **Timeouts & Limits**:
-  - Overall AI inference timeout: `app.ai.timeout-seconds: 10` (10s).
+  - Candidate-specific timeout enforced asynchronously via `CompletableFuture.orTimeout`.
   - Max audio upload size: `app.ai.media.max-audio-bytes: 10485760` (10 MB).
   - Max image upload size: `app.ai.media.max-image-bytes: 5242880` (5 MB).
   - Max TTS character length: `app.ai.tts.max-chars: 2000` characters.
+- **Observability & Metrics**:
+  - Metrics recorded via `AiFallbackMetricsRecorder` using Micrometer: `ai.fallback.attempts`, `ai.fallback.latency`, and `ai.fallback.provider.used`.
+  - Event `RecommendationGenerated` v2 enriched with `provider` and `model` resolution metadata.
+  - Candidate execution tracked in logs with `X-Correlation-Id` and SLF4J MDC.
+- **Declarative Configuration & Resilience (HU-28)**:
+  - Typed configuration under `app.ai.fallback.*` for `chat`, `vision`, `stt`, `tts`, `rag`, and `embedding`.
+  - Dual environment variable support: compact syntax (`AI_<CAPABILITY>_FALLBACK_CHAIN=gemini:gemini-3.8-flash,openai:gpt-4o-mini`) with whitespace tolerance, and standard Spring relaxed binding. Full backward compatibility with `AI_PROVIDER` and `AI_AUDIO_PROVIDER`.
+  - Fail-fast startup validation (`AiFallbackValidator`): Aborts boot immediately if a chain is empty, has non-positive timeout (`timeout-seconds <= 0`), or configures unsupported providers.
+  - Independent Circuit Breakers per candidate (`capability:provider:model`) managed by Resilience4j (`AiCircuitBreakerManager`). OPEN circuits are skipped instantly (< 5 ms) without network calls.
+  - Administration & Health: `GET /api/admin/ai/providers` restricted to `ROLE_ADMIN` (returns chain and circuit statuses without exposing secrets), and Actuator `AiFallbackHealthIndicator` reporting `UP`, `DEGRADED`, or `DOWN`.
+
+## 8. Embeddings y RAG (HU-26)
+
+| Pieza | Detalle |
+|---|---|
+| Embeddings | `gemini-embedding-001`, 768 dimensiones, clave propia `GEMINI_EMBEDDING_API_KEY` (nunca se reutiliza `GEMINI_API_KEY`). Sin clave: 503 controlado, no hay respuesta solo con BM25. |
+| Almacén vectorial | PostgreSQL 17 con extensión `pgvector` (imagen `pgvector/pgvector:pg17`), schema `knowledge`, índice HNSW `vector_cosine_ops`. En Railway hay que crear la extensión (`CREATE EXTENSION vector;`, T002 pendiente). |
+| Generación | `GeminiKnowledgeAnswerAdapter` tras `KnowledgeAnswerPort`, con timeout en cliente. |
+| Corpus público | `backend/src/main/resources/knowledge/*.md` con `visibility: public`; no se indexa `docs/`. |

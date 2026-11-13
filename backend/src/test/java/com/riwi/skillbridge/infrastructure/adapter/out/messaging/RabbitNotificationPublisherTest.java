@@ -54,6 +54,21 @@ class RabbitNotificationPublisherTest {
     }
 
     @Test
+    void shouldPublishPaymentReminderToPaymentReminderRoutingKey() {
+        RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
+        RabbitNotificationPublisher publisher = new RabbitNotificationPublisher(rabbitTemplate);
+        NotificationMessage message = NotificationMessage.paymentReminder(UUID.randomUUID(), UUID.randomUUID());
+
+        publisher.publish(message);
+
+        verify(rabbitTemplate).convertAndSend(
+            eq(RabbitConfiguration.NOTIFICATION_EXCHANGE),
+            eq(RabbitConfiguration.NOTIFICATION_PAYMENT_REMINDER_KEY),
+            eq(message),
+            any(CorrelationData.class));
+    }
+
+    @Test
     void shouldNotPropagateBrokerFailure() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         RabbitNotificationPublisher publisher = new RabbitNotificationPublisher(rabbitTemplate);

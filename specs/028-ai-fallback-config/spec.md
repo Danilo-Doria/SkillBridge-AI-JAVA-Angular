@@ -1,6 +1,6 @@
 # Feature Specification: Configuración y Resiliencia del Fallback de IA
 
-**Feature Branch**: `feature/028-ai-fallback-config` | **Created**: 2026-10-22 | **Status**: Draft (refinada 2026-11-09; pendiente de aprobación humana) | **Issue**: #79  
+**Feature Branch**: `feature/HU-28-Configuracion,-resiliencia-y-observabilidad-del-fallback-de-IA` | **Created**: 2026-10-22 | **Status**: Approved (2026-11-10) | **Issue**: #79  
 **Input**: Como Admin / operador de la plataforma, quiero configurar sin recompilar el orden de los modelos de IA de respaldo, sus timeouts, reintentos y circuit breakers, y ver qué proveedor está respondiendo, para controlar coste, latencia y disponibilidad de las funciones de IA en cada entorno.
 
 ---
@@ -173,16 +173,13 @@ Como administrador del sistema, quiero disponer de métricas estandarizadas en M
 
 ### Decisiones de Producto y Negocio
 
-Decididas el 2026-11-09:
+Decididas (confirmadas para implementación):
 
 - **Estructura**: segunda entrega de la épica HU-27/HU-28 (ver HU-27). Depende del mecanismo de HU-27.
-- **Agotamiento de la cadena**: **503 sin mock** (antes opción B de esta spec, descartada). La opción de devolver una respuesta heurística o mock por defecto **queda prohibida**: enmascara fallos de infraestructura y contradice HU-26 FR-009 y HU-27 FR-006.
-- **Implementación del circuit breaker**: Resilience4j (`resilience4j-spring-boot3`), integrado con Micrometer.
-
-Pendiente de confirmar (se aplica la opción recomendada hasta que se indique lo contrario):
-
-- `[NEEDS CLARIFICATION: Formato de variables de entorno]` Recomendada la opción A: soporte dual (cadena compacta `provider:model,provider:model` y relaxed binding estándar de Spring). Los ejemplos de documentación DEBEN usar nombres de modelo ficticios o tomados de la documentación vigente del proveedor; no se afirma que un nombre de modelo exista sin verificarlo.
-- `[NEEDS CLARIFICATION: Exposición de estado]` Recomendada la opción A: `GET /api/admin/ai/providers` (solo `ROLE_ADMIN`) con detalle completo, más un `HealthIndicator` agregado (`UP`/`DEGRADED`) sin configuración interna.
+- **Agotamiento de la cadena**: **503 sin mock**. La opción de devolver una respuesta heurística o mock por defecto **queda prohibida**: enmascara fallos de infraestructura y contradice HU-26 FR-009 y HU-27 FR-006.
+- **Implementación del circuit breaker**: Resilience4j (`resilience4j-spring-boot3`), integrado con Micrometer y Actuator.
+- **Formato de variables de entorno**: Soporte dual confirmado (cadena compacta `AI_<CAPABILITY>_FALLBACK_CHAIN=provider:model,provider:model` más relaxed binding estándar de Spring `app.ai.fallback.*`). Tolerancia a espacios en blanco accidentales. Ejemplos de documentación con placeholders y modelos vigentes verificados.
+- **Exposición de estado**: Endpoint administrativo `GET /api/admin/ai/providers` (solo `ROLE_ADMIN`) con detalle completo de cadena y circuitos, más `HealthIndicator` agregado (`AiFallbackHealthIndicator`) reportando `UP`/`DEGRADED` sin configuración interna ni exposición de claves.
 
 ---
 
