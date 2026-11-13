@@ -73,18 +73,21 @@ class AuditEventRepositoryTest {
 
     @Test
     void shouldFindOnlyEventsFromCorrelationOrderedByOccurrence() {
+        String correlationId = "corr-" + UUID.randomUUID();
         BusinessEvent unrelated = newEvent("Unrelated");
         unrelated.setCorrelationId("other-correlation");
         BusinessEvent later = newEvent("PaymentApproved");
+        later.setCorrelationId(correlationId);
         later.setOccurredAt(Instant.now());
         BusinessEvent earlier = newEvent("BookingCreated");
+        earlier.setCorrelationId(correlationId);
         earlier.setOccurredAt(Instant.now().minusSeconds(60));
 
         repository.save(unrelated);
         repository.save(later);
         repository.save(earlier);
 
-        var events = repository.findByCorrelationIdOrderByOccurredAtAsc("corr-1");
+        var events = repository.findByCorrelationIdOrderByOccurredAtAsc(correlationId);
 
         assertThat(events).extracting(BusinessEvent::getEventId)
             .containsExactly(earlier.getEventId(), later.getEventId());
