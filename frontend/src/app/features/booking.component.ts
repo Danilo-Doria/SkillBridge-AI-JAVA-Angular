@@ -9,40 +9,46 @@ import { BookingService } from '../core/booking.service';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <section class="min-h-screen bg-[#FBFBFA] px-4 py-16 sm:px-6 lg:py-24">
-      <div class="mx-auto grid max-w-5xl gap-12 lg:grid-cols-[1fr_26rem] lg:gap-20">
+    <section class="min-h-[calc(100vh-4rem)] bg-[#FBFBFA] px-4 py-12 sm:px-6 lg:py-16">
+      <div class="mx-auto max-w-xl">
 
-        <!-- Columna editorial -->
-        <div class="enter-rise">
-          <h1 class="font-display text-5xl text-[#111111] sm:text-6xl">Reservar una sesión</h1>
-          <p class="mt-6 max-w-md text-base leading-7 text-[#2F3437]">
-            Al confirmar, Spring persiste la reserva y publica un evento <code class="rounded bg-[#F1F0ED] px-1.5 py-0.5 font-mono text-sm text-[#111111]">BookingCreated</code> en RabbitMQ.
+        <!-- Encabezado de la página -->
+        <div class="enter-rise mb-8 text-center">
+          <h1 class="font-display text-4xl text-[#111111] sm:text-5xl">Reservar una sesión</h1>
+          <p class="mt-3 text-sm text-[#787774]">
+            Selecciona el servicio que deseas y agenda la fecha y hora que mejor se adapte a tu horario.
           </p>
         </div>
 
-        <!-- Formulario -->
-        <div class="enter-rise self-start rounded-xl border border-[#EAEAEA] bg-white p-6 sm:p-8" style="animation-delay: 70ms">
+        <!-- Tarjeta del Formulario -->
+        <div class="enter-rise rounded-2xl border border-[#EAEAEA] bg-white p-6 shadow-sm sm:p-10" style="animation-delay: 70ms">
 
           @if (error) {
-            <div role="alert" class="enter-rise mb-6 rounded-lg bg-[#FDEBEC] px-4 py-3 text-sm text-[#9F2F2D]">{{ error }}</div>
+            <div role="alert" class="enter-rise mb-6 rounded-lg bg-[#FDEBEC] px-4 py-3 text-sm text-[#9F2F2D]">
+              {{ error }}
+            </div>
           }
 
           @if (success) {
-            <div role="alert" class="enter-rise mb-6 rounded-lg bg-[#EDF3EC] px-4 py-3 text-sm text-[#346538]">{{ success }}</div>
+            <div role="alert" class="enter-rise mb-6 rounded-lg bg-[#EDF3EC] px-4 py-3 text-sm text-[#346538]">
+              {{ success }}
+            </div>
           }
 
           <div class="space-y-6">
-            <!-- Servicio -->
+            <!-- Selector de Servicio -->
             <div>
-              <label class="mb-2 block text-sm text-[#787774]">Servicio</label>
+              <label class="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#787774]">
+                Servicio
+              </label>
 
               <div class="relative w-full" tabindex="0" (blur)="offeringDropdownOpen = false">
                 <button type="button" [disabled]="offeringsLoading"
                         (click)="offeringDropdownOpen = !offeringDropdownOpen"
-                        class="flex w-full cursor-pointer items-center justify-between rounded-md border border-[#EAEAEA] bg-white px-3 py-2.5 text-left text-sm outline-none transition-[border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-[#C9C8C4] focus:border-[#111111] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:active:scale-100">
+                        class="flex w-full cursor-pointer items-center justify-between rounded-lg border border-[#EAEAEA] bg-white px-4 py-3 text-left text-sm outline-none transition-[border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-[#C9C8C4] focus:border-[#111111] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50">
                   <span class="inline-flex items-center gap-2 {{ selectedOfferingTitle ? 'text-[#111111] font-medium' : 'text-[#9B9A97]' }}">
                     @if (offeringsLoading) {
-                      <svg class="h-3.5 w-3.5 animate-spin text-[#787774] [animation-duration:600ms]" fill="none" viewBox="0 0 24 24">
+                      <svg class="h-4 w-4 animate-spin text-[#787774]" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
@@ -51,19 +57,20 @@ import { BookingService } from '../core/booking.service';
                       {{ selectedOfferingTitle || 'Selecciona un servicio' }}
                     }
                   </span>
-                  <svg class="h-3.5 w-3.5 text-[#787774] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]" [class.rotate-180]="offeringDropdownOpen" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+                  <svg class="h-4 w-4 text-[#787774] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]"
+                       [class.rotate-180]="offeringDropdownOpen" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
                     <path d="M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32Z"/>
                   </svg>
                 </button>
 
                 @if (offeringDropdownOpen) {
-                  <div class="enter-drop absolute z-20 mt-2 max-h-56 w-full overflow-y-auto rounded-lg border border-[#EAEAEA] bg-white p-1 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
-                    <div class="cursor-pointer rounded-md px-3 py-2 text-sm text-[#787774] transition-[background-color,transform] duration-150 hover:bg-[#F1F0ED] active:scale-[0.99] motion-reduce:active:scale-100"
+                  <div class="enter-drop absolute z-20 mt-2 max-h-56 w-full overflow-y-auto rounded-lg border border-[#EAEAEA] bg-white p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+                    <div class="cursor-pointer rounded-md px-3 py-2 text-sm text-[#787774] transition-colors duration-150 hover:bg-[#F1F0ED]"
                          (click)="selectOffering('', '')">
                       Selecciona un servicio
                     </div>
                     @for (offering of offerings; track offering.id) {
-                      <div class="cursor-pointer rounded-md px-3 py-2.5 text-sm font-medium text-[#111111] transition-[background-color,transform] duration-150 hover:bg-[#F1F0ED] active:scale-[0.99] motion-reduce:active:scale-100"
+                      <div class="cursor-pointer rounded-md px-3 py-2.5 text-sm font-medium text-[#111111] transition-colors duration-150 hover:bg-[#F1F0ED]"
                            (click)="selectOffering(offering.id, offering.title)">
                         {{ offering.title }}
                       </div>
@@ -73,15 +80,18 @@ import { BookingService } from '../core/booking.service';
               </div>
             </div>
 
-            <!-- Fecha y hora -->
+            <!-- Selector de Fecha y Hora -->
             <div>
-              <label class="mb-2 block text-sm text-[#787774]">Fecha y hora</label>
+              <label class="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#787774]">
+                Fecha y hora
+              </label>
               <input type="datetime-local" [(ngModel)]="scheduledLocal"
-                     class="w-full rounded-md border border-[#EAEAEA] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none transition-colors duration-150 hover:border-[#C9C8C4] focus:border-[#111111]">
+                     class="w-full rounded-lg border border-[#EAEAEA] bg-white px-4 py-3 text-sm text-[#111111] outline-none transition-colors duration-150 hover:border-[#C9C8C4] focus:border-[#111111]">
             </div>
 
+            <!-- Botón de Envío -->
             <button type="button" (click)="book()"
-                    class="w-full cursor-pointer rounded-md bg-[#111111] px-4 py-3 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] [@media(hover:hover)]:hover:scale-[1.01] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+                    class="mt-2 w-full cursor-pointer rounded-lg bg-[#111111] px-4 py-3.5 text-sm font-medium text-white transition-[transform,background-color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#333333] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
                     [disabled]="loading">
               {{ loading ? 'Creando reserva...' : 'Crear reserva' }}
             </button>
@@ -109,7 +119,7 @@ export class BookingComponent implements OnInit {
   private router = inject(Router);
 
   ngOnInit(): void {
-    this.offeringsService.list().subscribe({
+    this.offeringsService.listForLookup().subscribe({
       next: (list) => {
         this.offerings = list;
         this.offeringsLoading = false;

@@ -26,13 +26,18 @@ public class BookingEntity {
     private String idempotencyKey;
     @Column(name = "idempotency_request_hash")
     private String idempotencyRequestHash;
+    @Column(name = "last_payment_reminder_sent_at")
+    private Instant lastPaymentReminderSentAt;
 
     protected BookingEntity() {}
 
     public BookingEntity(UUID id, UUID offeringId, UUID customerId, Instant scheduledAt, BookingStatus status, long version, Instant createdAt) {
-        this(id, offeringId, customerId, scheduledAt, status, version, createdAt, null, null);
+        this(id, offeringId, customerId, scheduledAt, status, version, createdAt, null, null, null);
     }
     public BookingEntity(UUID id, UUID offeringId, UUID customerId, Instant scheduledAt, BookingStatus status, long version, Instant createdAt, String idempotencyKey, String idempotencyRequestHash) {
+        this(id, offeringId, customerId, scheduledAt, status, version, createdAt, idempotencyKey, idempotencyRequestHash, null);
+    }
+    public BookingEntity(UUID id, UUID offeringId, UUID customerId, Instant scheduledAt, BookingStatus status, long version, Instant createdAt, String idempotencyKey, String idempotencyRequestHash, Instant lastPaymentReminderSentAt) {
         this.id = id;
         this.offeringId = offeringId;
         this.customerId = customerId;
@@ -42,6 +47,7 @@ public class BookingEntity {
         this.createdAt = createdAt;
         this.idempotencyKey = idempotencyKey;
         this.idempotencyRequestHash = idempotencyRequestHash;
+        this.lastPaymentReminderSentAt = lastPaymentReminderSentAt;
     }
 
     public UUID getId() { return id; }
@@ -52,6 +58,10 @@ public class BookingEntity {
     public long getVersion() { return version; }
     public Instant getCreatedAt() { return createdAt; }
     public String getIdempotencyRequestHash() { return idempotencyRequestHash; }
+    public Instant getLastPaymentReminderSentAt() { return lastPaymentReminderSentAt; }
+    public void setLastPaymentReminderSentAt(Instant lastPaymentReminderSentAt) {
+        this.lastPaymentReminderSentAt = lastPaymentReminderSentAt;
+    }
 
     public void updateStatus(BookingStatus status) {
         this.status = status;

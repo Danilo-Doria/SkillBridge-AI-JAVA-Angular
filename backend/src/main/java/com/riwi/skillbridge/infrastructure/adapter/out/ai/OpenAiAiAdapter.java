@@ -1,28 +1,46 @@
 package com.riwi.skillbridge.infrastructure.adapter.out.ai;
 
+import com.riwi.skillbridge.application.common.CorrelationIdHolder;
 import com.riwi.skillbridge.application.port.out.AiRecommendationPort;
 import com.riwi.skillbridge.application.port.out.AiStructuredResponse;
 import com.riwi.skillbridge.application.recommendation.RecommendationRequest;
 import com.riwi.skillbridge.domain.exception.AiProviderException;
 import com.riwi.skillbridge.domain.exception.AiProviderException.ErrorType;
 import com.riwi.skillbridge.domain.model.Offering;
+import com.riwi.skillbridge.infrastructure.adapter.out.ai.classification.AiErrorClassifier;
 import com.riwi.skillbridge.infrastructure.config.AiProviderProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Component
 @ConditionalOnProperty(name = "app.ai.provider", havingValue = "openai")
 public class OpenAiAiAdapter implements AiRecommendationPort {
+    private static final Logger log = LoggerFactory.getLogger(OpenAiAiAdapter.class);
+
     private final ChatClient chatClient;
     private final AiProviderProperties properties;
+    private final AiErrorClassifier errorClassifier;
 
+    @Autowired
     public OpenAiAiAdapter(ChatClient.Builder chatClientBuilder, AiProviderProperties properties) {
+        this(chatClientBuilder, properties, new AiErrorClassifier());
+    }
+
+    public OpenAiAiAdapter(ChatClient.Builder chatClientBuilder, AiProviderProperties properties, AiErrorClassifier errorClassifier) {
         this.chatClient = chatClientBuilder.build();
         this.properties = properties;
+        this.errorClassifier = errorClassifier != null ? errorClassifier : new AiErrorClassifier();
     }
 
     @Override
@@ -48,25 +66,52 @@ public class OpenAiAiAdapter implements AiRecommendationPort {
                 %s
                 """.formatted(request.normalizedNeed(), catalog);
 
+        int timeoutSeconds = properties.getTimeoutSeconds() > 0 ? properties.getTimeoutSeconds() : 10;
+
         try {
-            AiStructuredResponse response = chatClient.prompt()
-                    .user(prompt)
-                    .call()
-                    .entity(AiStructuredResponse.class);
-            
-            if (response == null) {
-                throw new AiProviderException("OpenAI did not return a valid structured response", ErrorType.INTERNAL_ERROR);
+            CompletableFuture<AiStructuredResponse> future = CompletableFuture.supplyAsync(() -> {
+                AiStructuredResponse response = chatClient.prompt()
+                        .user(prompt)
+                        .call()
+                        .entity(AiStructuredResponse.class);
+
+                if (response == null) {
+                    throw new AiProviderException("OpenAI did not return a valid structured response", ErrorType.INTERNAL_ERROR);
+                }
+                if (response.recommendations() == null) {
+                    return new AiStructuredResponse(response.explanation(), new ArrayList<>());
+                }
+                return response;
+            });
+
+            try {
+                return future.get(timeoutSeconds, TimeUnit.SECONDS);
+            } catch (TimeoutException ex) {
+                future.cancel(true);
+                throw new AiProviderException("OpenAI timed out after " + timeoutSeconds + "s (timeout: " + timeoutSeconds + "s)", ErrorType.TIMEOUT, ex);
+            } catch (ExecutionException ex) {
+                Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                if (cause instanceof RuntimeException re) {
+                    throw re;
+                }
+                throw new RuntimeException(cause);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new AiProviderException("Interrupted during OpenAI recommendation", ErrorType.UNAVAILABLE, ex);
             }
-            if (response.recommendations() == null) {
-                return new AiStructuredResponse(response.explanation(), new ArrayList<>());
-            }
-            return response;
         } catch (AiProviderException ex) {
             throw ex;
         } catch (IllegalArgumentException ex) {
             throw new AiProviderException("OpenAI is not properly configured: " + ex.getMessage(), ErrorType.INVALID_INPUT, ex);
         } catch (RuntimeException ex) {
-            throw new AiProviderException("OpenAI is temporarily unavailable (timeout: " + properties.getTimeoutSeconds() + "s)", ErrorType.UNAVAILABLE, ex);
+            AiErrorClassifier.ClassificationResult classification = errorClassifier.classify(ex);
+            ErrorType type = classification.errorType();
+            log.error("OpenAI recommendation failed type={} correlationId={}", type,
+                    CorrelationIdHolder.get(), ex);
+            String message = (type == ErrorType.UNAVAILABLE || type == ErrorType.TIMEOUT)
+                    ? "OpenAI is temporarily unavailable (timeout: " + timeoutSeconds + "s)"
+                    : "OpenAI recommendation failed: " + type;
+            throw new AiProviderException(message, type, ex);
         }
     }
 }

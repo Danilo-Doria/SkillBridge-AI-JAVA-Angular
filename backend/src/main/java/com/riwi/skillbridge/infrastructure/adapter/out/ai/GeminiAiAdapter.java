@@ -1,23 +1,29 @@
 package com.riwi.skillbridge.infrastructure.adapter.out.ai;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.riwi.skillbridge.application.common.CorrelationIdHolder;
 import com.riwi.skillbridge.application.port.out.AiRecommendationPort;
 import com.riwi.skillbridge.application.port.out.AiStructuredResponse;
 import com.riwi.skillbridge.application.recommendation.RecommendationRequest;
 import com.riwi.skillbridge.domain.exception.AiProviderException;
 import com.riwi.skillbridge.domain.exception.AiProviderException.ErrorType;
 import com.riwi.skillbridge.domain.model.Offering;
+import com.riwi.skillbridge.infrastructure.adapter.out.ai.classification.AiErrorClassifier;
 import com.riwi.skillbridge.infrastructure.config.AiProviderProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Component
 @ConditionalOnProperty(name = "app.ai.provider", havingValue = "gemini", matchIfMissing = true)
@@ -29,16 +35,26 @@ public class GeminiAiAdapter implements AiRecommendationPort {
     private final ChatClient chatClient;
     private final AiProviderProperties properties;
     private final ObjectMapper objectMapper;
+    private final AiErrorClassifier errorClassifier;
 
     @Autowired
     public GeminiAiAdapter(ChatClient.Builder chatClientBuilder, AiProviderProperties properties) {
-        this(chatClientBuilder, properties, new ObjectMapper());
+        this(chatClientBuilder, properties, new ObjectMapper(), new AiErrorClassifier());
+    }
+
+    public GeminiAiAdapter(ChatClient.Builder chatClientBuilder, AiProviderProperties properties, AiErrorClassifier errorClassifier) {
+        this(chatClientBuilder, properties, new ObjectMapper(), errorClassifier);
     }
 
     GeminiAiAdapter(ChatClient.Builder chatClientBuilder, AiProviderProperties properties, ObjectMapper objectMapper) {
+        this(chatClientBuilder, properties, objectMapper, new AiErrorClassifier());
+    }
+
+    GeminiAiAdapter(ChatClient.Builder chatClientBuilder, AiProviderProperties properties, ObjectMapper objectMapper, AiErrorClassifier errorClassifier) {
         this.chatClient = chatClientBuilder.build();
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.errorClassifier = errorClassifier != null ? errorClassifier : new AiErrorClassifier();
     }
 
     @Override
@@ -67,8 +83,25 @@ public class GeminiAiAdapter implements AiRecommendationPort {
                 %s
                 """.formatted(request.normalizedNeed(), catalog);
 
+        int timeoutSeconds = properties.getTimeoutSeconds() > 0 ? properties.getTimeoutSeconds() : 10;
+
         try {
-            return execute(prompt);
+            CompletableFuture<AiStructuredResponse> future = CompletableFuture.supplyAsync(() -> execute(prompt));
+            try {
+                return future.get(timeoutSeconds, TimeUnit.SECONDS);
+            } catch (TimeoutException ex) {
+                future.cancel(true);
+                throw new AiProviderException("Gemini timed out after " + timeoutSeconds + "s", ErrorType.TIMEOUT, ex);
+            } catch (ExecutionException ex) {
+                Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                if (cause instanceof RuntimeException re) {
+                    throw re;
+                }
+                throw new RuntimeException(cause);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new AiProviderException("Interrupted during Gemini recommendation", ErrorType.UNAVAILABLE, ex);
+            }
         } catch (AiProviderException ex) {
             throw ex;
         } catch (IllegalArgumentException ex) {
@@ -78,9 +111,10 @@ public class GeminiAiAdapter implements AiRecommendationPort {
                 ex
             );
         } catch (RuntimeException ex) {
-            ErrorType type = classify(ex);
+            AiErrorClassifier.ClassificationResult classification = errorClassifier.classify(ex);
+            ErrorType type = classification.errorType();
             log.error("Gemini recommendation failed type={} correlationId={}", type,
-                    com.riwi.skillbridge.application.common.CorrelationIdHolder.get(), ex);
+                    CorrelationIdHolder.get(), ex);
             throw new AiProviderException("Gemini recommendation failed: " + type, type, ex);
         }
     }
@@ -116,19 +150,5 @@ public class GeminiAiAdapter implements AiRecommendationPort {
         } catch (JsonProcessingException ex) {
             throw new AiProviderException("Gemini returned invalid or truncated JSON", ErrorType.INTERNAL_ERROR, ex);
         }
-    }
-
-    private ErrorType classify(Throwable error) {
-        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
-            String type = cause.getClass().getSimpleName().toLowerCase();
-            String message = String.valueOf(cause.getMessage()).toLowerCase();
-            if (type.contains("timeout") || message.contains("timed out") || message.contains("timeout")) return ErrorType.TIMEOUT;
-            if (message.contains("401") || message.contains("403") || message.contains("unauthorized") || message.contains("api key")) return ErrorType.INVALID_INPUT;
-            if (message.contains("429") || message.contains("quota") || message.contains("rate limit")) return ErrorType.RATE_LIMITED;
-            if (message.contains("404") || message.contains("model") && message.contains("not found")) return ErrorType.INVALID_INPUT;
-            if (type.contains("connect") || message.contains("connection") || message.contains("unreachable")) return ErrorType.UNAVAILABLE;
-            if (message.contains("could not parse") || message.contains("json")) return ErrorType.INTERNAL_ERROR;
-        }
-        return ErrorType.UNAVAILABLE;
     }
 }

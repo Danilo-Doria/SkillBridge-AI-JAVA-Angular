@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -49,13 +50,19 @@ class KafkaAnalyticsConsumerTest {
         // Why it matters: this is the primary data ingestion path for analytics.
         UUID eventId = UUID.randomUUID();
         UUID userId  = UUID.randomUUID();
+        UUID offeringA = UUID.randomUUID();
+        UUID offeringB = UUID.randomUUID();
 
         when(eventRepository.existsById(eventId)).thenReturn(false);
 
-        consumer.consumeRecommendationEvent(recommendationGeneratedEvent(eventId, userId));
+        consumer.consumeRecommendationEvent(
+                recommendationGeneratedEvent(eventId, userId, List.of(offeringA, offeringB)));
 
         verify(eventRepository).save(any());
-        verify(analyticsRepository).incrementRecommendations(eq(userId), any(LocalDate.class));
+        // Counted per recommended offering — never per user (userId would violate the offering FK).
+        verify(analyticsRepository).incrementRecommendations(eq(offeringA), any(LocalDate.class));
+        verify(analyticsRepository).incrementRecommendations(eq(offeringB), any(LocalDate.class));
+        verify(analyticsRepository, never()).incrementRecommendations(eq(userId), any(LocalDate.class));
     }
 
     @Test
@@ -160,10 +167,15 @@ class KafkaAnalyticsConsumerTest {
 
     private BusinessEvent<RecommendationGeneratedPayload> recommendationGeneratedEvent(
             UUID eventId, UUID userId) {
+        return recommendationGeneratedEvent(eventId, userId, List.of());
+    }
+
+    private BusinessEvent<RecommendationGeneratedPayload> recommendationGeneratedEvent(
+            UUID eventId, UUID userId, List<UUID> offeringIds) {
         return buildEvent(eventId, "RecommendationGenerated",
                 new RecommendationGeneratedPayload(
                         UUID.randomUUID(), userId, "quiero aprender Java",
-                        RecommendationInputType.TEXT, "gemini-3.8-flash", 450L));
+                        RecommendationInputType.TEXT, "gemini-3.8-flash", 450L, "gemini", offeringIds));
     }
 
     private BusinessEvent<BookingCreatedPayload> bookingCreatedEvent(UUID offeringId, UUID customerId) {

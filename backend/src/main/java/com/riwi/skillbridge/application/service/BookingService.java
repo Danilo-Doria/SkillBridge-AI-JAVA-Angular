@@ -13,6 +13,8 @@ import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
 import com.riwi.skillbridge.domain.model.BookingStatusHistory;
 import com.riwi.skillbridge.domain.model.Offering;
+import com.riwi.skillbridge.domain.model.PageQuery;
+import com.riwi.skillbridge.domain.model.PageResult;
 import com.riwi.skillbridge.domain.model.UserAccount;
 import com.riwi.skillbridge.domain.service.BookingCancellationPolicy;
 import org.springframework.stereotype.Service;
@@ -116,8 +118,29 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
     }
 
     @Override
+    @Transactional
     public List<Booking> bookingsList(String email) {
-        return bookingRepository.findByCustomerEmail(email);
+        List<Booking> bookings = bookingRepository.findByCustomerEmail(email);
+        Instant now = clock.instant();
+
+        return bookings.stream().map(booking -> {
+            if (booking.isPaymentWindowExpired(now)) {
+                Booking cancelled = booking.cancel();
+                Booking saved = bookingRepository.save(cancelled);
+                bookingStatusHistoryPort.save(BookingStatusHistory.forTransition(
+                        booking,
+                        saved.status(),
+                        saved.customerId(),
+                        now));
+                return saved;
+            }
+            return booking;
+        }).toList();
+    }
+
+    @Override
+    public PageResult<Booking> bookingsList(String email, PageQuery query) {
+        return bookingRepository.findByCustomerEmail(email, query);
     }
 
     @Override
@@ -171,7 +194,8 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
             booking.customerId(),
             booking.scheduledAt(),
             BookingStatus.CONFIRMED,
-            booking.version()
+            booking.version(),
+            booking.lastPaymentReminderSentAt()
         );
 
         bookingRepository.save(confirmedBooking);

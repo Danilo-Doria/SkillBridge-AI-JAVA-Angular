@@ -1,12 +1,13 @@
 import { Component, OnInit, inject } from "@angular/core";
 import { CurrencyPipe } from "@angular/common";
 import { Router } from "@angular/router";
+import { PagerComponent } from "../shared-pager.component";
 import { Offering, OfferingService } from "../core/offering.service";
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CurrencyPipe],
+  imports: [CurrencyPipe, PagerComponent],
   template: `
     <!-- Hero: un solo campo de color, tipografía grande, sin adornos -->
     <section class="bg-neutral-950 text-neutral-50">
@@ -35,7 +36,7 @@ import { Offering, OfferingService } from "../core/offering.service";
           </div>
 
           @if (offerings.length > 0) {
-            <span class="text-sm font-medium text-neutral-600 tabular-nums">{{ offerings.length }} servicios</span>
+            <span class="text-sm font-medium text-neutral-600 tabular-nums">{{ totalElements }} servicios</span>
           }
         </div>
 
@@ -110,12 +111,18 @@ import { Offering, OfferingService } from "../core/offering.service";
           </div>
         }
         }
+
+        <app-pager [page]="page" [totalPages]="totalPages" (pageChange)="goToPage($event)" />
       </div>
     </section>
   `,
 })
 export class HomeComponent implements OnInit {
   offerings: Offering[] = [];
+  page = 0;
+  totalPages = 0;
+  totalElements = 0;
+  readonly pageSize = 9;
   error = "";
   loading = true;
   readonly skeletonPlaceholders = [0, 1, 2];
@@ -124,8 +131,23 @@ export class HomeComponent implements OnInit {
   private router = inject(Router);
 
   ngOnInit(): void {
-    this.service.list().subscribe({
-      next: (r) => { this.offerings = r; this.loading = false; },
+    this.load(0);
+  }
+
+  goToPage(page: number): void {
+    this.load(page);
+  }
+
+  private load(page: number): void {
+    this.loading = true;
+    this.service.list(page, this.pageSize).subscribe({
+      next: (r) => {
+        this.offerings = r.items;
+        this.page = r.page;
+        this.totalPages = r.totalPages;
+        this.totalElements = r.totalElements;
+        this.loading = false;
+      },
       error: () => { this.error = "No fue posible cargar el catálogo."; this.loading = false; },
     });
   }
