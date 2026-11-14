@@ -12,14 +12,12 @@ import com.riwi.skillbridge.infrastructure.adapter.out.persistence.entity.UserEn
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingRepository;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaBookingStatusHistoryRepository;
 import com.riwi.skillbridge.infrastructure.adapter.out.persistence.repository.JpaUserRepository;
-import com.riwi.skillbridge.infrastructure.config.RabbitConfiguration;
 import com.riwi.skillbridge.infrastructure.security.JwtService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,10 +32,9 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.containers.RabbitMQContainer;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -65,7 +62,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Prueba el flujo HTTP completo de cancelación contra PostgreSQL y RabbitMQ reales.
+ * Prueba el flujo HTTP completo de cancelación contra PostgreSQL y Kafka reales (HU-104: RabbitMQ retirado).
  * El control visual de doble clic corresponde al frontend y no se prueba aquí.
  */
 @SpringBootTest(properties = {
@@ -73,8 +70,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "app.jwt.legacy-secret=" + BookingCancellationIT.JWT_SECRET,
     "app.jwt.expiration-minutes=30",
     "app.cors.allowed-origins=http://localhost:4200",
-    "spring.rabbitmq.listener.simple.retry.initial-interval=100ms",
-    "spring.kafka.listener.auto-startup=false",
+    "app.messaging.kafka.retry.initial-interval=100",
     "spring.autoconfigure.exclude=org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration,"
         + "org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration,"
         + "org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiTextEmbeddingAutoConfiguration"
@@ -100,16 +96,14 @@ class BookingCancellationIT {
         .withPassword("test");
 
     @Container
-    static final RabbitMQContainer RABBIT =
-        new RabbitMQContainer(DockerImageName.parse("rabbitmq:4-management-alpine"));
+    static final ConfluentKafkaContainer KAFKA = new ConfluentKafkaContainer("confluentinc/cp-kafka:7.8.0");
 
     @DynamicPropertySource
     static void infrastructureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.rabbitmq.addresses",
-            () -> "amqp://guest:guest@%s:%d".formatted(RABBIT.getHost(), RABBIT.getAmqpPort()));
+        registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
     }
 
     @Autowired
@@ -124,8 +118,6 @@ class BookingCancellationIT {
     private JpaBookingStatusHistoryRepository historyRepository;
     @Autowired
     private JpaUserRepository userRepository;
-    @Autowired
-    private AmqpAdmin amqpAdmin;
 
     @MockitoBean
     private NotificationSenderPort notificationSender;
@@ -143,8 +135,6 @@ class BookingCancellationIT {
         userRepository.findById(OTHER_CUSTOMER_ID).ifPresent(userRepository::delete);
         userRepository.save(new UserEntity(OTHER_CUSTOMER_ID, "Other Customer", OTHER_CUSTOMER_EMAIL,
             passwordEncoder.encode("12345678"), Role.CUSTOMER, UserStatus.ACTIVE, NOW));
-        amqpAdmin.purgeQueue(RabbitConfiguration.NOTIFICATION_QUEUE);
-        amqpAdmin.purgeQueue(RabbitConfiguration.NOTIFICATION_DLQ);
         reset(notificationSender);
         reset(bookingEventPublisher);
     }

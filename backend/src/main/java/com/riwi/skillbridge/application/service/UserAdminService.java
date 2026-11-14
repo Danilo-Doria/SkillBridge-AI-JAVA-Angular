@@ -1,5 +1,13 @@
 package com.riwi.skillbridge.application.service;
 
+import com.riwi.skillbridge.application.common.CorrelationIdHolder;
+import com.riwi.skillbridge.application.port.in.PublishUserAccessSnapshotUseCase;
+import com.riwi.skillbridge.application.port.out.BookingEventPublisherPort;
+import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
+import com.riwi.skillbridge.application.port.out.event.UserAccessChangedPayload;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.time.Instant;
+import java.util.List;
 import com.riwi.skillbridge.application.port.in.ChangeUserRoleUseCase;
 import com.riwi.skillbridge.application.port.in.ChangeUserStatusUseCase;
 import com.riwi.skillbridge.application.port.in.GetUserUseCase;
@@ -22,7 +30,9 @@ import java.util.UUID;
 
 @Service
 public class UserAdminService implements ListUsersUseCase, GetUserUseCase,
-    ChangeUserStatusUseCase, ChangeUserRoleUseCase {
+    ChangeUserStatusUseCase, ChangeUserRoleUseCase, PublishUserAccessSnapshotUseCase {
+
+    static final String USER_ACCESS_CHANGED = "UserAccessChanged";
 
     // Logger dedicado a auditoría. Solo se registran ids y valores de estado/rol:
     // nunca emails, nombres, contraseñas ni JWT.
@@ -32,10 +42,19 @@ public class UserAdminService implements ListUsersUseCase, GetUserUseCase,
 
     private final UserAdminPort users;
     private final UserManagementPolicy policy;
+    /** HU-104: canal hacia los servicios extraídos (booking-events). Opcional para tests unitarios. */
+    private final BookingEventPublisherPort accessEvents;
 
     public UserAdminService(UserAdminPort users, UserManagementPolicy policy) {
+        this(users, policy, null);
+    }
+
+    @Autowired
+    public UserAdminService(UserAdminPort users, UserManagementPolicy policy,
+                            @Autowired(required = false) BookingEventPublisherPort accessEvents) {
         this.users = users;
         this.policy = policy;
+        this.accessEvents = accessEvents;
     }
 
     @Override
@@ -60,6 +79,7 @@ public class UserAdminService implements ListUsersUseCase, GetUserUseCase,
             UserAccount target = find(targetId);
             policy.assertCanChangeStatus(actor, target, newStatus);
             UserAccount saved = users.save(target.withStatus(newStatus));
+            publishAccessChanged(saved, actor);
             AUDIT.info("action=USER_STATUS_CHANGED outcome=SUCCESS actor={} target={} from={} to={}",
                 actor.id(), targetId, target.status(), newStatus);
             return saved;
@@ -77,6 +97,7 @@ public class UserAdminService implements ListUsersUseCase, GetUserUseCase,
             UserAccount target = find(targetId);
             policy.assertCanChangeRole(actor, target, newRole);
             UserAccount saved = users.save(target.withRole(newRole));
+            publishAccessChanged(saved, actor);
             AUDIT.info("action=USER_ROLE_CHANGED outcome=SUCCESS actor={} target={} from={} to={}",
                 actor.id(), targetId, target.role(), newRole);
             return saved;
@@ -85,6 +106,29 @@ public class UserAdminService implements ListUsersUseCase, GetUserUseCase,
                 actor.id(), targetId, newRole, e.getClass().getSimpleName());
             throw e;
         }
+    }
+
+    @Override
+    public int publishRestrictedUsersSnapshot() {
+        List<UserAccount> restricted = users.findByStatus(UserStatus.SUSPENDED);
+        restricted.forEach(u -> publishAccessChanged(u, null));
+        return restricted.size();
+    }
+
+    /**
+     * HU-104 (S1): los servicios extraídos validan el JWT sin leer users; este evento les permite rechazar tokens
+     * de usuarios suspendidos o con rol cambiado antes de que expiren. Sin PII (ver ARC-104-05).
+     */
+    private void publishAccessChanged(UserAccount user, Actor actor) {
+        if (accessEvents == null) {
+            return;
+        }
+        String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
+        String id = user.id().toString();
+        accessEvents.publish(new BusinessEvent<>(UUID.randomUUID(), USER_ACCESS_CHANGED, id, "User", Instant.now(),
+            correlationId, 1, new UserAccessChangedPayload(user.id(), user.status().name(), user.role().name()),
+            actor == null ? null : actor.id().toString(), null, actor == null ? null : actor.role().name(),
+            "ACCESS_CHANGED", "USER", id));
     }
 
     private UserAccount find(UUID id) {

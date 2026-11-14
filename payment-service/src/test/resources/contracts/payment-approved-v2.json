@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "eventId": "uuid",
+  "occurredAt": "2026-11-05T14:00:00Z",
+  "correlationId": "string",
+  "bookingId": "uuid",
+  "paymentId": "uuid",
+  "customerId": "uuid",
+  "customerEmail": "string",
+  "offeringId": "uuid",
+  "offeringTitle": "string",
+  "providerId": "uuid",
+  "scheduledAt": "2026-11-05T15:00:00Z",
+  "durationHours": 2,
+  "mode": "ASYNCHRONOUS | LIVE"
+}

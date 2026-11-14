@@ -41,7 +41,7 @@ To understand how data flows across the system, follow an existing feature such 
    └── Saves via JpaBookingRepository -> writes to PostgreSQL table 'bookings'
 6. Asynchronous Side Effects:
    BookingService.java:
-   ├── Publishes to RabbitMQ: RabbitNotificationPublisher -> exchange 'skillbridge.notifications'
+   ├── Publishes to Kafka: KafkaNotificationPublisher -> topic 'notification-requests' (key bookingId)
    └── Publishes to Kafka: KafkaBookingEventPublisher -> topic 'booking-events'
 7. Audit Consumer:
    audit-service/backend/.../KafkaAuditConsumer.java:
@@ -63,7 +63,8 @@ To understand how data flows across the system, follow an existing feature such 
 | **DTOs & Validations** | `backend/.../infrastructure/adapter/in/rest/dto/` | Immutable Java records with Jakarta Validation annotations (`@NotBlank`, `@NotNull`). |
 | **JPA Entities & Repos**| `backend/.../infrastructure/adapter/out/persistence/` | Spring Data JPA `@Entity`, `JpaRepository`, and mapping persistence adapters. |
 | **Database Migrations**| `backend/src/main/resources/db/migration/` | Versioned SQL scripts (`V8__feature_name.sql`). Immutable once merged. |
-| **Messaging Adapters** | `backend/.../infrastructure/adapter/out/messaging/` | Implements `*EventPublisherPort`. Uses `KafkaTemplate` or `RabbitTemplate`. |
+| **Messaging Adapters** | `backend/.../infrastructure/adapter/out/messaging/` | Implements `*PublisherPort`. Uses `KafkaTemplate` (Kafka is the only broker since HU-104). Add `X-Correlation-Id`/`eventId`/`eventType`/`schemaVersion` headers (`KafkaEventHeaders`). |
+| **Messaging Consumers** | `backend/.../infrastructure/adapter/in/messaging/` | `@KafkaListener` with its own group-id; idempotent by `eventId` (`idempotency/IdempotentEventProcessor`); restore MDC with `KafkaCorrelationScope`; retries + `<topic>.DLT` from `KafkaMessagingConfiguration`. |
 | **Frontend Component** | `frontend/src/app/features/` | Angular 20 standalone component using Tailwind CSS and Signals. |
 | **Frontend Service**   | `frontend/src/app/core/` | Injected service using `HttpClient` and `apiBase()`. |
 

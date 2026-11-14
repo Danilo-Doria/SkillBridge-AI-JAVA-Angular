@@ -88,22 +88,6 @@ spring:
     redis:
       url: ${REDIS_URL:redis://localhost:6379}
       timeout: 2s
-  rabbitmq:
-    addresses: ${RABBITMQ_URL:amqp://guest:guest@localhost:5672}
-    connection-timeout: 3s
-    publisher-confirm-type: correlated
-    publisher-returns: true
-    listener:
-      simple:
-        acknowledge-mode: auto
-        default-requeue-rejected: false
-        prefetch: 10
-        retry:
-          enabled: true
-          initial-interval: 2s
-          multiplier: 2.0
-          max-interval: 10s
-          max-attempts: 3
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -133,6 +117,10 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 app:
+  csrf:
+    cookie:
+      # HU-104: Strict en producción (constitución art. III); None solo para frontend cross-origin en desarrollo.
+      same-site: ${CSRF_COOKIE_SAME_SITE:None}
   jwt:
     # RS256: la clave privada solo existe en este servicio; los servicios satélite validan con la pública.
     # Sin valores por defecto: si falta JWT_PRIVATE_KEY la aplicación no arranca (SEC-002).
@@ -150,6 +138,15 @@ app:
       same-site: ${JWT_COOKIE_SAME_SITE:None}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8088,http://localhost:4200}
+  bookings:
+    # HU-104 (E1): al arrancar publica BookingStateSnapshot por reserva abierta (read model de payment-service).
+    snapshot-on-startup: ${APP_BOOKINGS_SNAPSHOT_ON_STARTUP:false}
+  users:
+    # HU-104 (S1): al arrancar publica UserAccessChanged por usuario suspendido (revocaciones en servicios extraídos).
+    access-snapshot-on-startup: ${APP_USERS_ACCESS_SNAPSHOT_ON_STARTUP:false}
+  catalog:
+    # HU-104: al arrancar publica un OfferingUpserted por oferta (activas e inactivas) (arranque en frío del read model de ai-service).
+    snapshot-on-startup: ${APP_CATALOG_SNAPSHOT_ON_STARTUP:false}
   cache:
     offerings-ttl-minutes: ${OFFERINGS_CACHE_TTL_MINUTES:10}
   ai:
@@ -266,6 +263,27 @@ app:
       booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
       audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
       recommendation-events: ${KAFKA_TOPIC_RECOMMENDATION_EVENTS:recommendation-events}
+      # HU-104 (contracts/kafka-topics.md): sustituyen a payment.events y notification.exchange del antiguo RabbitMQ.
+      # Las DLT se llaman <topic>.DLT.
+      payment-events: ${KAFKA_TOPIC_PAYMENT_EVENTS:payment-events}
+      notification-requests: ${KAFKA_TOPIC_NOTIFICATION_REQUESTS:notification-requests}
+  messaging:
+    # HU-104: Kafka es el único broker (RabbitMQ retirado, ADR-0009).
+    kafka:
+      # Espera máxima del ack del broker al publicar un evento de pago (los pagos no se pierden en silencio).
+      publish-timeout: ${MESSAGING_KAFKA_PUBLISH_TIMEOUT:10s}
+      partitions: ${MESSAGING_KAFKA_PARTITIONS:3}
+      dlt-partitions: ${MESSAGING_KAFKA_DLT_PARTITIONS:1}
+      replicas: ${MESSAGING_KAFKA_REPLICAS:1}
+      consumer-groups:
+        payments: ${MESSAGING_KAFKA_GROUP_PAYMENTS:skillbridge-booking-payments}
+        notifications: ${MESSAGING_KAFKA_GROUP_NOTIFICATIONS:skillbridge-notifications}
+      retry:
+        # 3 reintentos con backoff exponencial (1 s, 2 s, 4 s) y después <topic>.DLT.
+        max-retries: ${MESSAGING_KAFKA_RETRY_MAX:3}
+        initial-interval: ${MESSAGING_KAFKA_RETRY_INITIAL:1000}
+        multiplier: ${MESSAGING_KAFKA_RETRY_MULTIPLIER:2.0}
+        max-interval: ${MESSAGING_KAFKA_RETRY_MAX_INTERVAL:10000}
 
 stripe:
   api-url: ${STRIPE_API_URL:https://api.stripe.com}

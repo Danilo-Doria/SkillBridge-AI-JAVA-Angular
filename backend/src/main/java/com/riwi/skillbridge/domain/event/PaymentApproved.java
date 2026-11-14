@@ -42,4 +42,10 @@ public record PaymentApproved(
             && offeringId != null && offeringTitle != null && providerId != null
             && scheduledAt != null && durationHours > 0 && mode != null;
     }
+
+    /** Copia con un {@code eventId} determinista (HU-104, ver {@link PaymentEventIds}). */
+    public PaymentApproved withEventId(UUID id) {
+        return new PaymentApproved(version, id, occurredAt, correlationId, bookingId, paymentId, customerId,
+            customerEmail, offeringId, offeringTitle, providerId, scheduledAt, durationHours, mode);
+    }
 }

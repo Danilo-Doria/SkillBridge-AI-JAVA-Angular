@@ -46,14 +46,16 @@ The backend tests are segregated according to Hexagonal architecture layers:
      - [StripeWebhookControllerTest.java](../backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/in/rest/webhook/StripeWebhookControllerTest.java): Tests HMAC signature header validation.
 
 4. **Integration Tests (`*IT.java` via Maven Failsafe)**:
-   - [BookingCancellationIT.java](../backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/in/rest/BookingCancellationIT.java): Full flow testing of booking cancellation using Testcontainers PostgreSQL.
+   - [BookingCancellationIT.java](../backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/in/rest/BookingCancellationIT.java): Full flow testing of booking cancellation using Testcontainers PostgreSQL (`pgvector/pgvector:pg17`) and Kafka (`confluentinc/cp-kafka:7.8.0`).
+   - [KafkaMessagingFlowIT.java](../backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/in/messaging/KafkaMessagingFlowIT.java): End-to-end `payment-events` / `notification-requests` publish → consume, retries, DLT and `eventId` idempotency (HU-104) on real Kafka and PostgreSQL containers.
+   - Kafka unit tests: `KafkaPaymentEventPublisherTest`, `KafkaNotificationPublisherTest`, `KafkaPaymentResultConsumerTest`, `KafkaNotificationConsumerTest`, `KafkaMessagingConfigurationTest`.
 
 ---
 
 ## 3. Docker & Testcontainers Requirements
 
 Running certain test suites requires the host system to have an operational Docker daemon:
-- **Image dependencies**: `postgres:17-alpine`, `rabbitmq:4-management-alpine`.
+- **Image dependencies**: `postgres:17-alpine`, `pgvector/pgvector:pg17`, `confluentinc/cp-kafka:7.8.0`. (RabbitMQ was retired in HU-104; no RabbitMQ container is used anymore.)
 - **Known Issue with `BookingPersistenceAdapterTest` (`QA-006`)**:
   - [BookingPersistenceAdapterTest.java](../backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/out/persistence/BookingPersistenceAdapterTest.java) uses `@Testcontainers` with PostgreSQL.
   - Because it ends with `*Test.java` rather than `*IT.java`, it is executed by the Maven Surefire plugin during the `mvn test` phase. If Docker is not running locally, `mvn test` will fail.
@@ -62,7 +64,7 @@ Running certain test suites requires the host system to have an operational Dock
 
 ## 4. Verified Disabled Tests
 
-Two tests in the backend are explicitly disabled in source code:
+One test in the backend is explicitly disabled in source code:
 
 1. **[JpaOfferingRepositoryTest.java#L16](../backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/out/persistence/JpaOfferingRepositoryTest.java#L16)**:
    ```java
@@ -73,20 +75,14 @@ Two tests in the backend are explicitly disabled in source code:
    ```
    *Reason*: Marked with `"Docker Bug Testcontainers"`. Silences PostgreSQL repository verification.
 
-2. **[NotificationFlowIT.java#L56](../backend/src/test/java/com/riwi/skillbridge/infrastructure/adapter/in/messaging/NotificationFlowIT.java#L56)**:
-   ```java
-   @org.junit.jupiter.api.Disabled("Docker Bug Testcontainers")
-   @Testcontainers
-   class NotificationFlowIT { ... }
-   ```
-   *Reason*: Marked with `"Docker Bug Testcontainers"`. Silences end-to-end RabbitMQ publisher/consumer/retry/DLQ integration verification.
+`NotificationFlowIT` (formerly disabled, retired RabbitMQ flow) was deleted in HU-104; its coverage moved to `KafkaMessagingFlowIT`.
 
 ---
 
 ## 5. Known Coverage Gaps & Limitations
 
-1. **Absence of Integration Tests for Kafka (`QA-012`)**:
-   - There are no tests utilizing `EmbeddedKafka` or `KafkaContainer` to verify real end-to-end event publication from `backend/` to `audit-service/`.
+1. **Partial Kafka Integration Coverage (`QA-012`)**:
+   - `KafkaMessagingFlowIT` and `BookingCancellationIT` now run against a Kafka Testcontainer inside `backend/`, but no test verifies end-to-end publication from `backend/` to `audit-service/`.
 2. **Absence of Redis Integration Tests**:
    - `RedisOfferingCacheAdapter` is verified via unit mocks; no test validates live cache-aside behavior against a real Redis Testcontainer.
 3. **CI Pipeline Omits Audit Service (`QA-004`)**:

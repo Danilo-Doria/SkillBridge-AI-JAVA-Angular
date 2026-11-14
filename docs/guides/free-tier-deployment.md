@@ -2,6 +2,9 @@
 
 Esta guía detalla el procedimiento paso a paso para desplegar **SkillBridge AI** en proveedores de nube gratuitos (Free Tier), permitiendo contar con un entorno público completamente operativo para demostraciones, pruebas y evaluación académica a costo $0.
 
+> [!WARNING]
+> **Parcialmente obsoleta (HU-104, ADR-0009 *Proposed*).** RabbitMQ fue retirado: Kafka es ahora el único broker y el backend ya no lee `RABBITMQ_URL`. Los pasos de CloudAMQP (antes RabbitMQ) ya no aplican y esta topología no aprovisiona Kafka. El despliegue vigente está en [`oracle-free-deployment.md`](oracle-free-deployment.md) (una VM Oracle Cloud Always Free con Docker Compose y Traefik). Lo demás se conserva como referencia.
+
 Esta guía complementa la lista de verificación general en [`docs/DEPLOYMENT-CHECKLIST.md`](../DEPLOYMENT-CHECKLIST.md) y el registro de arquitectura en [`docs/adr/0002-managed-services-in-cloud.md`](../adr/0002-managed-services-in-cloud.md).
 
 ---
@@ -28,8 +31,9 @@ Esta guía complementa la lista de verificación general en [`docs/DEPLOYMENT-CH
           +----------------+------------------+----------------+
           |                |                  |                |
           v                v                  v                v
-        Neon            Upstash           CloudAMQP         Gemini
-      PostgreSQL         Redis             RabbitMQ           API
+        Neon            Upstash        (CloudAMQP,        Gemini
+      PostgreSQL         Redis       retirado: antes      API
+                                       RabbitMQ)
 ```
 
 > [!NOTE]
@@ -69,19 +73,9 @@ Esta guía complementa la lista de verificación general en [`docs/DEPLOYMENT-CH
    REDIS_URL=rediss://default:<PASSWORD>@<HOST>:<PORT>
    ```
 
-### 2.3 Broker de Mensajería: CloudAMQP (RabbitMQ)
+### 2.3 Broker de Mensajería: CloudAMQP (antes RabbitMQ) — OBSOLETO
 
-1. Regístrate en [CloudAMQP](https://cloudamqp.com).
-2. Crea una nueva instancia seleccionando el plan gratuito **Little Lemur**.
-3. Abre los detalles de la instancia y copia la URL AMQP segura:
-   ```text
-   amqps://<USUARIO>:<PASSWORD>@<HOST>/<VHOST>
-   ```
-4. Variable resultante para el backend:
-   ```env
-   RABBITMQ_URL=amqps://<USUARIO>:<PASSWORD>@<HOST>/<VHOST>
-   ```
-5. Las colas declaradas por Spring Boot (`booking.created.queue`) son durables. Si la API gratuita entra en suspensión, los mensajes se retendrán en RabbitMQ hasta su reconexión.
+Retirado por ADR-0009 (HU-104): el backend ya no usa RabbitMQ ni `RABBITMQ_URL`; pagos y notificaciones viajan por Kafka (`payment-events`, `notification-requests`). No crees esta instancia. Para el broker Kafka sigue [`oracle-free-deployment.md`](oracle-free-deployment.md).
 
 ### 2.4 Inteligencia Artificial: Google AI Studio (Gemini)
 
@@ -111,7 +105,7 @@ Esta guía complementa la lista de verificación general en [`docs/DEPLOYMENT-CH
    DATABASE_USER=<USUARIO>
    DATABASE_PASSWORD=<PASSWORD>
    REDIS_URL=rediss://default:<PASSWORD>@<HOST>:<PORT>
-   RABBITMQ_URL=amqps://<USUARIO>:<PASSWORD>@<HOST>/<VHOST>
+   KAFKA_BOOTSTRAP_SERVERS=<HOST>:<PORT>   # Kafka es el único broker (ver oracle-free-deployment.md)
    JWT_PRIVATE_KEY=<CLAVE_PRIVADA_RSA_PKCS8_PEM_EN_UNA_LINEA_CON_\n>
    JWT_GENERATE_EPHEMERAL_KEYS=false
    GEMINI_API_KEY=<TU_API_KEY>
@@ -122,7 +116,7 @@ Esta guía complementa la lista de verificación general en [`docs/DEPLOYMENT-CH
 5. Configura el Health Check de Render:
    - **Health Check Path**: `/actuator/health/liveness`
    > [!IMPORTANT]
-   > Se utiliza el probe de **liveness** para validar que el proceso Java está operativo sin inducir reinicios espurios si una dependencia externa (como Redis o RabbitMQ) experimenta latencia transitoria.
+   > Se utiliza el probe de **liveness** para validar que el proceso Java está operativo sin inducir reinicios espurios si una dependencia externa (como Redis o Kafka) experimenta latencia transitoria.
 6. Pulsa **Deploy Web Service**. Una vez completado, obtendrás una URL pública como:
    ```text
    https://skillbridge-api.onrender.com
@@ -187,5 +181,5 @@ Información de referencia de los tiers gratuitos de los proveedores (revisar si
 | **Vercel** | Frontend SPA | Hobby | Ancho de banda y límites generosos para proyectos personales y demos. | [Vercel Pricing](https://vercel.com/pricing) |
 | **Neon** | PostgreSQL | Free Tier | Almacenamiento limitado (0.5 GB); computación compartida con auto-suspend. | [Neon Pricing](https://neon.com/pricing) |
 | **Upstash** | Redis Cache | Free Tier | Límite de 10.000 comandos diarios; persistencia y TLS incluidos. | [Upstash Redis Pricing](https://upstash.com/pricing/redis) |
-| **CloudAMQP** | RabbitMQ | Little Lemur | Hasta 1.000.000 mensajes/mes; 20 conexiones concurrentes y 100 colas. | [CloudAMQP Plans](https://www.cloudamqp.com/plans.html) |
+| **CloudAMQP** | Antes RabbitMQ (retirado, ADR-0009) | — | Ya no aplica: Kafka es el único broker. | [CloudAMQP Plans](https://www.cloudamqp.com/plans.html) |
 | **Google AI Studio** | Gemini AI | Developer Free | Cuotas RPM/RPD para modelos Flash; requiere API Key de proyecto. | [Gemini Pricing](https://ai.google.dev/gemini-api/docs/pricing) |

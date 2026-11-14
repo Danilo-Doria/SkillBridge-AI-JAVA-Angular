@@ -1,0 +1,15 @@
+{
+  "_source": "Derivado de backend/src/main/java/com/riwi/skillbridge/application/recommendation/RecommendationResult.java y Recommendation.java (feature/104-microservices-gateway @ c02be4d). Respuesta de POST /api/ai/recommendations, /voice e /image.",
+  "recommendationId": "5f0c6c1e-9a52-4c5f-9a5e-0d6f1c2b3a40",
+  "explanation": "Te recomiendo estas mentorías para tu objetivo.",
+  "inputType": "TEXT",
+  "sourceText": "Quiero aprender Spring Boot",
+  "recommendations": [
+    {
+      "offeringId": "0b8e7a4c-1d2f-4e3a-9b5c-6d7e8f901234",
+      "offeringTitle": "Mentoría Spring Boot",
+      "score": 0.92,
+      "reason": "Cubre exactamente el objetivo."
+    }
+  ]
+}

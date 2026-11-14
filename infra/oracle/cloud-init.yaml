@@ -1,0 +1,69 @@
+#cloud-config
+# Oracle Cloud Always Free — VM.Standard.A1.Flex (Ubuntu 24.04 aarch64) bootstrap for SkillBridge (HU-104, T021).
+# Paste as "Cloud-init script" when creating the instance. Contains NO secrets:
+# the .env, the /docs htpasswd and any backup remote credentials are copied later over SSH.
+#
+# What it does:
+#   - installs Docker Engine + Compose plugin (official repo, arm64), fail2ban, unattended upgrades
+#   - opens 80/443 in the host iptables (Oracle Ubuntu images REJECT everything but 22 by default);
+#     the VCN Security List must ALSO allow 80/443 (see docs/guides/oracle-free-deployment.md)
+#   - creates /opt/skillbridge (app dir) and /var/backups/skillbridge
+#   - adds a 2 GB swap file (headroom for JVM builds/peaks)
+#   - installs the keep-alive and backup cron entries (scripts are copied with the repo)
+
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - git
+  - jq
+  - fail2ban
+  - unattended-upgrades
+  - iptables-persistent
+
+write_files:
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "3" },
+        "live-restore": true
+      }
+
+runcmd:
+  # --- Docker (official repository) ---------------------------------------------
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - sh -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list'
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable --now docker
+  - usermod -aG docker ubuntu
+
+  # --- Host firewall: allow 80/443 before Oracle's default REJECT rule -----------
+  - iptables -C INPUT -p tcp -m state --state NEW --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT 6 -p tcp -m state --state NEW --dport 80 -j ACCEPT
+  - iptables -C INPUT -p tcp -m state --state NEW --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT 6 -p tcp -m state --state NEW --dport 443 -j ACCEPT
+  - netfilter-persistent save
+
+  # --- Swap (2 GB) ------------------------------------------------------------------
+  - test -f /swapfile || (fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile)
+  - grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  - swapon -a
+
+  # --- App directories ------------------------------------------------------------
+  - install -d -o ubuntu -g ubuntu -m 0750 /opt/skillbridge
+  - install -d -o ubuntu -g ubuntu -m 0750 /var/backups/skillbridge
+
+  # --- Cron (scripts arrive with the repo checkout in /opt/skillbridge) -------------
+  - sh -c 'printf "%s\n" "SHELL=/bin/bash" "*/30 * * * * ubuntu /opt/skillbridge/infra/oracle/keepalive.sh >> /var/log/skillbridge-keepalive.log 2>&1" "15 3 * * * ubuntu /opt/skillbridge/infra/oracle/backup.sh >> /var/log/skillbridge-backup.log 2>&1" > /etc/cron.d/skillbridge'
+  - chmod 0644 /etc/cron.d/skillbridge
+  - touch /var/log/skillbridge-keepalive.log /var/log/skillbridge-backup.log
+  - chown ubuntu:ubuntu /var/log/skillbridge-keepalive.log /var/log/skillbridge-backup.log
+
+  - systemctl enable --now fail2ban
+
+final_message: "SkillBridge host ready after $UPTIME s. Next: clone the repo into /opt/skillbridge and follow docs/guides/oracle-free-deployment.md"

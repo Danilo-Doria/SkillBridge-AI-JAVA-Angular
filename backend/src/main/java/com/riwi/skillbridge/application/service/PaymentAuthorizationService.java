@@ -6,6 +6,7 @@ import com.riwi.skillbridge.application.port.out.BookingRepositoryPort;
 import com.riwi.skillbridge.application.port.out.PaymentEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.PaymentPort;
 import com.riwi.skillbridge.application.port.out.PaymentResultRepositoryPort;
+import com.riwi.skillbridge.domain.event.PaymentEventIds;
 import com.riwi.skillbridge.domain.event.PaymentRejected;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
@@ -74,9 +75,6 @@ public class PaymentAuthorizationService implements AuthorizePaymentUseCase {
                 }
 
                 if (booking.isPaymentWindowExpired(clock.instant())) {
-                    Booking cancelled = booking.cancel();
-                    bookingRepositoryPort.save(cancelled);
-
                     PaymentResult expiredResult = new PaymentResult(
                         UUID.randomUUID(),
                         command.bookingId(),
@@ -85,38 +83,48 @@ public class PaymentAuthorizationService implements AuthorizePaymentUseCase {
                         null
                     );
 
-                    repositoryPort.save(command.idempotencyKey(), expiredResult);
-
+                    // HU-104: publicar ANTES de persistir. Si Kafka no confirma, se lanza la excepción sin haber
+                    // cancelado ni cacheado nada, y el reintento repite el flujo. eventId determinista por reserva.
                     eventPublisherPort.publishRejected(
                         new PaymentRejected(
                             command.bookingId(),
-                            expiredResult.message()
+                            expiredResult.message(),
+                            PaymentEventIds.of("PaymentRejected", "expired:" + command.bookingId())
                         )
                     );
+                    bookingRepositoryPort.save(booking.cancel());
+                    repositoryPort.save(command.idempotencyKey(), expiredResult);
 
                     return expiredResult;
                 }
             }
         }
 
+        // Stripe recibe el Idempotency-Key: repetir process() en un reintento no cobra dos veces.
         PaymentResult result = paymentPort.process(command);
-        repositoryPort.save(command.idempotencyKey(), result);
 
+        // HU-104: publicar ANTES de cachear el resultado. Si Kafka no confirma (MessagePublishException), no queda
+        // un APPROVED cacheado que haría que el reintento devolviera éxito sin volver a publicar (pago perdido).
+        // eventId determinista por intento del cliente (Idempotency-Key + reserva, estables entre reintentos; el
+        // paymentId no sirve: es nuevo en cada intento). Si el primer envío sí llegó, el consumidor descarta el duplicado.
+        String sourceKey = "authorize:" + result.bookingId() + ":" + command.idempotencyKey();
         if (result.status() == PaymentStatus.APPROVED) {
             eventPublisherPort.publishApproved(
                 approvedAssembler.assemble(
                     result.bookingId(),
                     result.paymentId()
-                )
+                ).withEventId(PaymentEventIds.of("PaymentApproved", sourceKey))
             );
         } else if (result.status() == PaymentStatus.DECLINED) {
             eventPublisherPort.publishRejected(
                 new PaymentRejected(
                     result.bookingId(),
-                    result.message()
+                    result.message(),
+                    PaymentEventIds.of("PaymentRejected", sourceKey)
                 )
             );
         }
+        repositoryPort.save(command.idempotencyKey(), result);
 
         // Nota: Si el estado es PENDING (como en Stripe PaymentIntent en espera de confirmación del cliente),
         // no emitimos eventos aún; el Webhook asíncrono emitirá la aprobación o rechazo definitivo.

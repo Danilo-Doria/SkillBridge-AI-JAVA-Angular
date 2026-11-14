@@ -7,6 +7,7 @@ import com.riwi.skillbridge.application.port.out.AiStructuredResponse;
 import com.riwi.skillbridge.application.port.out.KnowledgeCandidate;
 import com.riwi.skillbridge.application.port.out.KnowledgeSearchPort;
 import com.riwi.skillbridge.application.port.out.OfferingRepositoryPort;
+import com.riwi.skillbridge.application.port.out.RecommendationEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
 import com.riwi.skillbridge.application.port.out.event.RecommendationGeneratedPayload;
@@ -44,10 +45,17 @@ public class AiRecommendationService implements GenerateRecommendationUseCase {
     private final AuditEventPublisherPort events;
     private final KnowledgeSearchPort knowledgeSearch;
     private final int shortlistSize;
+    /** HU-104 (R1): analytics (trending) escucha RecommendationGenerated en recommendation-events, no en audit-events. */
+    private final RecommendationEventPublisherPort analyticsEvents;
 
     /** Sin preselección: el LLM recibe todas las ofertas activas (comportamiento anterior). */
     public AiRecommendationService(AiRecommendationPort ai, OfferingRepositoryPort offerings, AuditEventPublisherPort events) {
-        this(ai, offerings, events, null, 0);
+        this(ai, offerings, events, null, 0, null);
+    }
+
+    public AiRecommendationService(AiRecommendationPort ai, OfferingRepositoryPort offerings, AuditEventPublisherPort events,
+                                   KnowledgeSearchPort knowledgeSearch, int shortlistSize) {
+        this(ai, offerings, events, knowledgeSearch, shortlistSize, null);
     }
 
     /**
@@ -57,12 +65,14 @@ public class AiRecommendationService implements GenerateRecommendationUseCase {
     @Autowired
     public AiRecommendationService(AiRecommendationPort ai, OfferingRepositoryPort offerings, AuditEventPublisherPort events,
                                    @Autowired(required = false) KnowledgeSearchPort knowledgeSearch,
-                                   @Value("${app.rag.recommendation-shortlist-size:15}") int shortlistSize) {
+                                   @Value("${app.rag.recommendation-shortlist-size:15}") int shortlistSize,
+                                   @Autowired(required = false) RecommendationEventPublisherPort analyticsEvents) {
         this.ai = ai;
         this.offerings = offerings;
         this.events = events;
         this.knowledgeSearch = knowledgeSearch;
         this.shortlistSize = shortlistSize;
+        this.analyticsEvents = analyticsEvents;
     }
 
     /**
@@ -168,7 +178,7 @@ public class AiRecommendationService implements GenerateRecommendationUseCase {
                 selected.stream().map(Recommendation::offeringId).distinct().toList()
         );
 
-        events.publish(new BusinessEvent<>(
+        BusinessEvent<RecommendationGeneratedPayload> generated = new BusinessEvent<>(
                 UUID.randomUUID(),
                 "RecommendationGenerated",
                 id.toString(),
@@ -183,7 +193,11 @@ public class AiRecommendationService implements GenerateRecommendationUseCase {
                 "GENERATE",
                 "RECOMMENDATION",
                 id.toString()
-        ));
+        );
+        events.publish(generated);
+        if (analyticsEvents != null) {
+            analyticsEvents.publish(generated); // mismo eventId: el consumidor de analytics es idempotente por eventId
+        }
 
         return result;
     }

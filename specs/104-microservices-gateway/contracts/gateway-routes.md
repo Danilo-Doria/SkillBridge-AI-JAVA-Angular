@@ -14,7 +14,7 @@ Estado: **Draft**. Los prefijos salen de los `@RequestMapping` reales del backen
 | `/api/offerings/**`, `/api/categories/**`, `/api/admin/offerings/**` | Mixto | `default` | monolito | monolito (catalog) | sí |
 | `/api/admin/users/**`, `/api/provider-requests/**`, `/api/admin/provider-requests/**` | Auth | `default` | monolito | monolito (identity) | sí |
 | `/docs/**` | `basicAuth` | `default` | swagger-ui | swagger-ui | no |
-| `/audit/**` o subdominio | Admin | `default` | audit-frontend/backend | igual | sí |
+| subdominio `audit.${DOMAIN}` (`/audit` redirige; el SPA de audit usa `<base href="/">`; requiere registro DNS propio) | Admin | `default` | audit-frontend/backend | igual | sí |
 | `/` | Sí | `default` | frontend (nginx estático) | igual | no |
 
 Notas:
@@ -31,7 +31,7 @@ Notas:
 | `default` | 120 | 1m | 60 | IP real |
 | `webhook` | 600 | 1m | 200 | IP real (Stripe) |
 
-Circuit breaker inicial: `NetworkErrorRatio() > 0.30 || ResponseCodeRatio(500, 600, 0, 600) > 0.30`,
+Circuit breaker: `NetworkErrorRatio() > 0.30 || ResponseCodeRatio(500, 503, 0, 600) > 0.30 || ResponseCodeRatio(504, 600, 0, 600) > 0.30` (503 excluido a propósito: los servicios lo usan para "dependencia no configurada"; contarlo abría el breaker y ocultaba respuestas 4xx — hallado en la prueba en vivo de HU-104),
 `checkPeriod=10s`, `fallbackDuration=30s`, `recoveryDuration=30s`. `retry` solo en métodos GET
 (2 intentos, backoff). Estos valores son **[INFERRED]** y deben calibrarse con el test de carga (T020).
 

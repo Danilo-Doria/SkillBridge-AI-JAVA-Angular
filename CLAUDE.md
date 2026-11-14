@@ -10,7 +10,7 @@ SkillBridge AI is a service booking and talent matching platform featuring multi
 ## System Modules
 | Module | Location | Primary Technologies | Responsibilities |
 |---|---|---|---|
-| **Backend API** | `backend/` | Java 21, Spring Boot 3.5.6, PostgreSQL, Redis, RabbitMQ, Kafka | Core business logic, auth, booking lifecycle, AI recommendations, payments. |
+| **Backend API** | `backend/` | Java 21, Spring Boot 3.5.6, PostgreSQL, Redis, Kafka (único broker; RabbitMQ retirado, ADR-0009) | Core business logic, auth, booking lifecycle, AI recommendations, payments. |
 | **Frontend Web** | `frontend/` | Angular 20, TypeScript 5.9, Tailwind CSS v4, Signals | Customer & provider portal, booking UI, multimodal AI chat, Stripe modal. |
 | **Audit Service** | `audit-service/` | Spring Boot 3.5.6 + MongoDB 7 (`backend/`), Angular 20 (`frontend/`) | Independent Kafka consumer tracking persistent domain events and admin audit UI. |
 
@@ -18,6 +18,7 @@ SkillBridge AI is a service booking and talent matching platform featuring multi
 ```bash
 # Full local environment
 docker compose up --build -d
+docker compose --profile gateway up -d   # Edge gateway Traefik v3 (:8000/:8443); /docs requires infra/traefik/scripts/gen-docs-htpasswd.sh first
 
 # Backend (run from backend/)
 mvn test                               # Unit & slice tests
@@ -55,7 +56,7 @@ cd audit-service/frontend && npm test -- --watch=false
 | Pure domain logic, models, rules | `docs/architecture/overview.md` | `backend/src/main/java/com/riwi/skillbridge/domain/` |
 | Persistence, JPA & Flyway migrations | `docs/MODULES/backend.md` | `backend/src/main/resources/db/migration/`, `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/persistence/` |
 | AI, Multimodal, Audio, Vision | `docs/INTEGRATIONS.md`, `docs/adr/ADR-001-AI-PROVIDER-ABSTRACTION.md` | `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/ai/`, `backend/src/main/java/com/riwi/skillbridge/application/port/out/` |
-| Asynchronous events (Kafka/Rabbit) | `docs/INTEGRATIONS.md`, `docs/adr/0003-kafka-event-topic-unification.md` | `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/`, `backend/src/main/java/com/riwi/skillbridge/infrastructure/config/` |
+| Asynchronous events (Kafka) | `docs/INTEGRATIONS.md`, `docs/adr/0003-kafka-event-topic-unification.md` | `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/`, `backend/src/main/java/com/riwi/skillbridge/infrastructure/config/` |
 | Payments & Stripe integration | `docs/INTEGRATIONS.md`, `docs/MODULES/backend.md` | `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/payment/`, `backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/rest/` |
 | Frontend feature views & routing | `docs/MODULES/frontend.md` | `frontend/src/app/features/`, `frontend/src/app/guards/` |
 | Frontend core, API & runtime config | `docs/MODULES/frontend.md` | `frontend/src/app/core/`, `frontend/public/env.js` |

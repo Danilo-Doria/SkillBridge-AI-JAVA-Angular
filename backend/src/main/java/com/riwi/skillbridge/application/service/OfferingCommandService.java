@@ -3,11 +3,14 @@ package com.riwi.skillbridge.application.service;
 import com.riwi.skillbridge.application.port.in.ActivateOfferingUseCase;
 import com.riwi.skillbridge.application.port.in.CreateOfferingUseCase;
 import com.riwi.skillbridge.application.port.in.DeactivateOfferingUseCase;
+import com.riwi.skillbridge.application.port.in.PublishOfferingSnapshotUseCase;
 import com.riwi.skillbridge.application.port.in.UpdateOfferingUseCase;
+import com.riwi.skillbridge.application.port.out.BookingEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.OfferingCachePort;
 import com.riwi.skillbridge.application.port.out.OfferingRepositoryPort;
 import com.riwi.skillbridge.application.port.out.event.AuditEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
+import com.riwi.skillbridge.application.port.out.event.OfferingUpsertedPayload;
 import com.riwi.skillbridge.application.common.CorrelationIdHolder;
 import com.riwi.skillbridge.application.service.knowledge.KnowledgeIndexService;
 import com.riwi.skillbridge.domain.exception.DomainNotFoundException;
@@ -23,32 +26,46 @@ import java.util.UUID;
 
 @Service
 public class OfferingCommandService implements CreateOfferingUseCase, UpdateOfferingUseCase,
-    DeactivateOfferingUseCase, ActivateOfferingUseCase {
+    DeactivateOfferingUseCase, ActivateOfferingUseCase, PublishOfferingSnapshotUseCase {
+
+    static final String OFFERING_UPSERTED = "OfferingUpserted";
 
     private final OfferingRepositoryPort repository;
     private final OfferingCachePort cache;
     private final OfferingAccessPolicy policy;
     private final AuditEventPublisherPort auditPublisher;
     private final KnowledgeIndexService knowledgeIndexService;
+    /** HU-104: OfferingUpserted es un evento de read model y va SIEMPRE a booking-events (no a audit-events). */
+    private final BookingEventPublisherPort catalogPublisher;
 
     @Autowired
     public OfferingCommandService(OfferingRepositoryPort repository,
                                   OfferingCachePort cache,
                                   OfferingAccessPolicy policy,
                                   AuditEventPublisherPort auditPublisher,
-                                  @Autowired(required = false) KnowledgeIndexService knowledgeIndexService) {
+                                  @Autowired(required = false) KnowledgeIndexService knowledgeIndexService,
+                                  @Autowired(required = false) BookingEventPublisherPort catalogPublisher) {
         this.repository = repository;
         this.cache = cache;
         this.policy = policy;
         this.auditPublisher = auditPublisher;
         this.knowledgeIndexService = knowledgeIndexService;
+        this.catalogPublisher = catalogPublisher;
+    }
+
+    public OfferingCommandService(OfferingRepositoryPort repository,
+                                  OfferingCachePort cache,
+                                  OfferingAccessPolicy policy,
+                                  AuditEventPublisherPort auditPublisher,
+                                  KnowledgeIndexService knowledgeIndexService) {
+        this(repository, cache, policy, auditPublisher, knowledgeIndexService, null);
     }
 
     public OfferingCommandService(OfferingRepositoryPort repository,
                                   OfferingCachePort cache,
                                   OfferingAccessPolicy policy,
                                   AuditEventPublisherPort auditPublisher) {
-        this(repository, cache, policy, auditPublisher, null);
+        this(repository, cache, policy, auditPublisher, null, null);
     }
 
     @Override
@@ -63,6 +80,7 @@ public class OfferingCommandService implements CreateOfferingUseCase, UpdateOffe
         }
         
         publishAudit("OfferingCreated", actor, "CREATE", "OFFERING", saved.id().toString());
+        publishUpserted(saved, actor);
         return saved;
     }
 
@@ -79,6 +97,7 @@ public class OfferingCommandService implements CreateOfferingUseCase, UpdateOffe
         }
         
         publishAudit("OfferingUpdated", actor, "UPDATE", "OFFERING", saved.id().toString());
+        publishUpserted(saved, actor);
         return saved;
     }
 
@@ -94,6 +113,7 @@ public class OfferingCommandService implements CreateOfferingUseCase, UpdateOffe
         }
         
         publishAudit("OfferingDeactivated", actor, "DEACTIVATE", "OFFERING", offering.id().toString());
+        publishUpserted(saved, actor);
     }
 
     @Override
@@ -108,6 +128,35 @@ public class OfferingCommandService implements CreateOfferingUseCase, UpdateOffe
         }
         
         publishAudit("OfferingActivated", actor, "ACTIVATE", "OFFERING", offering.id().toString());
+        publishUpserted(saved, actor);
+    }
+
+    @Override
+    public int publishActiveSnapshot() {
+        // HU-104: TODAS las ofertas (también inactivas): una desactivación más antigua que la retención de Kafka
+        // debe llegar igual a un read model reconstruido; si no, seguiría recomendando ofertas desactivadas.
+        var all = repository.findAll();
+        all.forEach(o -> publishUpserted(o, null));
+        return all.size();
+    }
+
+    /** ECST para read models externos (HU-104). Sin actor cuando lo emite el sistema (snapshot). */
+    private void publishUpserted(Offering offering, Actor actor) {
+        String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
+        String id = offering.id().toString();
+        BusinessEvent<OfferingUpsertedPayload> event = new BusinessEvent<>(
+            UUID.randomUUID(), OFFERING_UPSERTED, id, "Offering", Instant.now(), correlationId, 1,
+            OfferingUpsertedPayload.from(offering),
+            actor == null ? null : actor.id().toString(),
+            actor == null ? null : actor.username(),
+            actor == null ? null : actor.role().name(),
+            "UPSERT", "OFFERING", id
+        );
+        if (catalogPublisher != null) {
+            catalogPublisher.publish(event);
+        } else {
+            auditPublisher.publish(event); // solo tests sin cableado completo (mismo topic por defecto)
+        }
     }
 
     private void publishAudit(String eventType, Actor actor, String action, String resource, String resourceId) {

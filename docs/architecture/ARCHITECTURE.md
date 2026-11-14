@@ -5,7 +5,7 @@
 The backend uses **Ports & Adapters / Hexagonal Architecture**.
 
 ```text
-HTTP / Rabbit Consumers
+HTTP / Kafka Consumers
         |
         v
   inbound adapters
@@ -22,18 +22,19 @@ HTTP / Rabbit Consumers
         v
   outbound ports
    /   |   |   \
- JPA Redis Rabbit AI
+ JPA Redis Kafka AI
 ```
 
-The dependency rule is intentional: domain and application code do not depend on PostgreSQL, Redis, RabbitMQ, Gemini or Angular.
+The dependency rule is intentional: domain and application code do not depend on PostgreSQL, Redis, Kafka, Gemini or Angular.
 
 ## Real reasons for each technology
 
 - **PostgreSQL:** system of record for users, services and bookings.
 - **Redis:** Cache-Aside implementation for the public service catalog.
-- **RabbitMQ:** `BookingCreated` is published after persistence and consumed asynchronously. Extend the consumer with email, audit, payments, WhatsApp or another microservice.
+- **Kafka (only broker since HU-104; RabbitMQ retired, ADR-0009):** business/audit events on `booking-events`, payment results on `payment-events`, notification requests on `notification-requests`, with retries, `*.DLT` topics and consumers idempotent by `eventId`.
 - **Gemini:** implemented behind `AiRecommendationPort`; replaceable without changing the use case.
 - **Nginx:** serves the Angular production build and reverse-proxies `/api/*` to Spring Boot in the containerized topology.
+- **Traefik v3 (optional, Compose profile `gateway`):** edge gateway with prefix routing, rate limiting, circuit breaker, `X-Correlation-Id` and aggregated Swagger at `/docs` (`infra/traefik`).
 - **Prometheus + Grafana:** operational visibility through Spring Boot Actuator and Micrometer.
 
 ## Deliberate extension points

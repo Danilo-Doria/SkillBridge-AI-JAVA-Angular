@@ -3,6 +3,7 @@ package com.riwi.skillbridge.infrastructure.adapter.in.rest.webhook;
 import com.riwi.skillbridge.application.port.out.PaymentEventPublisherPort;
 import com.riwi.skillbridge.application.service.PaymentApprovedAssembler;
 import com.riwi.skillbridge.domain.event.PaymentApproved;
+import com.riwi.skillbridge.domain.event.PaymentEventIds;
 import com.riwi.skillbridge.domain.event.PaymentRejected;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
@@ -78,7 +79,7 @@ public class StripeWebhookController {
         });
 
         if (stripeObject instanceof PaymentIntent paymentIntent) {
-            processPaymentIntentEvent(event.getType(), paymentIntent);
+            processPaymentIntentEvent(event.getType(), event.getId(), paymentIntent);
         } else {
             log.debug("Event {} does not wrap a PaymentIntent object. Ignored.", event.getType());
         }
@@ -86,7 +87,7 @@ public class StripeWebhookController {
         return ResponseEntity.ok(Map.of("received", true));
     }
 
-    private void processPaymentIntentEvent(String eventType, PaymentIntent paymentIntent) {
+    private void processPaymentIntentEvent(String eventType, String stripeEventId, PaymentIntent paymentIntent) {
         Map<String, String> metadata = paymentIntent.getMetadata();
         String bookingIdStr = metadata != null ? metadata.get("bookingId") : null;
 
@@ -109,7 +110,9 @@ public class StripeWebhookController {
                 log.info("Payment succeeded for bookingId={} (Stripe PaymentIntent={}). Emitting PaymentApproved event.",
                         bookingId, paymentIntent.getId());
                 // El webhook de Stripe no aporta un UUID de pago propio: paymentId = null.
-                paymentEventPublisherPort.publishApproved(approvedAssembler.assemble(bookingId, null));
+                // eventId determinista por evento de Stripe: una reentrega del webhook no duplica el efecto (HU-104).
+                paymentEventPublisherPort.publishApproved(approvedAssembler.assemble(bookingId, null)
+                        .withEventId(PaymentEventIds.of("PaymentApproved", "stripe:" + stripeEventId)));
             }
             case "payment_intent.payment_failed" -> {
                 String reason = paymentIntent.getLastPaymentError() != null && paymentIntent.getLastPaymentError().getMessage() != null
@@ -117,7 +120,8 @@ public class StripeWebhookController {
                         : "Payment processing failed in Stripe";
                 log.info("Payment failed for bookingId={} (Stripe PaymentIntent={}). Reason: {}. Emitting PaymentRejected event.",
                         bookingId, paymentIntent.getId(), reason);
-                paymentEventPublisherPort.publishRejected(new PaymentRejected(bookingId, reason));
+                paymentEventPublisherPort.publishRejected(new PaymentRejected(bookingId, reason,
+                        PaymentEventIds.of("PaymentRejected", "stripe:" + stripeEventId)));
             }
             default -> log.debug("Event type '{}' for bookingId={} does not trigger domain status changes.",
                     eventType, bookingId);

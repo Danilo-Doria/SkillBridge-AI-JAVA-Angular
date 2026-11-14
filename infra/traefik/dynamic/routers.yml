@@ -1,0 +1,190 @@
+# Traefik dynamic configuration — routers and services, PHASE 1 (HU-104, T011).
+# Source of truth: specs/104-microservices-gateway/contracts/gateway-routes.md.
+# Phase 1: every /api/** goes to the monolith. The phase-3/5 cutover lives in
+# ../dynamic-cutover/routers.cutover.yml and is NOT loaded unless copied here.
+#
+# Environment variables:
+#   DOMAIN          public host (default: localhost). Never hard-code a real domain.
+#   AUDIT_HOST      audit UI host (default: audit.${DOMAIN}). The audit SPA is built
+#                   with <base href="/">, so it is served on its own host, not on /audit.
+#   ACME_RESOLVER   le | le-staging in prod; unset in dev (Traefik default self-signed cert).
+#   GW_BACKEND_URL, GW_FRONTEND_URL, GW_AUDIT_FRONTEND_URL, GW_AUDIT_BACKEND_URL,
+#   GW_SWAGGER_UI_URL   upstream overrides (defaults = Docker service names).
+#
+# Priorities are explicit; higher wins. Specific prefixes > generic /api > SPA.
+{{ $domain := env "DOMAIN" | default "localhost" }}
+{{ $auditHost := env "AUDIT_HOST" | default (printf "audit.%s" $domain) }}
+{{ $resolver := env "ACME_RESOLVER" }}
+{{ define "tls" }}{{ if . }}
+        certResolver: {{ . }}{{ else }} {}{{ end }}{{ end }}
+http:
+  routers:
+    # ---------------------------------------------------------------- port 80
+    http-to-https:
+      entryPoints: [web]
+      rule: "HostRegexp(`.+`)"
+      priority: 1
+      middlewares: [redirect-https]
+      service: noop@internal
+
+    # ------------------------------------------------------- main host /api/**
+    webhooks:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && PathPrefix(`/api/webhooks`)"
+      priority: 1000
+      middlewares: [chain-webhook]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+
+    payments-get:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && PathPrefix(`/api/payments`) && Method(`GET`)"
+      priority: 901
+      middlewares: [chain-api-get]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+    payments:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && PathPrefix(`/api/payments`)"
+      priority: 900
+      middlewares: [chain-api]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+
+    # Q4: knowledge (RAG) and trending stay on the monolith permanently, with a
+    # priority above the generic /api/ai router (and below the cutover routers).
+    ai-monolith-only:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && (PathPrefix(`/api/ai/knowledge`) || PathPrefix(`/api/ai/trending`))"
+      priority: 850
+      middlewares: [chain-ai]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+
+    ai-get:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && (PathPrefix(`/api/ai`) || PathPrefix(`/api/admin/ai/providers`)) && Method(`GET`)"
+      priority: 801
+      middlewares: [chain-ai-get]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+    ai:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && (PathPrefix(`/api/ai`) || PathPrefix(`/api/admin/ai/providers`))"
+      priority: 800
+      middlewares: [chain-ai]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+
+    auth:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && PathPrefix(`/api/auth`)"
+      priority: 700
+      middlewares: [chain-auth]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+
+    # Everything else under /api (bookings, offerings, categories, admin,
+    # mentorships, provider-requests...) -> monolith, default profile.
+    api-get:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && PathPrefix(`/api`) && Method(`GET`)"
+      priority: 101
+      middlewares: [chain-api-get]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+    api:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && PathPrefix(`/api`)"
+      priority: 100
+      middlewares: [chain-api]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+
+    # ---------------------------------------------------------------- /docs
+    # Only the OpenAPI document of each service is exposed, never its whole API.
+    docs-backend:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && (Path(`/docs/backend/v3/api-docs`) || PathPrefix(`/docs/backend/v3/api-docs/`))"
+      priority: 600
+      middlewares: [chain-docs-api]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+    docs:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && (Path(`/docs`) || PathPrefix(`/docs/`))"
+      priority: 500
+      middlewares: [chain-docs]
+      service: swagger-ui
+      tls:{{ template "tls" $resolver }}
+
+    # ---------------------------------------------------------------- audit
+    audit-redirect:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && (Path(`/audit`) || PathPrefix(`/audit/`))"
+      priority: 400
+      middlewares: [audit-redirect]
+      service: noop@internal
+      tls:{{ template "tls" $resolver }}
+    audit-auth:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $auditHost }}`) && PathPrefix(`/api/auth`)"
+      priority: 700
+      middlewares: [chain-auth]
+      service: backend
+      tls:{{ template "tls" $resolver }}
+    audit-api:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $auditHost }}`) && PathPrefix(`/api/audit`)"
+      priority: 650
+      middlewares: [chain-api]
+      service: audit-backend
+      tls:{{ template "tls" $resolver }}
+    audit-web:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $auditHost }}`)"
+      priority: 10
+      middlewares: [chain-web]
+      service: audit-frontend
+      tls:{{ template "tls" $resolver }}
+
+    # ---------------------------------------------------------------- SPA
+    web:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`)"
+      priority: 10
+      middlewares: [chain-web]
+      service: frontend
+      tls:{{ template "tls" $resolver }}
+
+    # Unknown host -> 404 application/problem+json with X-Correlation-Id.
+    # No certResolver: never request ACME certificates for arbitrary hosts.
+    catch-all:
+      entryPoints: [websecure]
+      rule: "HostRegexp(`.+`)"
+      priority: 2
+      middlewares: [chain-notfound]
+      service: noop@internal
+      tls: {}
+
+  services:
+    backend:
+      loadBalancer:
+        servers:
+          - url: "{{ env "GW_BACKEND_URL" | default "http://backend:8080" }}"
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "{{ env "GW_FRONTEND_URL" | default "http://frontend:80" }}"
+    audit-frontend:
+      loadBalancer:
+        servers:
+          - url: "{{ env "GW_AUDIT_FRONTEND_URL" | default "http://audit-frontend:80" }}"
+    audit-backend:
+      loadBalancer:
+        servers:
+          - url: "{{ env "GW_AUDIT_BACKEND_URL" | default "http://audit-backend:8081" }}"
+    swagger-ui:
+      loadBalancer:
+        servers:
+          - url: "{{ env "GW_SWAGGER_UI_URL" | default "http://swagger-ui:8080" }}"

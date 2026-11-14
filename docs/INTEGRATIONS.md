@@ -10,8 +10,7 @@ This document catalogs all verified infrastructure, broker, external API, and mi
 |---|---|---|---|---|
 | **Relational Database** | PostgreSQL 17 Alpine | Primary system of record for users, offerings, bookings, and categories. | `127.0.0.1:5433:5432` | `application.yml:57`, `docker-compose.yml:3-21` |
 | **In-Memory Cache** | Redis 8 Alpine | Cache-aside for the active public offerings catalog. | Internal: `6379` | `application.yml:74-76`, `docker-compose.yml:22-39` |
-| **Message Broker** | RabbitMQ 4 Management | Asynchronous background processing for booking notifications. | `127.0.0.1:15672:15672`, Internal: `5672` | `application.yml:78-92`, `RabbitConfiguration.java` |
-| **Event Streaming** | Apache Kafka 7.8 (KRaft) | Persistent event distribution for audit logging and analytics. | `127.0.0.1:9092:9092`, Internal: `29092` | `application.yml:94-104`, `docker-compose.yml:154-185` |
+| **Event Streaming / Broker** | Apache Kafka 7.8 (KRaft) | Only broker (RabbitMQ retired, ADR-0009): audit/analytics events, payment results, notification requests and DLTs. | `127.0.0.1:9092:9092`, Internal: `29092` | `application.yml` (`spring.kafka`, `app.kafka.topic.*`, `app.messaging.kafka.*`), `KafkaMessagingConfiguration.java` |
 | **Document Database** | MongoDB 7 | Scalable event store for the audit microservice. | `127.0.0.1:27018:27017` | `audit-service/.../application.yml:9` |
 | **Payment Gateway** | Stripe (or Simulated) | Credit card authorization and webhook settlement. | External: `https://api.stripe.com` | `StripePaymentAdapter.java`, `StripeFeignClient.java` |
 | **Primary LLM** | Google Gemini (`gemini-3.8-flash`) | Context-grounded catalog recommendations and vision analysis. | External Google GenAI API | `GeminiAiAdapter.java`, `GeminiVisionAdapter.java` |
@@ -37,6 +36,8 @@ This document catalogs all verified infrastructure, broker, external API, and mi
   - `V5__user_status.sql`: Adds `status` enum (`ACTIVE`, `SUSPENDED`) to `users`.
   - `V6__categories.sql`: Adds `categories` table and `category_id` FK on `offerings`.
   - `V7__booking_idempotency.sql`: Adds `idempotency_key` unique constraint to `bookings`.
+  - `V8`–`V18`: later features (mentorships, analytics, RAG, seeds); see `backend/src/main/resources/db/migration/`.
+  - `V19__processed_events.sql`: Adds `processed_events` for idempotent Kafka consumers (HU-104).
 
 ---
 
@@ -51,23 +52,22 @@ This document catalogs all verified infrastructure, broker, external API, and mi
 
 ---
 
-## 4. Asynchronous Messaging: RabbitMQ 4
+## 4. Asynchronous Messaging: Kafka payments & notifications (HU-104)
 
-- **Configuration Class**: [RabbitConfiguration.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/config/RabbitConfiguration.java).
-- **Topology**:
-  - Exchange: `skillbridge.notifications` (Topic Exchange).
-  - Main Queue: `skillbridge.notifications.queue` bound with routing key `notification.*`.
-  - Dead Letter Exchange (DLX): `skillbridge.notifications.dlx`.
-  - Dead Letter Queue (DLQ): `skillbridge.notifications.dlq`.
-- **Verified Retry & Backoff Configuration**:
-  - Initial Interval: `2s`.
-  - Multiplier: `2.0`.
-  - Max Interval: `10s`.
-  - Max Attempts: `3`.
-  - Requeue on Failure: `false` (moves to DLQ after 3 failures).
-- **Consumer Behavior**:
-  - [NotificationConsumer.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/messaging/NotificationConsumer.java) handles messages.
-  - If `PermanentNotificationException` occurs, message is discarded/sent directly to DLQ without retrying.
+RabbitMQ was retired (ADR-0009, HU-104): no `spring-boot-starter-amqp`, no `rabbitmq` container, no `RABBITMQ_URL`. Kafka is the only broker. Contract: [`specs/104-microservices-gateway/contracts/kafka-topics.md`](../specs/104-microservices-gateway/contracts/kafka-topics.md). Operations: [Kafka DLT runbook](guides/kafka-dlt-runbook.md).
+
+- **Configuration Class**: [KafkaMessagingConfiguration.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/config/KafkaMessagingConfiguration.java) (topics, `DefaultErrorHandler`, `DeadLetterPublishingRecoverer`, `ErrorHandlingDeserializer`).
+- **Topics** (key = `bookingId`, envelope `BusinessEvent`):
+
+  | Topic | Producer (port → adapter) | Consumer (default group) | DLT |
+  |---|---|---|---|
+  | `payment-events` | `PaymentEventPublisherPort` → [KafkaPaymentEventPublisher.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaPaymentEventPublisher.java) | [KafkaPaymentResultConsumer.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/messaging/KafkaPaymentResultConsumer.java) (`skillbridge-booking-payments`) | `payment-events.DLT` |
+  | `notification-requests` | `NotificationPublisherPort` → [KafkaNotificationPublisher.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaNotificationPublisher.java) | [KafkaNotificationConsumer.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/messaging/KafkaNotificationConsumer.java) (`skillbridge-notifications`) | `notification-requests.DLT` |
+
+- **Headers**: `X-Correlation-Id`, `eventId`, `eventType`, `schemaVersion` ([KafkaEventHeaders.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaEventHeaders.java)). Consumers restore the correlation ID into MDC via [KafkaCorrelationScope.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/messaging/KafkaCorrelationScope.java).
+- **Retry & DLT**: 3 retries with exponential backoff (1 s, multiplier 2, max 10 s), then `<topic>.DLT`. Deterministic failures (e.g. `BusinessRuleException`, `PermanentNotificationException`) go straight to the DLT. Properties: `app.messaging.kafka.retry.*`.
+- **Idempotency** (at-least-once delivery): [`idempotency/`](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/messaging/idempotency/) (`IdempotentEventProcessor`, `ProcessedEventStore`) backed by [ProcessedEventJdbcStore.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/persistence/ProcessedEventJdbcStore.java) and table `processed_events` (PK `consumer_group, event_id`, migration `V19__processed_events.sql`).
+- **Configuration keys** (`application.yml`): `app.kafka.topic.payment-events` / `notification-requests` (env `KAFKA_TOPIC_PAYMENT_EVENTS`, `KAFKA_TOPIC_NOTIFICATION_REQUESTS`) and `app.messaging.kafka.*` (`publish-timeout`, `partitions`, `dlt-partitions`, `replicas`, `consumer-groups.*`, `retry.*`).
 
 ---
 
@@ -78,7 +78,8 @@ This document catalogs all verified infrastructure, broker, external API, and mi
   - Audit Topic: Mapped to `booking-events` ([application.yml:154](../backend/src/main/resources/application.yml#L154)) to accommodate the audit-service consumer.
 - **Publishers**:
   - [KafkaBookingEventPublisher.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaBookingEventPublisher.java): Publishes `BookingCreated` and `BookingCancelled`.
-  - [KafkaAuditEventPublisher.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaAuditEventPublisher.java): Publishes security events (`UserLoggedIn`, `UserRegistered`).
+  - [KafkaAuditEventPublisher.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaAuditEventPublisher.java): Publishes security events (`UserLoggedIn`, `UserRegistered`) and domain events such as `OfferingUpserted` v1 (key `offeringId`, full offering state) from `OfferingCommandService`.
+  - `OfferingUpserted` snapshot: with `app.catalog.snapshot-on-startup=true` (env `APP_CATALOG_SNAPSHOT_ON_STARTUP`, default `false`), [OfferingSnapshotOnStartup.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/startup/OfferingSnapshotOnStartup.java) publishes one event per offering (active and inactive) at startup (cold start of the `ai-service` read model).
 - **Consumer**:
   - [KafkaAuditConsumer.java](../audit-service/backend/src/main/java/com/riwi/audit/consumer/KafkaAuditConsumer.java) in `audit-service/backend`:
   - Consumer Group: `audit-service-group`.

@@ -7,12 +7,20 @@ El proyecto utiliza Apache Kafka como mecanismo para publicar **eventos de negoc
 - Analytics
 - Futuros consumidores (sistemas externos o microservicios)
 
-## Diferencia con RabbitMQ
+## Kafka como único broker (HU-104)
 
-Es importante entender la diferencia entre las dos tecnologías de mensajería utilizadas en el proyecto:
+Antes el proyecto usaba dos brokers: RabbitMQ para tareas y notificaciones transitorias y Kafka para eventos persistentes. Con la HU-104 (ADR-0009, en estado *Proposed*) **RabbitMQ se retiró**: Kafka es el único broker. Lo que antes iba por exchanges/colas ahora usa topics con reintentos y Dead Letter Topics:
 
-- **RabbitMQ**: Se utiliza para el **procesamiento asíncrono de tareas y notificaciones**. Es decir, mensajes transitorios (comandos o notificaciones push) que una vez procesados, se eliminan.
-- **Kafka**: Se utiliza para la **emisión de eventos de negocio persistentes y auditoría**. Los eventos en Kafka permanecen en los topics y pueden ser consumidos independientemente por múltiples consumidores en cualquier momento, permitiendo recrear el estado o auditar los flujos.
+| Topic | Uso | Clave | DLT |
+|---|---|---|---|
+| `booking-events` | Eventos de negocio y auditoría (incluye `OfferingUpserted`) | `aggregateId` | — |
+| `recommendation-events` | `KafkaAnalyticsConsumer` espera aquí `RecommendationGenerated`, pero `AiRecommendationService` lo publica por `AuditEventPublisherPort` en `booking-events` (riesgo abierto, ver [RISK-REGISTER](../RISK-REGISTER.md)) | `aggregateId` | — |
+| `payment-events` | `PaymentApproved` / `PaymentRejected` → `KafkaPaymentResultConsumer` | `bookingId` | `payment-events.DLT` |
+| `notification-requests` | Peticiones de notificación → `KafkaNotificationConsumer` | `bookingId` | `notification-requests.DLT` |
+
+Contrato completo: [`specs/104-microservices-gateway/contracts/kafka-topics.md`](../../specs/104-microservices-gateway/contracts/kafka-topics.md). Operación de las DLT: [runbook](../guides/kafka-dlt-runbook.md).
+
+Kafka no tiene *requeue* ni colas por consumidor: el consumo es *at-least-once*, por lo que los consumidores de `payment-events` y `notification-requests` son **idempotentes por `eventId`** (tabla `processed_events`, migración `V19__processed_events.sql`).
 
 ## Arquitectura
 
@@ -29,6 +37,17 @@ flowchart TD
     AuditAdapter --> |KafkaTemplate| Topic
     
     Topic --> Consumer[KafkaAuditConsumer]
+
+    BS[BookingService] --> |publishes| NPort[NotificationPublisherPort]
+    NPort --> |implemented by| NAdapter[KafkaNotificationPublisher]
+    NAdapter --> NTopic[(notification-requests)]
+    NTopic --> NCons[KafkaNotificationConsumer]
+    PAS[PaymentAuthorizationService] --> |publishes| PPort[PaymentEventPublisherPort]
+    PPort --> |implemented by| PAdapter[KafkaPaymentEventPublisher]
+    PAdapter --> PTopic[(payment-events)]
+    PTopic --> PCons[KafkaPaymentResultConsumer]
+    NCons -.-> |3 reintentos fallidos| DLT[(*.DLT)]
+    PCons -.-> DLT
 ```
 
 ## Nota sobre Topics: booking-events vs audit-events
@@ -81,12 +100,23 @@ Para brindar trazabilidad detallada, los eventos ahora viajan enriquecidos con l
    - `OfferingCreated`, `OfferingUpdated`, `OfferingActivated`, `OfferingDeactivated`.
    - **Auditoría**: action acorde (CREATE/UPDATE/ACTIVATE/DEACTIVATE), resource=OFFERING, resourceId=offeringId.
 
+6. **OfferingUpserted** v1 (en `booking-events`, HU-104)
+   - **Propósito**: estado completo de la oferta (ECST) para read models externos (`ai-service`).
+   - **Clave**: `offeringId`. **Payload**: `id`, `providerId`, `title`, `description`, `category`, `price`, `active`, `mode`, `durationHours`.
+   - **Productor**: `OfferingCommandService` en cada alta/cambio; snapshot de todas las ofertas (activas e inactivas) al arrancar si `app.catalog.snapshot-on-startup=true` (`APP_CATALOG_SNAPSHOT_ON_STARTUP`, por defecto `false`), vía `OfferingSnapshotOnStartup`.
+   - **Auditoría**: action=UPSERT, resource=OFFERING, resourceId=offeringId.
+
+7. **Pagos y notificaciones** (en `payment-events` y `notification-requests`): ver tabla de topics arriba. Cabeceras `X-Correlation-Id`, `eventId`, `eventType`, `schemaVersion`.
+
 ## Configuración y Variables de Entorno
 
 - `KAFKA_BOOTSTRAP_SERVERS`: Direcciones de los brokers de Kafka.
 - `KAFKA_TOPIC_BOOKING_EVENTS`: Nombre del topic para los eventos de reserva (por defecto `booking-events`).
 - `KAFKA_TOPIC_AUDIT_EVENTS`: Por compatibilidad se iguala a `booking-events`.
 - `KAFKA_CONSUMER_GROUP`: Identificador del consumer group de auditoría (por defecto `skillbridge-audit-group`).
+- `KAFKA_TOPIC_PAYMENT_EVENTS` / `KAFKA_TOPIC_NOTIFICATION_REQUESTS`: nombres de `app.kafka.topic.payment-events` / `notification-requests`.
+- `MESSAGING_KAFKA_*`: claves `app.messaging.kafka.*` (grupos `skillbridge-booking-payments` / `skillbridge-notifications`, particiones, timeout de publicación y `retry.*`: 3 reintentos, 1 s, x2, máximo 10 s).
+- `APP_CATALOG_SNAPSHOT_ON_STARTUP`: publica el snapshot de `OfferingUpserted` al arrancar.
 
 ## Ejecución Local
 
@@ -96,7 +126,7 @@ Para probar Kafka de forma local utilizando Docker Compose, sigue los siguientes
    ```bash
    docker-compose up -d
    ```
-   Esto levantará Postgres, Redis, RabbitMQ y **Kafka**.
+   Esto levantará Postgres, Redis y **Kafka** (único broker; RabbitMQ ya no existe en `docker-compose.yml`).
 
 2. **Iniciar el backend**:
    Ejecuta la aplicación de Spring Boot (ej. mediante tu IDE o con Maven). Asegúrate de tener las variables de entorno configuradas si ejecutas fuera de Docker.

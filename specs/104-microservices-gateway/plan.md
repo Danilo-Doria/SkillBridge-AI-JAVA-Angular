@@ -56,7 +56,7 @@ Cada fase termina con: colección de humo verde, `mvn test`/`npm test` reportado
 |---|---|---|---|
 | **0 Preparación** | Resolver Q1-Q7, leer constitución, contract tests de humo, baseline de RAM/latencia, *spike* native, issue de coordinación con el equipo NestJS | Bajo | n/a |
 | **1 Gateway** | Traefik delante del monolito + audit + frontend; TLS; rate limit; breaker; correlación; Swagger agregado | Bajo | Reapuntar DNS/puertos al frontend previo |
-| **2 Kafka único** | Migrar `payment` y `notification` de RabbitMQ a Kafka dentro del monolito; idempotencia + DLT; quitar RabbitMQ | **Medio-alto** (mensajería de pagos) | Flag por productor/consumidor; mantener Rabbit una release detrás de flag antes de borrarlo |
+| **2 Kafka único** | Migrar `payment` y `notification` de RabbitMQ a Kafka dentro del monolito; idempotencia + DLT; quitar RabbitMQ | **Medio-alto** (mensajería de pagos) | **Ejecutado distinto (defecto Q3)**: RabbitMQ se retiró en esta misma iteración (T038) tras verificar el flujo con Kafka; la reversión de F2 es `git revert` del commit de retirada, no un flag. Contrapartida aceptada de FR-017 para esta fase |
 | **3 `ai-service`** | Extraer puertos IA a `ai-service`; read model por eventos; ruta en el gateway | Medio (Q4) | Cambiar la ruta de `/api/ai/**` de vuelta al monolito |
 | **4 `notification-service`** | Mover consumidor y plantillas; sin HTTP | Bajo | Reactivar consumidor del monolito |
 | **5 `payment-service`** | Mover Stripe, webhook y autorización de pagos; propiedad de reserva por evento/API | **Alto** (dinero) | Ruta de `/api/payments`,`/api/webhooks` al monolito |

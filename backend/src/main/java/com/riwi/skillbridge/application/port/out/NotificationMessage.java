@@ -10,7 +10,10 @@ public record NotificationMessage(
     UUID userId,
     NotificationType notificationType,
     Instant occurredAt,
-    Instant paymentDeadline
+    Instant paymentDeadline,
+    // HU-104 (opcionales): destinatario ya conocido por el llamador; evita volver a leer users al publicar.
+    String recipientEmail,
+    String recipientName
 ) {
     public NotificationMessage {
         Objects.requireNonNull(eventId, "eventId es obligatorio");
@@ -22,6 +25,16 @@ public record NotificationMessage(
 
     public NotificationMessage(UUID eventId, UUID bookingId, UUID userId, NotificationType notificationType, Instant occurredAt) {
         this(eventId, bookingId, userId, notificationType, occurredAt, null);
+    }
+
+    public NotificationMessage(UUID eventId, UUID bookingId, UUID userId, NotificationType notificationType,
+                               Instant occurredAt, Instant paymentDeadline) {
+        this(eventId, bookingId, userId, notificationType, occurredAt, paymentDeadline, null, null);
+    }
+
+    /** Copia con el destinatario ya resuelto por el llamador. */
+    public NotificationMessage withRecipient(String email, String name) {
+        return new NotificationMessage(eventId, bookingId, userId, notificationType, occurredAt, paymentDeadline, email, name);
     }
 
     public static NotificationMessage bookingCreated(UUID bookingId, UUID userId) {

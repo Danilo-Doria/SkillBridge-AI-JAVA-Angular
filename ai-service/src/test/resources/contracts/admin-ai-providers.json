@@ -1,0 +1,12 @@
+{
+  "_source": "Derivado de backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/rest/admin/dto/AiProvidersStatusResponse.java y AiAdminController.java (feature/104-microservices-gateway @ c02be4d). Respuesta de GET /api/admin/ai/providers.",
+  "timestamp": "2026-11-13T00:00:00Z",
+  "capabilities": {
+    "chat": {"capability": "chat", "chain": [{"provider": "gemini", "model": "gemini-3.8-flash", "enabled": true, "timeoutSeconds": 10, "circuitState": "CLOSED", "failureRate": -1.0, "bufferedCalls": 0, "failedCalls": 0}]},
+    "vision": {"capability": "vision", "chain": [{"provider": "gemini", "model": "gemini-3.8-flash", "enabled": true, "timeoutSeconds": 10, "circuitState": "CLOSED", "failureRate": -1.0, "bufferedCalls": 0, "failedCalls": 0}]},
+    "stt": {"capability": "stt", "chain": [{"provider": "groq", "model": "whisper-large-v3-turbo", "enabled": true, "timeoutSeconds": 10, "circuitState": "CLOSED", "failureRate": -1.0, "bufferedCalls": 0, "failedCalls": 0}]},
+    "tts": {"capability": "tts", "chain": [{"provider": "elevenlabs", "model": "multilingual-v2", "enabled": true, "timeoutSeconds": 10, "circuitState": "CLOSED", "failureRate": -1.0, "bufferedCalls": 0, "failedCalls": 0}]},
+    "rag": {"capability": "rag", "chain": [{"provider": "gemini", "model": "gemini-3.8-flash", "enabled": true, "timeoutSeconds": 10, "circuitState": "CLOSED", "failureRate": -1.0, "bufferedCalls": 0, "failedCalls": 0}]},
+    "embedding": {"capability": "embedding", "chain": [{"provider": "gemini", "model": "text-embedding-004", "enabled": true, "timeoutSeconds": 10, "circuitState": "CLOSED", "failureRate": -1.0, "bufferedCalls": 0, "failedCalls": 0}]}
+  }
+}

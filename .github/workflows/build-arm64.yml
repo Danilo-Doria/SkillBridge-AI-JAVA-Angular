@@ -1,0 +1,165 @@
+# HU-104 T071 — Imágenes linux/arm64 para la VM Oracle Cloud Always Free.
+# Publica ghcr.io/<owner>/skillbridge-<servicio>:{<sha>,latest[,<vX.Y.Z>]} (nombres de docker-compose.prod.yml).
+# Runner ARM nativo (ubuntu-24.04-arm, gratuito en repos públicos): sin QEMU.
+# Solo se usan acciones de primera parte (actions/*); buildx y login se hacen con la CLI de Docker del runner.
+name: Build arm64 images
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      native:
+        description: 'Además, compilar binarios GraalVM (-Pnative) de los módulos con perfil native (no se publican)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-arm64-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-maven:
+    name: test (${{ matrix.module }})
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [backend, audit-service/backend, ai-service, notification-service, payment-service]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: ${{ matrix.module }}/pom.xml
+      - name: mvn test
+        run: mvn -s "$GITHUB_WORKSPACE/.github/.maven/settings.xml" -B --no-transfer-progress test
+
+  test-node:
+    name: build (${{ matrix.module }})
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [frontend, audit-service/frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ${{ matrix.module }}/package-lock.json
+      - name: npm ci && npm run build
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+  image:
+    name: image (${{ matrix.service }})
+    needs: [test-maven, test-node]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: backend
+            context: backend
+          - service: frontend
+            context: frontend
+          - service: audit-backend
+            context: audit-service/backend
+          - service: audit-frontend
+            context: audit-service/frontend
+          - service: ai-service
+            context: ai-service
+          - service: notification-service
+            context: notification-service
+          - service: payment-service
+            context: payment-service
+    env:
+      SERVICE: ${{ matrix.service }}
+      CONTEXT: ${{ matrix.context }}
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login a GHCR (GITHUB_TOKEN)
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Build & push (linux/arm64, Dockerfile del módulo, JVM afinada)
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          image="ghcr.io/${owner}/skillbridge-${SERVICE}"
+          tags=(-t "${image}:${SHA}" -t "${image}:latest")
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" == v* ]]; then
+            tags+=(-t "${image}:${GITHUB_REF_NAME}")
+          fi
+          docker buildx create --name skillbridge --driver docker-container --use >/dev/null
+          docker buildx build \
+            --platform linux/arm64 \
+            --file "${CONTEXT}/Dockerfile" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${SHA}" \
+            --cache-from "type=registry,ref=${image}:buildcache" \
+            --cache-to "type=registry,ref=${image}:buildcache,mode=max" \
+            "${tags[@]}" \
+            --push \
+            "${CONTEXT}"
+          echo "Publicado ${image}:${SHA}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Logout
+        if: always()
+        run: docker logout ghcr.io
+
+  native:
+    name: native (${{ matrix.module }})
+    if: github.event_name == 'workflow_dispatch' && inputs.native
+    needs: [test-maven]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [backend, audit-service/backend, ai-service, notification-service, payment-service]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: graalvm   # Oracle GraalVM para JDK 21 (soportado por setup-java v4)
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: ${{ matrix.module }}/pom.xml
+      - name: Comprobar perfil native
+        id: check
+        run: |
+          if grep -q '<id>native</id>' pom.xml; then echo "has=true" >> "$GITHUB_OUTPUT"; else echo "has=false" >> "$GITHUB_OUTPUT"; echo "Sin perfil native: se omite"; fi
+      - name: mvn -Pnative native:compile
+        if: steps.check.outputs.has == 'true'
+        run: mvn -s "$GITHUB_WORKSPACE/.github/.maven/settings.xml" -B --no-transfer-progress -Pnative -DskipTests package native:compile
+      - name: Tamaño del binario
+        if: steps.check.outputs.has == 'true'
+        run: |
+          bin=$(find target -maxdepth 1 -type f -executable ! -name '*.jar' | head -1)
+          ls -lh "$bin"
+          echo "${{ matrix.module }}: $(du -h "$bin" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"

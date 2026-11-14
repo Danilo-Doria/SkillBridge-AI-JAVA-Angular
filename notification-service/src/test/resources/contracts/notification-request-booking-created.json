@@ -1,0 +1,23 @@
+{
+  "eventId": "6f1c2a52-6a1e-4b8e-9b9a-0c2d4e6f8a10",
+  "eventType": "BookingCreatedNotification",
+  "aggregateId": "2b7e1516-28ae-4d2a-a6d2-abf7158809cf",
+  "aggregateType": "Booking",
+  "occurredAt": "2026-11-13T10:00:00.123456789Z",
+  "correlationId": "corr-fixture-0001",
+  "version": 1,
+  "payload": {
+    "eventId": "6f1c2a52-6a1e-4b8e-9b9a-0c2d4e6f8a10",
+    "bookingId": "2b7e1516-28ae-4d2a-a6d2-abf7158809cf",
+    "userId": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+    "notificationType": "BOOKING_CREATED",
+    "occurredAt": 1794564000.123456789,
+    "paymentDeadline": null
+  },
+  "actorUserId": null,
+  "actorUsername": null,
+  "actorRole": null,
+  "action": null,
+  "resource": null,
+  "resourceId": null
+}

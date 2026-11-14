@@ -1,0 +1,77 @@
+server:
+  # Solo actuator: el servicio no declara controladores. No se publica en Traefik.
+  port: ${SERVER_PORT:8085}
+  shutdown: graceful
+
+spring:
+  application:
+    name: notification-service
+  datasource:
+    # Usuario y schema propios (FR-010). Ver notification-service/db/init-notification-schema.sql.
+    url: ${NOTIFICATION_DB_URL:jdbc:postgresql://localhost:5432/skillbridge}
+    username: ${NOTIFICATION_DB_USERNAME:notification_svc}
+    password: ${NOTIFICATION_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${NOTIFICATION_DB_POOL_SIZE:3}
+      minimum-idle: 1
+  flyway:
+    schemas: notification
+    default-schema: notification
+    create-schemas: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
+notification:
+  email:
+    from: ${NOTIFICATIONS_EMAIL_FROM:no-reply@skillbridge.local}
+  kafka:
+    topic: ${KAFKA_TOPIC_NOTIFICATION_REQUESTS:notification-requests}
+    # Propio y distinto del monolito (skillbridge-notifications): un group-id por servicio consumidor.
+    group-id: ${NOTIFICATION_KAFKA_GROUP_ID:notification-service}
+    partitions: ${MESSAGING_KAFKA_PARTITIONS:3}
+    dlt-partitions: ${MESSAGING_KAFKA_DLT_PARTITIONS:1}
+    replicas: ${MESSAGING_KAFKA_REPLICAS:1}
+    retry:
+      # 3 reintentos con backoff exponencial (1 s, 2 s, 4 s) y después notification-requests.DLT.
+      max-retries: ${MESSAGING_KAFKA_RETRY_MAX:3}
+      initial-interval: ${MESSAGING_KAFKA_RETRY_INITIAL:1000}
+      multiplier: ${MESSAGING_KAFKA_RETRY_MULTIPLIER:2.0}
+      max-interval: ${MESSAGING_KAFKA_RETRY_MAX_INTERVAL:10000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    # Un SMTP caído no debe reiniciar el contenedor: lo cubren reintentos y DLT.
+    mail:
+      enabled: false
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-}]"

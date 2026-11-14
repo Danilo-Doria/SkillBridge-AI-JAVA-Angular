@@ -1,0 +1,177 @@
+# HU-104 T022 — overlay de PRODUCCIÓN (VM Oracle Cloud Always Free, linux/arm64).
+# Uso (en la VM, nunca en el repo los valores):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Variables y secretos: archivo .env de la VM (fuera del repo) o entorno del job de despliegue.
+# Ver docs/guides/oracle-free-deployment.md (pasos, rollback por IMAGE_TAG, backups).
+#
+# Qué cambia respecto al Compose de desarrollo:
+# - Imágenes ya construidas en CI (GHCR, arm64): ghcr.io/${GHCR_OWNER}/skillbridge-<servicio>:${IMAGE_TAG}.
+# - Traefik es el ÚNICO puerto público (80/443, FR-001). Ningún servicio ni BD publica puertos.
+# - gateway y servicios extraídos siempre activos (sin perfiles). Mailpit desactivado (SMTP real).
+# - Límites de memoria y healthchecks en todos los servicios (FR-014).
+# - Sin claves JWT efímeras: JWT_PRIVATE_KEY/JWT_PUBLIC_KEY obligatorias.
+# - El cutover de rutas (ai/payments) NO se activa aquí: ver infra/traefik/dynamic-cutover/routers.cutover.yml.
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  postgres:
+    <<: *restart
+    ports: !reset []
+    mem_limit: 512m
+
+  redis:
+    <<: *restart
+    mem_limit: 96m
+
+  kafka:
+    <<: *restart
+    ports: !reset []
+    environment:
+      # Sin listener hacia el host en producción.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://kafka:9092
+
+  audit-mongo:
+    <<: *restart
+    ports: !reset []
+    mem_limit: 384m
+
+  backend:
+    <<: *restart
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER}/skillbridge-backend:${IMAGE_TAG:-latest}
+    build: !reset null
+    ports: !reset []
+    mem_limit: 768m
+    environment:
+      JWT_GENERATE_EPHEMERAL_KEYS: "false"
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY}
+      JWT_COOKIE_SECURE: "true"
+      # Constitución art. III: SameSite=Strict (origen único detrás del gateway; Stripe Elements sin redirección).
+      JWT_COOKIE_SAME_SITE: ${JWT_COOKIE_SAME_SITE:-Strict}
+      CSRF_COOKIE_SAME_SITE: ${CSRF_COOKIE_SAME_SITE:-Strict}
+      CORS_ALLOWED_ORIGINS: https://${DOMAIN:?DOMAIN}
+      # notification-service envía los correos: el consumidor del monolito se apaga (sin envíos dobles).
+      APP_MESSAGING_KAFKA_LOCAL_NOTIFICATION_CONSUMER: "false"
+      # Arranque en frío del read model de ai-service (idempotente).
+      APP_CATALOG_SNAPSHOT_ON_STARTUP: "true"
+      # Revocaciones (usuarios suspendidos) para ai-service y payment-service.
+      APP_USERS_ACCESS_SNAPSHOT_ON_STARTUP: "true"
+      # Reservas abiertas para el read model de payment-service.
+      APP_BOOKINGS_SNAPSHOT_ON_STARTUP: "true"
+
+  frontend:
+    <<: *restart
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER}/skillbridge-frontend:${IMAGE_TAG:-latest}
+    build: !reset null
+    ports: !reset []
+    mem_limit: 64m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  audit-backend:
+    <<: *restart
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER}/skillbridge-audit-backend:${IMAGE_TAG:-latest}
+    build: !reset null
+    ports: !reset []
+    mem_limit: 384m
+    environment:
+      CORS_ALLOWED_ORIGINS: https://audit.${DOMAIN:?DOMAIN}
+
+  audit-frontend:
+    <<: *restart
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER}/skillbridge-audit-frontend:${IMAGE_TAG:-latest}
+    build: !reset null
+    ports: !reset []
+    mem_limit: 64m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  ai-service:
+    <<: *restart
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER}/skillbridge-ai-service:${IMAGE_TAG:-latest}
+    build: !reset null
+    profiles: !reset []
+    environment:
+      # Usuario y schema propios (ver ai-service/README.md); el schema lo crea el DBA, no Flyway.
+      AI_DATABASE_USER: ${AI_DATABASE_USER:-ai_service}
+      AI_DATABASE_PASSWORD: ${AI_DATABASE_PASSWORD:?AI_DATABASE_PASSWORD}
+      AI_FLYWAY_CREATE_SCHEMA: "false"
+      CSRF_COOKIE_SAME_SITE: ${CSRF_COOKIE_SAME_SITE:-Strict}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY}
+      CORS_ALLOWED_ORIGINS: https://${DOMAIN:?DOMAIN}
+
+  notification-service:
+    <<: *restart
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER}/skillbridge-notification-service:${IMAGE_TAG:-latest}
+    build: !reset null
+    profiles: !reset []
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      NOTIFICATION_DB_USERNAME: ${NOTIFICATION_DB_USERNAME:-notification_svc}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD}
+      MAIL_HOST: ${MAIL_HOST:?MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
+      NOTIFICATIONS_EMAIL_FROM: ${NOTIFICATIONS_EMAIL_FROM:?NOTIFICATIONS_EMAIL_FROM}
+
+  payment-service:
+    <<: *restart
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER}/skillbridge-payment-service:${IMAGE_TAG:-latest}
+    build: !reset null
+    profiles: !reset []
+    environment:
+      # Usuario y schema propios (payment-service/db/init-payment-schema.sql).
+      PAYMENT_DATABASE_USER: ${PAYMENT_DATABASE_USER:-payment_svc}
+      PAYMENT_DATABASE_PASSWORD: ${PAYMENT_DATABASE_PASSWORD:?PAYMENT_DATABASE_PASSWORD}
+      PAYMENT_FLYWAY_CREATE_SCHEMA: "false"
+      CSRF_COOKIE_SAME_SITE: ${CSRF_COOKIE_SAME_SITE:-Strict}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY}
+      # Secretos Stripe: solo en el .env de la VM / secretos del job, nunca en el repo.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      CORS_ALLOWED_ORIGINS: https://${DOMAIN:?DOMAIN}
+
+  traefik:
+    <<: *restart
+    profiles: !reset []
+    ports: !override
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN}
+      PUBLIC_HTTPS_PORT: "443"
+      # Probar primero con le-staging; luego le.
+      ACME_RESOLVER: ${ACME_RESOLVER:-le}
+      # 1 si hay un proxy/CDN delante (ajustar también trustedIPs en traefik.yml).
+      RL_IP_DEPTH: ${RL_IP_DEPTH:-0}
+
+  swagger-ui:
+    <<: *restart
+    profiles: !reset []
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Solo desarrollo: en producción se usa SMTP real.
+  mailpit:
+    profiles: !override
+      - dev-mail
+    ports: !reset []

@@ -1,0 +1,10 @@
+{
+  "_source": "Derivado de GlobalExceptionHandler.ai(AiProviderException) del monolito (feature/104-microservices-gateway @ c02be4d): ProblemDetail con propiedades correlationId y code. Respuesta 503 cuando la cadena de fallback está vacía o agotada.",
+  "type": "about:blank",
+  "title": "No se pudo generar la recomendación",
+  "status": 503,
+  "detail": "No fue posible conectar con el servicio de IA. Inténtalo más tarde.",
+  "instance": "/api/ai/recommendations",
+  "correlationId": "c0ffee00-0000-4000-8000-000000000001",
+  "code": "Unavailable"
+}

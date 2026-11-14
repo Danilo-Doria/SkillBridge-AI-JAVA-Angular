@@ -1,0 +1,93 @@
+# Traefik dynamic configuration — CUTOVER to ai-service and payment-service
+# (HU-104 phases 3 and 5: T045, T063). NOT loaded by default: Traefik only
+# watches infra/traefik/dynamic/ (mounted at /etc/traefik/dynamic).
+#
+# Routing decided for Q4:
+#   ai-service       /api/ai/recommendations/**, /api/ai/tts, /api/admin/ai/providers/**
+#   monolith (always) /api/ai/knowledge/**, /api/ai/trending  (router ai-monolith-only, prio 850)
+#   monolith          any other /api/ai/** (router ai, prio 800) until decided otherwise
+#   payment-service  /api/payments/**, /api/webhooks/**
+#
+# ACTIVATE (on the host, from the repo root; Traefik hot-reloads, no restart):
+#   cp infra/traefik/dynamic-cutover/routers.cutover.yml infra/traefik/dynamic/
+#   # optional: only one of the two services ->  set CUTOVER_AI=false or
+#   # CUTOVER_PAYMENTS=false in the traefik container env and recreate it.
+#   docker compose logs --since 1m traefik | grep -i error   # must be empty
+#   BASE_URL=https://$DOMAIN specs/104-microservices-gateway/smoke/smoke.sh
+#
+# REVERT (instant; the phase-1 routers in routers.yml take over again):
+#   rm infra/traefik/dynamic/routers.cutover.yml
+#
+# Priorities sit above every phase-1 router for the same paths
+# (webhooks 1000, payments 900/901, ai-monolith-only 850, ai 800/801).
+{{ $domain := env "DOMAIN" | default "localhost" }}
+{{ $resolver := env "ACME_RESOLVER" }}
+{{ $ai := ne (env "CUTOVER_AI") "false" }}
+{{ $pay := ne (env "CUTOVER_PAYMENTS") "false" }}
+{{ define "tls" }}{{ if . }}
+        certResolver: {{ . }}{{ else }} {}{{ end }}{{ end }}
+http:
+  routers:
+{{- if $pay }}
+    cutover-webhooks:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && PathPrefix(`/api/webhooks`)"
+      priority: 1200
+      middlewares: [chain-webhook]
+      service: payment-service
+      tls:{{ template "tls" $resolver }}
+    cutover-payments-get:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && PathPrefix(`/api/payments`) && Method(`GET`)"
+      priority: 1101
+      middlewares: [chain-api-get]
+      service: payment-service
+      tls:{{ template "tls" $resolver }}
+    cutover-payments:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && PathPrefix(`/api/payments`)"
+      priority: 1100
+      middlewares: [chain-api]
+      service: payment-service
+      tls:{{ template "tls" $resolver }}
+    cutover-docs-payment:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && (Path(`/docs/payment-service/v3/api-docs`) || PathPrefix(`/docs/payment-service/v3/api-docs/`))"
+      priority: 600
+      middlewares: [chain-docs-api]
+      service: payment-service
+      tls:{{ template "tls" $resolver }}
+{{- end }}
+{{- if $ai }}
+    cutover-ai-get:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && (PathPrefix(`/api/ai/recommendations`) || Path(`/api/ai/tts`) || PathPrefix(`/api/admin/ai/providers`)) && Method(`GET`)"
+      priority: 951
+      middlewares: [chain-ai-get]
+      service: ai-service
+      tls:{{ template "tls" $resolver }}
+    cutover-ai:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && (PathPrefix(`/api/ai/recommendations`) || Path(`/api/ai/tts`) || PathPrefix(`/api/admin/ai/providers`))"
+      priority: 950
+      middlewares: [chain-ai]
+      service: ai-service
+      tls:{{ template "tls" $resolver }}
+    cutover-docs-ai:
+      entryPoints: [websecure]
+      rule: "Host(`{{ $domain }}`) && (Path(`/docs/ai-service/v3/api-docs`) || PathPrefix(`/docs/ai-service/v3/api-docs/`))"
+      priority: 600
+      middlewares: [chain-docs-api]
+      service: ai-service
+      tls:{{ template "tls" $resolver }}
+{{- end }}
+
+  services:
+    ai-service:
+      loadBalancer:
+        servers:
+          - url: "{{ env "GW_AI_SERVICE_URL" | default "http://ai-service:8080" }}"
+    payment-service:
+      loadBalancer:
+        servers:
+          - url: "{{ env "GW_PAYMENT_SERVICE_URL" | default "http://payment-service:8080" }}"

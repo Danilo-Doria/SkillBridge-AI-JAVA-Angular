@@ -30,7 +30,7 @@ El sistema implementa un paradigma híbrido compuesto por tres subsistemas autó
 
 ### Reglas e invariantes arquitectónicos:
 - **Aislamiento de dominio**: El núcleo de dominio (`com.riwi.skillbridge.domain`) es Java puro, libre de dependencias de Spring o persistencia.
-- **Desacoplamiento de eventos**: Notificaciones operativas vía RabbitMQ (exchange con reintentos exponenciales y DLQ); auditoría persistente vía Apache Kafka.
+- **Desacoplamiento de eventos**: Apache Kafka es el único broker (RabbitMQ retirado en HU-104, ADR-0009): auditoría en `booking-events`, pagos en `payment-events` y notificaciones en `notification-requests`, con reintentos exponenciales, Dead Letter Topics (`*.DLT`) y consumidores idempotentes por `eventId`.
 - **Trazabilidad transversal**: Propagación obligatoria de `X-Correlation-Id` en peticiones HTTP y envoltorios `BusinessEvent<T>`.
 
 ---
@@ -39,8 +39,9 @@ El sistema implementa un paradigma híbrido compuesto por tres subsistemas autó
 
 - **Lenguajes y Runtimes**: Java 21 (Eclipse Temurin), TypeScript 5.9, Node.js 22 LTS.
 - **Frameworks**: Spring Boot 3.5.6 (Spring Security 6, Spring Data JPA, Spring AI 1.1.8), Angular 20.
-- **Bases de datos**: PostgreSQL 17 (Sistema de registro con Flyway `V1`–`V7`), MongoDB 7 (Eventos de auditoría).
-- **Caché y Mensajería**: Redis 8 (Caché de catálogo), RabbitMQ 4 (Colas y DLQ), Apache Kafka 7.8 KRaft (Streaming).
+- **Bases de datos**: PostgreSQL 17 (Sistema de registro con Flyway `V1`–`V19`), MongoDB 7 (Eventos de auditoría).
+- **Caché y Mensajería**: Redis 8 (Caché de catálogo), Apache Kafka 7.8 KRaft (único broker: eventos, pagos, notificaciones y DLT).
+- **Gateway de borde**: Traefik v3 (perfil Compose `gateway`; rate limit, circuit breaker, `X-Correlation-Id`, Swagger agregado en `/docs`).
 - **Observabilidad**: Prometheus 3.5.0, Grafana 12.1.1, Mailpit (Mock SMTP).
 
 ---
@@ -78,10 +79,17 @@ Configura en `.env` las credenciales requeridas para servicios externos (como `G
 ## 6. Comandos verificados de ejecución
 
 ### Despliegue con Docker Compose
-El entorno completo (12 servicios) se levanta con el comando oficial verificado:
+El entorno completo se levanta con el comando oficial verificado:
 ```bash
 docker compose up --build -d
 ```
+
+Gateway de borde opcional (Traefik v3, perfil `gateway`, puertos locales `8000`/`8443`). `/docs` exige antes el secreto `docs_htpasswd`:
+```bash
+DOCS_USER=<usuario> infra/traefik/scripts/gen-docs-htpasswd.sh
+docker compose --profile gateway up -d
+```
+Pruebas de humo y del borde: `specs/104-microservices-gateway/smoke/{smoke.sh,edge-checks.sh}`. Despliegue en una VM: [`docs/guides/oracle-free-deployment.md`](docs/guides/oracle-free-deployment.md).
 
 > [!TIP]
 > **Atajos con `Makefile`**: El `Makefile` incluye atajos operativos: `make up` (iniciar todo), `make down` (detener), `make logs` (ver trazas), `make ps` (estado de contenedores) y `make build` (recompilar).
@@ -94,7 +102,6 @@ docker compose up --build -d
 | **SkillBridge API (Backend)** | `http://localhost:8080` | Swagger UI: `http://localhost:8080/swagger-ui.html` |
 | **Audit Admin (Frontend)** | `http://localhost:8090` | Consola de auditoría administrativa |
 | **Audit API (Backend)** | `http://localhost:8081` | Endpoints REST: `/api/audit/events`, `/stats` |
-| **RabbitMQ Management** | `http://localhost:15672` | Usuario: `guest` / Clave: `guest` |
 | **Mailpit (Web SMTP UI)** | `http://localhost:8025` | Inspección de correos transaccionales |
 | **Prometheus** | `http://localhost:9090` | Métricas de Actuator y JVM |
 | **Grafana** | `http://localhost:3000` | Usuario: `admin` / Clave: `admin` |
@@ -114,7 +121,7 @@ mvn test     # Pruebas unitarias y de capa (requiere Docker daemon por BookingPe
 mvn verify   # Pruebas de integración con Testcontainers
 ```
 > [!NOTE]
-> `BookingPersistenceAdapterTest` requiere el demonio Docker activo durante `mvn test`. Las clases `NotificationFlowIT` y `JpaOfferingRepositoryTest` están temporalmente marcadas con `@Disabled` debido a incompatibilidades de entorno.
+> `BookingPersistenceAdapterTest` requiere el demonio Docker activo durante `mvn test`. `JpaOfferingRepositoryTest` sigue marcada con `@Disabled` por incompatibilidades de entorno. `KafkaMessagingFlowIT` y `BookingCancellationIT` usan Testcontainers Kafka (`confluentinc/cp-kafka:7.8.0`) y `pgvector/pgvector:pg17`.
 
 ### Frontend Cliente (`frontend/`)
 ```bash
@@ -141,7 +148,7 @@ La suite técnica completa se encuentra en [`docs/`](docs/):
 - **Módulo Backend (API)**: [`docs/MODULES/backend.md`](docs/MODULES/backend.md)
 - **Módulo Frontend (Web)**: [`docs/MODULES/frontend.md`](docs/MODULES/frontend.md)
 - **Módulo Microservicio de Auditoría**: [`docs/MODULES/audit-service.md`](docs/MODULES/audit-service.md)
-- **Integraciones y brokers (Postgres, Redis, RabbitMQ, Kafka, IA)**: [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md)
+- **Integraciones y brokers (Postgres, Redis, Kafka, IA)**: [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md)
 - **Modelo de seguridad y control de acceso (RBAC, CSRF, JWT)**: [`docs/SECURITY-MODEL.md`](docs/SECURITY-MODEL.md)
 - **Estrategia y suites de testing**: [`docs/TESTING.md`](docs/TESTING.md)
 - **Guía de contribución y flujo de trabajo**: [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)

@@ -1,8 +1,30 @@
 global:
   scrape_interval: 15s
 
+# HU-104 (NFR-005): borde (Traefik) y servicios extraídos. Los servicios del perfil "services" aparecen como
+# DOWN si no están levantados; es esperado en desarrollo. Ningún puerto de métricas se publica fuera de la red Docker.
 scrape_configs:
   - job_name: skillbridge-api
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ["backend:8080"]
+
+  - job_name: traefik
+    # entryPoint interno "ops" (:8082), nunca publicado (infra/traefik/traefik.yml).
+    static_configs:
+      - targets: ["traefik:8082"]
+
+  - job_name: ai-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["ai-service:8080"]
+
+  - job_name: payment-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["payment-service:8080"]
+
+  - job_name: notification-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["notification-service:8085"]

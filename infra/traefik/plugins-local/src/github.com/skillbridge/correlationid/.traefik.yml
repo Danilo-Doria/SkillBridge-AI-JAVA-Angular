@@ -1,0 +1,10 @@
+displayName: SkillBridge Correlation ID
+type: middleware
+import: github.com/skillbridge/correlationid
+summary: Keeps a valid UUID X-Correlation-Id or generates one, echoes it in the response and renders edge errors as application/problem+json.
+
+testData:
+  headerName: X-Correlation-Id
+  problemDetails: true
+  retryAfterSeconds: 30
+  notFound: false

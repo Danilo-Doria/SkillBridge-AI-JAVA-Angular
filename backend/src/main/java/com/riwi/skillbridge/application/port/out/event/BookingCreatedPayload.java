@@ -8,5 +8,11 @@ public record BookingCreatedPayload(
     UUID offeringId,
     UUID customerId,
     Instant scheduledAt,
-    String status
-) {}
+    String status,
+    // HU-104 (aditivo): destinatario para servicios que no leen la tabla users (payment-service).
+    String customerEmail
+) {
+    public BookingCreatedPayload(UUID bookingId, UUID offeringId, UUID customerId, Instant scheduledAt, String status) {
+        this(bookingId, offeringId, customerId, scheduledAt, status, null);
+    }
+}

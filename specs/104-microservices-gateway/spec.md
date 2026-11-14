@@ -1,6 +1,6 @@
 # Feature Specification: Gateway de borde, Kafka único y primeros microservicios en Oracle Free (HU-104)
 
-**Feature Branch**: `feature/104-microservices-gateway` | **Created**: 2026-11-13 | **Status**: Draft (pendiente de aprobación humana) | **Issue**: [UNKNOWN] aún no creado; el número 104 es provisional (último issue visto: #103). Si el issue real tiene otro número, renombrar este directorio y la rama.
+**Feature Branch**: `feature/104-microservices-gateway` | **Created**: 2026-11-13 | **Status**: Implementada en la rama (pendiente de aprobación humana; ADR-0009 Proposed) | **Issue**: [UNKNOWN] aún no creado; el número 104 es provisional (último issue visto: #103). Si el issue real tiene otro número, renombrar este directorio y la rama.
 **Clasificación SDD**: Grande / alto riesgo (cambia límites arquitectónicos, mensajería y despliegue). Ciclo completo. Ver `docs/agents/SDD-HYBRID-GUIDE.md`.
 **ADR**: [ADR-0009](../../docs/adr/0009-edge-gateway-kafka-only-native-images.md) (Proposed)
 **Input**: Como equipo de SkillBridge, queremos pasar de un monolito con un proxy nginx a un conjunto de servicios detrás de un gateway, desplegado gratis en una sola VM, con un solo broker (Kafka) e imágenes nativas, para escalar partes del sistema por separado sin pagar infraestructura ni multiplicar la operación.
@@ -53,7 +53,7 @@ Como operador, quiero rate limiting, circuit breaker y correlación en el gatewa
 **Acceptance Scenarios**:
 1. **Given** el perfil `auth` (p. ej. 10 req/min por IP, ráfaga 5), **When** una IP excede el límite en `/api/auth/login`, **Then** recibe 429 con `Retry-After` y el evento queda en el log de acceso.
 2. **Given** el perfil `ai` más estricto que `default`, **When** se excede en `/api/ai/**`, **Then** 429 sin invocar al servicio.
-3. **Given** un servicio detenido o con >30 % de errores 5xx en la ventana configurada, **When** continúan las peticiones, **Then** el circuit breaker abre, responde 503 inmediato (ProblemDetail), y cierra tras la recuperación.
+3. **Given** un servicio detenido o con >30 % de errores de red o 5xx (excepto 503) en la ventana configurada, **When** continúan las peticiones, **Then** el circuit breaker abre, responde 503 inmediato (ProblemDetail), y cierra tras la recuperación.
 4. **Given** una petición **sin** `X-Correlation-Id`, **When** atraviesa el gateway, **Then** el servicio la recibe con un UUID, la respuesta lo devuelve, aparece en logs (MDC) de todos los servicios implicados y en el envelope Kafka (`correlationId`) de los eventos que genere.
 5. **Given** una petición **con** `X-Correlation-Id` válido, **When** atraviesa el gateway, **Then** se conserva sin cambios.
 6. **Given** tráfico detrás de un proxy/CDN o de la red Docker, **When** se aplica rate limit, **Then** la clave es la IP real del cliente (no la del proxy).
@@ -78,7 +78,7 @@ Como desarrollador/consumidor de la API, quiero un único Swagger UI que liste l
 
 Como operador, quiero eliminar RabbitMQ para ahorrar RAM y reducir piezas, sin perder pagos ni notificaciones.
 
-**Why this priority**: Libera ~300-500 MB y es prerrequisito de `payment-service` y `notification-service`.
+**Why this priority**: Reduce piezas (un broker menos) y es prerrequisito; el ahorro de RAM medido es ~90-110 MiB (baseline T007, no los 300-500 MB estimados al inicio) de `payment-service` y `notification-service`.
 
 **Independent Test**: Flujo reserva → pago aprobado → notificación → aprovisionamiento de mentoría ejecutado con RabbitMQ **apagado**; verificar que no queda ninguna dependencia `spring-boot-starter-amqp` ni contenedor `rabbitmq`.
 
@@ -160,14 +160,14 @@ Como operador, quiero un despliegue reproducible y reversible.
 - **FR-001**: El gateway MUST ser el único puerto público (80/443); ningún servicio ni BD publica puertos al exterior en producción.
 - **FR-002**: El enrutamiento MUST seguir la tabla de `contracts/gateway-routes.md`, por prefijo y prioridad.
 - **FR-003**: Rate limiting MUST tener perfiles `auth`, `ai` y `default`, con valores configurables por entorno (variables), y responder 429 + `Retry-After`.
-- **FR-004**: El circuit breaker MUST aplicarse por servicio con expresión configurable, fallback 503 ProblemDetail y recuperación automática.
+- **FR-004**: El circuit breaker MUST aplicarse por servicio con expresión configurable, fallback 503 ProblemDetail y recuperación automática. MUST NOT contar las respuestas 503 del propio servicio (los servicios las usan para "dependencia no configurada", p. ej. IA o Stripe; contarlas ocultaba respuestas 4xx legítimas — hallazgo de la prueba en vivo).
 - **FR-005**: El gateway MUST generar `X-Correlation-Id` si falta y conservarlo si existe; MUST eliminar `X-User-Id`/`X-User-Roles` entrantes.
 - **FR-006**: Todo servicio MUST registrar `correlationId` en MDC, propagarlo en HTTP saliente y en el envelope y cabeceras Kafka.
 - **FR-007**: Cada servicio MUST publicar `/v3/api-docs`; el gateway MUST servir un Swagger UI agregado en `/docs`, protegido fuera de local.
 - **FR-008**: RabbitMQ MUST eliminarse del código, dependencias, Compose y docs; los contratos de `payment-events` y `notification-requests` MUST documentarse en `contracts/kafka-topics.md` (versionados).
 - **FR-009**: Todo consumidor Kafka MUST ser idempotente por `eventId` y tener política de reintento + DLT.
 - **FR-010**: Cada servicio MUST tener BD o schema propio con credenciales propias; PROHIBIDO leer tablas de otro servicio.
-- **FR-011**: Los servicios MUST validar el JWT RS256 con la clave pública (ADR-0006) y mantener CSRF para cookie + mutaciones; el gateway MUST NOT ser la única barrera.
+- **FR-011**: Los servicios MUST validar el JWT RS256 con la clave pública (ADR-0006) y mantener CSRF para cookie + mutaciones; el gateway MUST NOT ser la única barrera. Los servicios que validan el JWT sin consultar `users` MUST rechazar (401) tokens de usuarios suspendidos o con rol cambiado en cuanto reciben `UserAccessChanged` (sin esperar a que expire el token).
 - **FR-012**: El dominio MUST seguir sin imports de framework (`AGENTS.md` §1); `audit-service` MUST NOT tener dependencias de compilación con `backend/` ni con los servicios nuevos.
 - **FR-013**: Las imágenes MUST publicarse para `linux/arm64`; el perfil native MUST existir por servicio Spring o la excepción MUST quedar registrada.
 - **FR-014**: Compose de producción MUST declarar límites de memoria por contenedor y *healthchecks*.
@@ -181,7 +181,7 @@ Como operador, quiero un despliegue reproducible y reversible.
 - **NFR-003 (Latencia)**: Sobrecarga del gateway p95 < 20 ms sobre el servicio directo, medida y registrada.
 - **NFR-004 (Arranque)**: Servicio native listo (< 3 s) tras `docker start`.
 - **NFR-005 (Observabilidad)**: Métricas de Traefik y de Resilience4j en Prometheus; log de acceso JSON con `correlationId`.
-- **NFR-006 (Seguridad)**: Cabeceras de seguridad estándar (HSTS) en el borde; Swagger y métricas no públicos.
+- **NFR-006 (Seguridad)**: En el borde: `Strict-Transport-Security`; cookies `access_token` y `XSRF-TOKEN` con `SameSite=Strict` y `Secure` en producción (constitución art. III); `/docs` con basicAuth; métricas solo en la red interna (entryPoint `ops`).
 
 ### Key Entities / Contratos
 - **BusinessEvent** (envelope existente, ADR-0006 §4): se extiende, si hace falta, con `correlationId` y `version` sin romper a audit.
@@ -211,7 +211,7 @@ Para poder ejecutar de una pasada, cada pregunta tiene un **valor por defecto vi
 | Q1 | Dominio/DNS | [UNKNOWN] | Variable `DOMAIN`; ACME HTTP-01 con DNS en modo "solo DNS" (DuckDNS u otro). Nada se hardcodea |
 | Q2 | ¿Repo público? | **[VERIFIED] público** (`gh repo view`, 2026-11-13) | Runners `ubuntu-24.04-arm` para native (sujeto a confirmar gratuidad vigente en docs de GitHub) |
 | Q3 | Equipo NestJS y Kafka | [UNKNOWN] | **Se ejecuta la retirada de RabbitMQ** en este repo (no existe `mentorship-service` aquí) y se entrega `contracts/kafka-topics.md` + borrador de issue en `HUMAN-TODO.md`; el usuario lo envía al otro equipo. No se editan los contratos de mentorías |
-| Q4 | `ai-service` sin tablas del monolito | [UNKNOWN] | Regla: si recomendación/visión/STT/TTS necesitan ≤ 2 tablas del monolito, usar read model por eventos. `/api/ai/knowledge` (RAG, pgvector) **permanece en el monolito** con una ruta de mayor prioridad que `/api/ai/**` |
+| Q4 | `ai-service` sin tablas del monolito | [UNKNOWN] | Regla: si recomendación/visión/STT/TTS necesitan ≤ 2 tablas del monolito, usar read model por eventos. `/api/ai/knowledge` (RAG, pgvector) y `/api/ai/trending` (analítica) **permanecen en el monolito** con una ruta de mayor prioridad que `/api/ai/**`. Ver `research.md` §Q4 |
 | Q5 | Imágenes `arm64` | [UNKNOWN] | Se verifica en T003; si Kafka cp 7.8 no es multi-arch → `apache/kafka` oficial |
 | Q6 | Issue #103 | **Pausado por el usuario** | No bloquea `ai`/`notification`/`payment`. `identity`/`catalog`/`booking` siguen **fuera de alcance**; el código no se refactoriza aquí salvo lo mínimo para mover los puertos |
 | Q7 | Cookies con origen único | [UNKNOWN] | Origen único = mismo host que el frontend; ajustar solo lo que T006 demuestre necesario |

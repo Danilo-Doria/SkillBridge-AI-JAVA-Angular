@@ -37,9 +37,16 @@ import java.util.Set;
 @EnableMethodSecurity
 public class SecurityConfiguration {
 
+    /**
+     * SameSite de la cookie XSRF-TOKEN configurable (HU-104, constitución art. III: Strict en producción con origen
+     * único detrás del gateway). En desarrollo el defecto None permite el frontend cross-origin (:4200).
+     */
+    @Value("${app.csrf.cookie.same-site:None}")
+    private String csrfCookieSameSite;
+
     private CookieCsrfTokenRepository cookieCsrfTokenRepository() {
         CookieCsrfTokenRepository repo = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        repo.setCookieCustomizer(customizer -> customizer.sameSite("None").secure(true));
+        repo.setCookieCustomizer(customizer -> customizer.sameSite(csrfCookieSameSite).secure(true));
         return repo;
     }
     @Bean

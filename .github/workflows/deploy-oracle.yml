@@ -1,0 +1,162 @@
+# HU-104 T072 — Despliegue en la VM Oracle Cloud Always Free por SSH (ssh nativo + known_hosts).
+# En la VM: pull && up -d con IMAGE_TAG=<sha>, espera a los healthchecks de Docker y, si fallan,
+# rollback automático al IMAGE_TAG anterior (guardado en <dir>/.deploy/current_tag).
+# Sin acciones de terceros. Secretos solo vía secrets.* (ver docs/guides/oracle-free-deployment.md):
+#   ORACLE_HOST, ORACLE_USER, ORACLE_SSH_KEY, ORACLE_KNOWN_HOSTS (obligatorios)
+#   GHCR_READ_TOKEN (opcional: PAT read:packages si los paquetes de GHCR son privados)
+# Variables de repositorio opcionales: ORACLE_DEPLOY_DIR (defecto /opt/skillbridge), ORACLE_SSH_PORT (defecto 22).
+name: Deploy Oracle VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Tag de imagen a desplegar (defecto: SHA del commit seleccionado)'
+        type: string
+        required: false
+      health_timeout:
+        description: 'Segundos máximos de espera a que todos los contenedores estén healthy'
+        type: string
+        default: '420'
+  workflow_run:
+    workflows: ['Build arm64 images']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-oracle
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag || github.event.workflow_run.head_sha || github.sha }}
+      HEALTH_TIMEOUT: ${{ inputs.health_timeout || '420' }}
+      DEPLOY_DIR: ${{ vars.ORACLE_DEPLOY_DIR || '/opt/skillbridge' }}
+      SSH_PORT: ${{ vars.ORACLE_SSH_PORT || '22' }}
+    steps:
+      - name: Validar entradas
+        run: |
+          [[ "$IMAGE_TAG" =~ ^[A-Za-z0-9_.-]{1,128}$ ]] || { echo "IMAGE_TAG inválido"; exit 1; }
+          [[ "$HEALTH_TIMEOUT" =~ ^[0-9]{1,4}$ ]] || { echo "health_timeout inválido"; exit 1; }
+          [[ "$DEPLOY_DIR" =~ ^/[A-Za-z0-9_./-]+$ ]] || { echo "ORACLE_DEPLOY_DIR inválido"; exit 1; }
+          echo "Desplegando IMAGE_TAG=$IMAGE_TAG en $DEPLOY_DIR" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preparar SSH (clave y known_hosts desde secrets)
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          ORACLE_KNOWN_HOSTS: ${{ secrets.ORACLE_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ -n "$ORACLE_SSH_KEY" && -n "$ORACLE_KNOWN_HOSTS" ]] || { echo "Faltan secrets ORACLE_SSH_KEY/ORACLE_KNOWN_HOSTS"; exit 1; }
+          install -d -m 700 "$HOME/.ssh"
+          (umask 077; printf '%s\n' "$ORACLE_SSH_KEY" > "$HOME/.ssh/oracle_key")
+          (umask 077; printf '%s\n' "$ORACLE_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts")
+
+      - name: Generar script remoto
+        env:
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          GHCR_READ_USER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          umask 077
+          {
+            printf 'TAG=%q\nOWNER=%q\nDIR=%q\nHEALTH_TIMEOUT=%q\n' "$IMAGE_TAG" "$owner" "$DEPLOY_DIR" "$HEALTH_TIMEOUT"
+            printf 'GHCR_READ_USER=%q\nGHCR_READ_TOKEN=%q\n' "$GHCR_READ_USER" "$GHCR_READ_TOKEN"
+            cat <<'REMOTE'
+          set -euo pipefail
+          cd "$DIR"
+          STATE="$DIR/.deploy"
+          mkdir -p "$STATE"
+          PREV="$(cat "$STATE/current_tag" 2>/dev/null || true)"
+          FILES=(-f docker-compose.yml -f docker-compose.prod.yml)
+
+          compose() { local tag="$1"; shift; IMAGE_TAG="$tag" GHCR_OWNER="$OWNER" docker compose "${FILES[@]}" "$@"; }
+
+          ghcr_login() {
+            if [[ -n "$GHCR_READ_TOKEN" ]]; then
+              printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io -u "$GHCR_READ_USER" --password-stdin >/dev/null
+            fi
+          }
+          ghcr_logout() { [[ -z "$GHCR_READ_TOKEN" ]] || docker logout ghcr.io >/dev/null 2>&1 || true; }
+          trap ghcr_logout EXIT
+
+          # Todos los servicios activos deben estar running y, si tienen healthcheck, healthy.
+          wait_healthy() {
+            local tag="$1" deadline=$((SECONDS + HEALTH_TIMEOUT)) bad svc id line
+            while :; do
+              bad=()
+              while read -r svc; do
+                [[ -n "$svc" ]] || continue
+                id="$(compose "$tag" ps -a -q "$svc" | head -1)"
+                if [[ -z "$id" ]]; then bad+=("$svc:missing"); continue; fi
+                line="$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id")"
+                case "$line" in
+                  "running healthy"|"running none") ;;
+                  *) bad+=("$svc:${line// //}") ;;
+                esac
+              done < <(compose "$tag" config --services)
+              if (( ${#bad[@]} == 0 )); then echo "Salud OK (IMAGE_TAG=$tag)"; return 0; fi
+              if (( SECONDS >= deadline )); then echo "Salud KO tras ${HEALTH_TIMEOUT}s: ${bad[*]}"; return 1; fi
+              sleep 10
+            done
+          }
+
+          deploy() {
+            # Encadenado con && porque dentro de `if deploy` bash ignora set -e.
+            local tag="$1"
+            ghcr_login &&
+              compose "$tag" pull &&
+              compose "$tag" up -d --remove-orphans &&
+              wait_healthy "$tag"
+          }
+
+          echo "Tag anterior: ${PREV:-<ninguno>} -> nuevo: $TAG"
+          if deploy "$TAG"; then
+            if [[ -n "$PREV" && "$PREV" != "$TAG" ]]; then printf '%s\n' "$PREV" > "$STATE/previous_tag"; fi
+            printf '%s\n' "$TAG" > "$STATE/current_tag"
+            printf '%s %s\n' "$(date -u +%FT%TZ)" "$TAG" >> "$STATE/history.log"
+            docker image prune -f >/dev/null || true
+            exit 0
+          fi
+
+          echo "::error::Despliegue de $TAG fallido"
+          compose "$TAG" ps || true
+          if [[ -n "$PREV" && "$PREV" != "$TAG" ]]; then
+            echo "Rollback a IMAGE_TAG=$PREV"
+            if deploy "$PREV"; then echo "Rollback OK ($PREV)"; else echo "::error::Rollback a $PREV también falló"; fi
+            printf '%s ROLLBACK %s -> %s\n' "$(date -u +%FT%TZ)" "$TAG" "$PREV" >> "$STATE/history.log"
+          else
+            echo "::error::Sin tag anterior registrado: no hay rollback automático"
+          fi
+          exit 1
+          REMOTE
+          } > "$RUNNER_TEMP/remote-deploy.sh"
+
+      - name: Desplegar por SSH
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/oracle_key" -p "$SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ServerAliveInterval=30 -o ConnectTimeout=20 \
+            "$ORACLE_USER@$ORACLE_HOST" 'bash -s' < "$RUNNER_TEMP/remote-deploy.sh"
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f "$HOME/.ssh/oracle_key" "$RUNNER_TEMP/remote-deploy.sh"

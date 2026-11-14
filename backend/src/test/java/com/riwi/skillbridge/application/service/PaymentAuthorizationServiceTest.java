@@ -6,6 +6,7 @@ import com.riwi.skillbridge.application.port.out.PaymentEventPublisherPort;
 import com.riwi.skillbridge.application.port.out.PaymentPort;
 import com.riwi.skillbridge.application.port.out.PaymentResultRepositoryPort;
 import com.riwi.skillbridge.domain.event.PaymentApproved;
+import com.riwi.skillbridge.domain.event.PaymentEventIds;
 import com.riwi.skillbridge.domain.event.PaymentRejected;
 import com.riwi.skillbridge.domain.model.Booking;
 import com.riwi.skillbridge.domain.model.BookingStatus;
@@ -134,7 +135,34 @@ class PaymentAuthorizationServiceTest {
 
         assertEquals(newResult, result);
         verify(repositoryPort).save(idempotencyKey, newResult);
-        verify(eventPublisherPort).publishApproved(enriched);
+        // HU-104: eventId determinista por pago (un reintento produce el mismo id).
+        verify(eventPublisherPort).publishApproved(enriched.withEventId(
+            PaymentEventIds.of("PaymentApproved", "authorize:" + bookingId + ":" + idempotencyKey)));
+    }
+
+    @Test
+    @DisplayName("HU-104: si Kafka no confirma el PaymentApproved, el resultado NO se cachea (el reintento republica)")
+    void approvedNotCachedWhenPublishFails() {
+        when(repositoryPort.findByIdempotencyKey(idempotencyKey)).thenReturn(Optional.empty());
+        when(bookingRepositoryPort.findById(bookingId)).thenReturn(Optional.empty());
+        PaymentResult approved = new PaymentResult(UUID.randomUUID(), bookingId, PaymentStatus.APPROVED, "ok", "pi_x");
+        when(paymentPort.process(command)).thenReturn(approved);
+        when(approvedAssembler.assemble(bookingId, approved.paymentId())).thenReturn(new PaymentApproved(bookingId));
+        doThrow(new IllegalStateException("kafka ack timeout")).when(eventPublisherPort).publishApproved(any());
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> service.authorize(command));
+
+        verify(repositoryPort, never()).save(any(), any());
+    }
+
+    @Test
+    @DisplayName("HU-104: dos publicaciones del mismo pago llevan el mismo eventId")
+    void sameSourceSameEventId() {
+        UUID paymentId = UUID.randomUUID();
+        assertEquals(PaymentEventIds.of("PaymentApproved", "payment:" + paymentId),
+            PaymentEventIds.of("PaymentApproved", "payment:" + paymentId));
+        org.junit.jupiter.api.Assertions.assertNotEquals(PaymentEventIds.of("PaymentApproved", "payment:" + paymentId),
+            PaymentEventIds.of("PaymentRejected", "payment:" + paymentId));
     }
 
     @Test

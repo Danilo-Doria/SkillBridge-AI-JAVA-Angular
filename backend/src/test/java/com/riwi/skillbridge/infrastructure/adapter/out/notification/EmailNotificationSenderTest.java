@@ -138,7 +138,7 @@ class EmailNotificationSenderTest {
     }
 
     @Test
-    @DisplayName("Debe propagar la excepcion del SMTP para que actue el retry de RabbitMQ")
+    @DisplayName("Debe propagar la excepcion del SMTP para que actue el retry del consumidor Kafka")
     void shouldPropagateMailExceptionWhenSmtpFails() {
         UUID userId = UUID.randomUUID();
         NotificationMessage message = NotificationMessage.bookingCreated(UUID.randomUUID(), userId);

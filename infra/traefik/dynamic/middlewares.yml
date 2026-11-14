@@ -1,0 +1,157 @@
+# Traefik dynamic configuration — middlewares (HU-104, T012/T013).
+# Rendered by Traefik as a Go template (sprig functions available).
+#
+# Environment variables (all optional, defaults = contracts/gateway-routes.md):
+#   RL_AUTH_AVERAGE/RL_AUTH_BURST          10 / 5    per RL_PERIOD
+#   RL_AI_AVERAGE/RL_AI_BURST              20 / 5
+#   RL_DEFAULT_AVERAGE/RL_DEFAULT_BURST    120 / 60
+#   RL_WEBHOOK_AVERAGE/RL_WEBHOOK_BURST    600 / 200
+#   RL_PERIOD                              1m
+#   RL_IP_DEPTH       unset = key on the TCP peer address (no proxy in front).
+#                     Set to N only when N trusted proxies append X-Forwarded-For
+#                     (and list them in traefik.yml trustedIPs).
+#   CB_EXPRESSION     circuit breaker expression (see default below). 503 is deliberately NOT counted:
+#                     services return 503 ProblemDetail when an optional dependency is unconfigured
+#                     (AI provider, Stripe); counting it opened the breaker and masked 4xx answers
+#                     (found in the HU-104 live test). A dead service still trips it (502/504/network).
+#   CB_CHECK_PERIOD / CB_FALLBACK_DURATION / CB_RECOVERY_DURATION  10s / 30s / 30s
+#   PUBLIC_HTTPS_PORT 443 in prod; the published HTTPS port in dev (e.g. 8443)
+#   DOMAIN / AUDIT_HOST   used for the /audit redirect
+#   DOCS_HTPASSWD_FILE    htpasswd file for /docs (default /run/secrets/docs_htpasswd,
+#                         a Compose secret). Never commit real credentials.
+# Values marked [INFERRED] in the contract must be calibrated with T020.
+{{ $period := env "RL_PERIOD" | default "1m" }}
+{{ $depth := env "RL_IP_DEPTH" }}
+{{ $domain := env "DOMAIN" | default "localhost" }}
+{{ $auditHost := env "AUDIT_HOST" | default (printf "audit.%s" $domain) }}
+{{ $httpsPort := env "PUBLIC_HTTPS_PORT" | default "443" }}
+{{ define "source" }}{{ if . }}
+        sourceCriterion:
+          ipStrategy:
+            depth: {{ . }}{{ end }}{{ end }}
+http:
+  middlewares:
+    # --- Correlation (local Yaegi plugin, T013) -------------------------------
+    correlation-id:
+      plugin:
+        correlationid:
+          headerName: X-Correlation-Id
+          problemDetails: true
+          retryAfterSeconds: 30
+          notFound: false
+
+    # Terminal 404 problem+json for requests no real router matches.
+    edge-notfound:
+      plugin:
+        correlationid:
+          headerName: X-Correlation-Id
+          problemDetails: true
+          notFound: true
+
+    # --- Headers ---------------------------------------------------------------
+    edge-headers:
+      headers:
+        # An empty value removes the header: identity is never taken from the edge.
+        customRequestHeaders:
+          X-User-Id: ""
+          X-User-Roles: ""
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        contentTypeNosniff: true
+        referrerPolicy: strict-origin-when-cross-origin
+
+    # --- Rate limit profiles (key = client IP) ---------------------------------
+    rl-auth:
+      rateLimit:
+        average: {{ env "RL_AUTH_AVERAGE" | default "10" }}
+        burst: {{ env "RL_AUTH_BURST" | default "5" }}
+        period: {{ $period }}{{ template "source" $depth }}
+    rl-ai:
+      rateLimit:
+        average: {{ env "RL_AI_AVERAGE" | default "20" }}
+        burst: {{ env "RL_AI_BURST" | default "5" }}
+        period: {{ $period }}{{ template "source" $depth }}
+    rl-default:
+      rateLimit:
+        average: {{ env "RL_DEFAULT_AVERAGE" | default "120" }}
+        burst: {{ env "RL_DEFAULT_BURST" | default "60" }}
+        period: {{ $period }}{{ template "source" $depth }}
+    rl-webhook:
+      rateLimit:
+        average: {{ env "RL_WEBHOOK_AVERAGE" | default "600" }}
+        burst: {{ env "RL_WEBHOOK_BURST" | default "200" }}
+        period: {{ $period }}{{ template "source" $depth }}
+
+    # --- Resilience --------------------------------------------------------------
+    cb-default:
+      circuitBreaker:
+        expression: "{{ env "CB_EXPRESSION" | default "NetworkErrorRatio() > 0.30 || ResponseCodeRatio(500, 503, 0, 600) > 0.30 || ResponseCodeRatio(504, 600, 0, 600) > 0.30" }}"
+        checkPeriod: {{ env "CB_CHECK_PERIOD" | default "10s" }}
+        fallbackDuration: {{ env "CB_FALLBACK_DURATION" | default "30s" }}
+        recoveryDuration: {{ env "CB_RECOVERY_DURATION" | default "30s" }}
+        responseCode: 503
+
+    # Retry is only attached to routers that match Method(`GET`) (see routers.yml);
+    # Traefik's retry has no method filter, so non-idempotent calls are never retried.
+    retry-get:
+      retry:
+        attempts: 2
+        initialInterval: 100ms
+
+    # --- /docs protection ---------------------------------------------------------
+    docs-auth:
+      basicAuth:
+        usersFile: {{ env "DOCS_HTPASSWD_FILE" | default "/run/secrets/docs_htpasswd" }}
+        realm: skillbridge-docs
+        removeHeader: true
+
+    docs-strip-service:
+      stripPrefixRegex:
+        regex:
+          - "/docs/[a-z0-9-]+"
+
+    # --- Redirects ------------------------------------------------------------------
+    redirect-https:
+      redirectScheme:
+        scheme: https
+        port: "{{ $httpsPort }}"
+        permanent: true
+
+    audit-redirect:
+      redirectRegex:
+        regex: "^https?://[^/]+/audit/?(.*)"
+        replacement: "https://{{ $auditHost }}{{ if ne $httpsPort "443" }}:{{ $httpsPort }}{{ end }}/${1}"
+        permanent: false
+
+    # --- Chains (order = outermost first) ------------------------------------------
+    chain-web:
+      chain:
+        middlewares: [correlation-id, edge-headers, rl-default]
+    chain-api:
+      chain:
+        middlewares: [correlation-id, edge-headers, rl-default, cb-default]
+    chain-api-get:
+      chain:
+        middlewares: [correlation-id, edge-headers, rl-default, cb-default, retry-get]
+    chain-auth:
+      chain:
+        middlewares: [correlation-id, edge-headers, rl-auth, cb-default]
+    chain-ai:
+      chain:
+        middlewares: [correlation-id, edge-headers, rl-ai, cb-default]
+    chain-ai-get:
+      chain:
+        middlewares: [correlation-id, edge-headers, rl-ai, cb-default, retry-get]
+    # Stripe webhooks: generous profile, NO basicAuth, NO compression, body untouched.
+    chain-webhook:
+      chain:
+        middlewares: [correlation-id, edge-headers, rl-webhook, cb-default]
+    chain-docs:
+      chain:
+        middlewares: [correlation-id, edge-headers, docs-auth, rl-default]
+    chain-docs-api:
+      chain:
+        middlewares: [correlation-id, edge-headers, docs-auth, rl-default, docs-strip-service]
+    chain-notfound:
+      chain:
+        middlewares: [edge-headers, edge-notfound]

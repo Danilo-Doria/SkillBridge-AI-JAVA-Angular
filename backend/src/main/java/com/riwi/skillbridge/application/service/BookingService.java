@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service;
 
 import com.riwi.skillbridge.application.port.out.event.BusinessEvent;
 import com.riwi.skillbridge.application.port.out.event.BookingCreatedPayload;
+import com.riwi.skillbridge.application.port.out.event.BookingStatusChangedPayload;
+import com.riwi.skillbridge.application.port.in.PublishBookingSnapshotUseCase;
 import com.riwi.skillbridge.application.port.out.event.BookingCancelledPayload;
 import com.riwi.skillbridge.application.common.CorrelationIdHolder;
 
@@ -35,7 +37,8 @@ import java.security.MessageDigest;
 
 @Service
 @RequiredArgsConstructor
-public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, CancelBookingUseCase, PaymentResultUseCase {
+public class BookingService implements CreateBookingUseCase, ListCustomerBookingsUseCase, CancelBookingUseCase, PaymentResultUseCase,
+    PublishBookingSnapshotUseCase {
     private final BookingRepositoryPort bookingRepository;
     private final OfferingRepositoryPort offeringRepository;
     private final UserRepositoryPort userRepositoryPort;
@@ -86,9 +89,10 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         Booking booking = new Booking(UUID.randomUUID(), offeringId, customer.id(), scheduledAt, BookingStatus.CREATED, 0);
         Booking saved = idempotencyKey == null ? bookingRepository.save(booking)
             : bookingRepository.save(booking, idempotencyKey, requestHash);
-        notificationPublisher.publish(NotificationMessage.bookingCreated(saved.id(), saved.customerId()));
+        notificationPublisher.publish(NotificationMessage.bookingCreated(saved.id(), saved.customerId())
+            .withRecipient(customer.email(), customer.name()));
         String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
-        BookingCreatedPayload payload = new BookingCreatedPayload(saved.id(), saved.offeringId(), saved.customerId(), saved.scheduledAt(), saved.status().name());
+        BookingCreatedPayload payload = new BookingCreatedPayload(saved.id(), saved.offeringId(), saved.customerId(), saved.scheduledAt(), saved.status().name(), customer.email());
         BusinessEvent<BookingCreatedPayload> event = new BusinessEvent<>(UUID.randomUUID(), "BookingCreated", saved.id().toString(), "Booking", Instant.now(), correlationId, 1, payload, customer.id().toString(), customer.email(), customer.role().name(), "CREATE", "BOOKING", saved.id().toString());
         eventPublisher.publish(event);
         return saved;
@@ -167,7 +171,8 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
                 saved.status(),
                 customer.id(),
                 clock.instant()));
-        notificationPublisher.publish(NotificationMessage.bookingCancelled(saved.id(), saved.customerId()));
+        notificationPublisher.publish(NotificationMessage.bookingCancelled(saved.id(), saved.customerId())
+            .withRecipient(customer.email(), customer.name()));
         String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
         BookingCancelledPayload payload = new BookingCancelledPayload(saved.id(), saved.offeringId(), saved.customerId(), saved.status().name());
         BusinessEvent<BookingCancelledPayload> event = new BusinessEvent<>(
@@ -198,7 +203,8 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
             booking.lastPaymentReminderSentAt()
         );
 
-        bookingRepository.save(confirmedBooking);
+        Booking saved = bookingRepository.save(confirmedBooking);
+        publishState("BookingStatusChanged", saved, "CONFIRM");
     }
 
     @Override
@@ -206,8 +212,31 @@ public class BookingService implements CreateBookingUseCase, ListCustomerBooking
         Booking booking = bookingRepository.findById(bookingId)
             .orElseThrow(() -> new DomainNotFoundException("Reserva no encontrada"));
 
-        // No alteramos el estado de la reserva, la mantenemos en CREATED
-        // para permitir que el usuario pueda intentar realizar el pago nuevamente.
+        // Rechazo normal: la reserva sigue en CREATED para que el usuario pueda reintentar el pago.
+        // HU-104 (E1): si el rechazo llega con el plazo de pago vencido (payment-service lo emite en ese caso),
+        // se cancela aquí, como hacía antes el flujo de pago en línea del monolito.
+        if (booking.isPaymentWindowExpired(clock.instant())) {
+            Booking cancelled = bookingRepository.save(booking.cancel());
+            publishState("BookingStatusChanged", cancelled, "CANCEL");
+        }
+    }
+
+    @Override
+    public int publishOpenBookingsSnapshot() {
+        java.util.List<Booking> open = new java.util.ArrayList<>(bookingRepository.findByStatus(BookingStatus.CREATED));
+        open.addAll(bookingRepository.findByStatus(BookingStatus.CONFIRMED));
+        open.forEach(b -> publishState("BookingStateSnapshot", b, "SNAPSHOT"));
+        return open.size();
+    }
+
+    /** HU-104 (E1): estado completo de la reserva para read models externos (payment-service). */
+    private void publishState(String eventType, Booking b, String action) {
+        String correlationId = CorrelationIdHolder.get() != null ? CorrelationIdHolder.get() : UUID.randomUUID().toString();
+        String email = userRepositoryPort.findById(b.customerId()).map(UserAccount::email).orElse(null);
+        BookingStatusChangedPayload payload = new BookingStatusChangedPayload(b.id(), b.offeringId(), b.customerId(),
+            b.scheduledAt(), b.status().name(), email);
+        eventPublisher.publish(new BusinessEvent<>(UUID.randomUUID(), eventType, b.id().toString(), "Booking",
+            Instant.now(), correlationId, 1, payload, null, null, null, action, "BOOKING", b.id().toString()));
     }
 }
 

@@ -8,7 +8,7 @@
 |---|---|
 | [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) | Contexto del producto y flujos de dominio |
 | [API.md](API.md) | Contrato de la API REST |
-| [INTEGRATIONS.md](INTEGRATIONS.md) | Kafka, RabbitMQ, IA, pagos y demás integraciones |
+| [INTEGRATIONS.md](INTEGRATIONS.md) | Kafka (único broker), IA, pagos y demás integraciones |
 | [SECURITY-MODEL.md](SECURITY-MODEL.md) | Autenticación, RBAC y CSRF |
 | [TESTING.md](TESTING.md) | Tipos de pruebas y cómo ejecutarlas |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Flujo de trabajo para añadir funcionalidades |
@@ -24,7 +24,7 @@
 | [`adr/`](adr/README.md) | Decisiones de arquitectura (0001 a 0007) con [índice](adr/README.md); incluye [ADR-001 (proveedores de IA)](adr/ADR-001-AI-PROVIDER-ABSTRACTION.md) y su [comparativa](adr/AI_PROVIDER_COMPARISON.md) |
 | [`MODULES/`](MODULES/) | Guías por módulo: [backend](MODULES/backend.md), [frontend](MODULES/frontend.md), [audit-service](MODULES/audit-service.md) |
 | [`contracts/`](contracts/) | Contratos entre componentes: [mentorías](contracts/mentorships/gap-matrix.md) y [eventos de analítica](contracts/analytics-events.md) (HU-22 y HU-25) |
-| [`guides/`](guides/) | Guías: [despliegue en capa gratuita](guides/free-tier-deployment.md) y [BM25 frente a embeddings](guides/rag-bm25-vs-embeddings.md) |
+| [`guides/`](guides/) | Guías: [despliegue en Oracle Cloud Always Free](guides/oracle-free-deployment.md) (vigente, HU-104), [runbook de DLT de Kafka](guides/kafka-dlt-runbook.md), [despliegue en capa gratuita](guides/free-tier-deployment.md) (parcialmente obsoleto por ADR-0009) y [BM25 frente a embeddings](guides/rag-bm25-vs-embeddings.md) |
 | [`features/`](features/) | Resúmenes de implementación de HUs ya entregadas (HU-09, HU-12, HU-17, HU-23) |
 | [`agents/`](agents/) | Operación de agentes, SDD y worktrees |
 | [`refinement/`](refinement/) | Refinamiento de HUs, registro de decisiones y [matriz de dependencias](refinement/hu-dependencies.md) |

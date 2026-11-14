@@ -34,14 +34,16 @@ backend/src/main/java/com/riwi/skillbridge/
     ├── adapter/
     │   ├── in/
     │   │   ├── rest/     # Controllers, DTOs, Webhooks, Exception Handlers
-    │   │   └── messaging/# Inbound message listeners (KafkaAuditConsumer, NotificationConsumer)
+    │   │   ├── messaging/# Kafka listeners (KafkaAuditConsumer, KafkaAnalyticsConsumer, KafkaPaymentResultConsumer,
+    │   │   │             #   KafkaNotificationConsumer, KafkaCorrelationScope, idempotency/)
+    │   │   └── startup/  # OfferingSnapshotOnStartup (app.catalog.snapshot-on-startup)
     │   └── out/
     │       ├── persistence/ # Spring Data JPA entities, repositories, and persistence adapters
     │       ├── cache/       # Redis caching adapters (RedisOfferingCacheAdapter)
-    │       ├── messaging/   # Kafka and RabbitMQ message publishers
+    │       ├── messaging/   # Kafka publishers (only broker; RabbitMQ retired in HU-104) + KafkaEventHeaders
     │       ├── ai/          # Gemini, OpenAI, Groq STT, ElevenLabs TTS adapters
     │       └── payment/     # Stripe Feign client and simulated payment adapters
-    ├── config/           # Spring @Configuration classes (Security, Rabbit, AI, Domain)
+    ├── config/           # Spring @Configuration classes (Security, KafkaMessaging, AI, Domain)
     └── security/         # JWT filters, password hasher, cookie handlers, UserDetailsService
 ```
 
@@ -68,6 +70,14 @@ backend/src/main/java/com/riwi/skillbridge/
 - [RedisOfferingCacheAdapter.java](../../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/cache/RedisOfferingCacheAdapter.java): Serializes/deserializes offering lists in Redis.
 - [StripePaymentAdapter.java](../../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/payment/stripe/StripePaymentAdapter.java): Calls Stripe API via OpenFeign to create PaymentIntents.
 - [KafkaBookingEventPublisher.java](../../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaBookingEventPublisher.java): Publishes business events to Kafka topic `booking-events`.
+- [KafkaPaymentEventPublisher.java](../../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaPaymentEventPublisher.java) / [KafkaNotificationPublisher.java](../../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaNotificationPublisher.java): Publish to `payment-events` / `notification-requests` (key `bookingId`, `BusinessEvent` envelope, headers from `KafkaEventHeaders`).
+- [ProcessedEventJdbcStore.java](../../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/persistence/ProcessedEventJdbcStore.java): Idempotency store (`processed_events`, migration `V19__processed_events.sql`).
+
+### 3.4. Messaging (Kafka only, HU-104)
+- [KafkaMessagingConfiguration.java](../../backend/src/main/java/com/riwi/skillbridge/infrastructure/config/KafkaMessagingConfiguration.java): Declares `payment-events`, `notification-requests` and their `.DLT` topics; `DefaultErrorHandler` with 3 retries (1 s, x2) + `DeadLetterPublishingRecoverer`.
+- [KafkaPaymentResultConsumer.java](../../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/messaging/KafkaPaymentResultConsumer.java) and [KafkaNotificationConsumer.java](../../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/messaging/KafkaNotificationConsumer.java): Idempotent consumers by `eventId`; restore `X-Correlation-Id` into MDC via `KafkaCorrelationScope`.
+- `OfferingUpserted` v1 on `booking-events` (key `offeringId`, full offering state) is emitted by `OfferingCommandService`; [OfferingSnapshotOnStartup.java](../../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/in/startup/OfferingSnapshotOnStartup.java) republishes all offerings (active and inactive) when `app.catalog.snapshot-on-startup=true`.
+- Contract: [`specs/104-microservices-gateway/contracts/kafka-topics.md`](../../specs/104-microservices-gateway/contracts/kafka-topics.md); operations: [Kafka DLT runbook](../guides/kafka-dlt-runbook.md).
 
 ---
 
@@ -80,8 +90,13 @@ Key settings configured in [backend/src/main/resources/application.yml](../../ba
 | `server.port` | `PORT` | `8080` | HTTP port |
 | `spring.datasource.url` | `DATABASE_URL` | `jdbc:postgresql://localhost:5432/skillbridge` | PostgreSQL JDBC connection URL |
 | `spring.data.redis.url` | `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
-| `spring.rabbitmq.addresses` | `RABBITMQ_URL` | `amqp://guest:guest@localhost:5672` | RabbitMQ connection string |
-| `spring.kafka.bootstrap-servers` | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker address |
+| `spring.kafka.bootstrap-servers` | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker address (only broker) |
+| `app.kafka.topic.payment-events` | `KAFKA_TOPIC_PAYMENT_EVENTS` | `payment-events` | Payment results topic (DLT: `<topic>.DLT`) |
+| `app.kafka.topic.notification-requests` | `KAFKA_TOPIC_NOTIFICATION_REQUESTS` | `notification-requests` | Notification requests topic (DLT: `<topic>.DLT`) |
+| `app.messaging.kafka.consumer-groups.payments` / `.notifications` | `MESSAGING_KAFKA_GROUP_PAYMENTS` / `MESSAGING_KAFKA_GROUP_NOTIFICATIONS` | `skillbridge-booking-payments` / `skillbridge-notifications` | Consumer groups |
+| `app.messaging.kafka.retry.*` | `MESSAGING_KAFKA_RETRY_MAX`, `_INITIAL`, `_MULTIPLIER`, `_MAX_INTERVAL` | `3`, `1000`, `2.0`, `10000` | Retry/backoff before the DLT |
+| `app.messaging.kafka.publish-timeout` | `MESSAGING_KAFKA_PUBLISH_TIMEOUT` | `10s` | Max wait for broker ack when publishing |
+| `app.catalog.snapshot-on-startup` | `APP_CATALOG_SNAPSHOT_ON_STARTUP` | `false` | Publish one `OfferingUpserted` per offering (active and inactive) at startup |
 | `app.jwt.private-key` | `JWT_PRIVATE_KEY` | *(none: required)* | RSA private key, PKCS#8 PEM. JWTs are signed with RS256. The backend does not start without it unless ephemeral keys are enabled |
 | `app.jwt.public-key` | `JWT_PUBLIC_KEY` | *(derived from the private key)* | Optional X.509 PEM; must match the private key |
 | `app.jwt.key-id` | `JWT_KEY_ID` | `skillbridge-1` | `kid` header of issued tokens |

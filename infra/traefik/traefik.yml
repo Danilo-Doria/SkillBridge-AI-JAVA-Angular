@@ -1,0 +1,101 @@
+# Traefik v3.5 static configuration — SkillBridge edge gateway (HU-104, T010).
+#
+# The same file is used in dev and prod. Everything that differs per environment
+# (DOMAIN, ACME resolver, rate limits, public HTTPS port) lives in the dynamic
+# files under /etc/traefik/dynamic, which Traefik renders as Go templates with
+# environment variables. The static file itself cannot read env vars: only the
+# trustedIPs list below must be edited by hand if a CDN/proxy is put in front.
+#
+# Mounts expected (see the Compose fragment in the HU-104 report / guide):
+#   ./infra/traefik/traefik.yml        -> /etc/traefik/traefik.yml:ro
+#   ./infra/traefik/dynamic            -> /etc/traefik/dynamic:ro
+#   ./infra/traefik/plugins-local      -> /plugins-local:ro
+#   volume letsencrypt                 -> /letsencrypt
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  level: INFO
+  format: json
+
+entryPoints:
+  web:
+    address: ":80"
+    # HTTP -> HTTPS redirect is done by the "http-to-https" router in
+    # dynamic/routers.yml so the public HTTPS port can be templated (dev uses
+    # a non-443 published port). ACME HTTP-01 challenges are served by Traefik
+    # before any router, so the redirect does not break certificate issuance.
+    forwardedHeaders:
+      # Only trust X-Forwarded-* from these sources. Default: nobody external
+      # (clients hit the VM directly). If Cloudflare or another proxy is added,
+      # list its ranges here AND set RL_IP_DEPTH (see middlewares.yml).
+      trustedIPs:
+        - "127.0.0.1/32"
+  websecure:
+    address: ":443"
+    forwardedHeaders:
+      trustedIPs:
+        - "127.0.0.1/32"
+    transport:
+      respondingTimeouts:
+        readTimeout: 60s
+        writeTimeout: 120s
+        idleTimeout: 180s
+  # Internal only (never published): Prometheus metrics and healthcheck ping.
+  ops:
+    address: ":8082"
+
+ping:
+  entryPoint: ops
+
+metrics:
+  prometheus:
+    entryPoint: ops
+    addRoutersLabels: true
+    addServicesLabels: true
+
+api:
+  dashboard: false
+
+accessLog:
+  format: json
+  bufferingSize: 50
+  fields:
+    defaultMode: keep
+    headers:
+      # Drop every header by default (no Cookie/Authorization in logs),
+      # keep only what is useful for tracing.
+      defaultMode: drop
+      names:
+        X-Correlation-Id: keep
+        User-Agent: keep
+        Retry-After: keep
+        Content-Type: keep
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+experimental:
+  localPlugins:
+    correlationid:
+      moduleName: github.com/skillbridge/correlationid
+
+certificatesResolvers:
+  # Production Let's Encrypt. Selected per router with ACME_RESOLVER=le.
+  le:
+    acme:
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+  # Staging Let's Encrypt (untrusted certs, high rate limits) for first tries:
+  # ACME_RESOLVER=le-staging.
+  le-staging:
+    acme:
+      storage: /letsencrypt/acme-staging.json
+      caServer: https://acme-staging-v02.api.letsencrypt.org/directory
+      httpChallenge:
+        entryPoint: web

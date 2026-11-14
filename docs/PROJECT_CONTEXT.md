@@ -32,12 +32,14 @@ The solution consists of three primary software subsystems and shared infrastruc
     |      |       |   +--------- Kafka -----------------+
     |      |       |              (booking-events topic)
     |      |       v
-    |      |   RabbitMQ (notifications exchange)
+    |      |   Kafka (payment-events, notification-requests + .DLT)
     |      v
     |   Redis 8 (Catalog cache-aside)
     v
 PostgreSQL 17 (Relational System of Record)
 ```
+
+Kafka is the only broker (RabbitMQ retired in HU-104, ADR-0009). An optional Traefik v3 edge gateway (`infra/traefik`, Compose profile `gateway`) can front the stack on ports 8000/8443.
 
 ---
 
@@ -49,10 +51,10 @@ PostgreSQL 17 (Relational System of Record)
 | **Client Frontend** | `frontend/` | Angular 20, TypeScript 5.9, Tailwind CSS v4 | End-user interface: service catalog, user authentication, booking creation, AI chat, payment modal. |
 | **Audit Backend** | `audit-service/backend/` | Spring Boot 3.5.6, Spring Data MongoDB, Spring Kafka | Consumes Kafka events, stores immutable audit history in MongoDB, exposes audit REST endpoints. |
 | **Audit Frontend** | `audit-service/frontend/` | Angular 20, Tailwind CSS v4, Signals | Administrative UI for searching and inspecting live domain and security events. |
-| **PostgreSQL 17** | Container `postgres` | Port 5433 (host) -> 5432 (internal) | Primary ACID relational database managed via Flyway (`V1` to `V7`). |
+| **PostgreSQL 17** | Container `postgres` | Port 5433 (host) -> 5432 (internal) | Primary ACID relational database managed via Flyway (`V1` to `V19`). |
 | **Redis 8** | Container `redis` | Port 6379 | In-memory cache-aside store for public catalog offerings. |
-| **RabbitMQ 4** | Container `rabbitmq` | Ports 5672 (AMQP), 15672 (UI) | Asynchronous task queue for email notifications with retry and DLQ. |
-| **Apache Kafka 7.8** | Container `kafka` | Ports 9092 (host), 29092 (internal) | Event streaming backbone distributing domain events to audit consumers. |
+| **Apache Kafka 7.8** | Container `kafka` | Ports 9092 (host), 29092 (internal) | Only broker: domain events to audit/analytics (`booking-events`), payment results (`payment-events`), notification requests (`notification-requests`), with retries and `*.DLT`. |
+| **Traefik v3** (optional) | Container `traefik`, profile `gateway` | Ports 8000/8443 (local) | Edge gateway: prefix routing, rate limit, circuit breaker, `X-Correlation-Id`, aggregated Swagger at `/docs` (basicAuth). |
 | **MongoDB 7** | Container `audit-mongo` | Port 27018 (host) -> 27017 (internal) | Document store for persistent audit events and statistics. |
 | **Mailpit** | Container `mailpit` | Ports 1025 (SMTP), 8025 (Web UI) | Local mock SMTP server for inspecting transactional notification emails. |
 
@@ -82,7 +84,7 @@ PostgreSQL 17 (Relational System of Record)
 2. **Idempotent Booking Creation (`POST /api/bookings`)**:
    - Requires `Authorization: Bearer <jwt>` (or HttpOnly cookie) and `Idempotency-Key` header.
    - Saves `Booking` aggregate (`PENDING`) in PostgreSQL with unique idempotency constraint.
-   - Publishes `BookingCreated` domain event to RabbitMQ (for notification queue) and Kafka topic `booking-events` (for audit logging).
+   - Publishes a notification request to Kafka topic `notification-requests` and the `BookingCreated` domain event to Kafka topic `booking-events` (for audit logging).
 3. **Booking Cancellation (`PATCH /api/bookings/{id}/cancel`)**:
    - Enforces 24-hour advance notice policy via `BookingCancellationPolicy`.
    - Records cancellation history in `booking_status_history` table.
@@ -117,7 +119,7 @@ For comprehensive module-specific guides, consult:
 - **Payment Ownership Boundary (`SEC-003`)**: `PaymentController.authorizePayment()` does not verify whether the authenticated actor owns the target `bookingId`.
 - **Makefile Syntax Error (`QA-001`)**: Line 12 in `Makefile` contains an unindented command, causing `make` to fail with exit code 2.
 - **CI Pipeline Scope (`QA-004`)**: `.github/workflows/ci.yml` builds only `backend/` and `frontend/`, completely ignoring `audit-service/`.
-- **Testcontainers in Unit Builds (`QA-006` / `QA-007`)**: `BookingPersistenceAdapterTest` requires Docker during `mvn test`. Two tests (`NotificationFlowIT`, `JpaOfferingRepositoryTest`) are silenced with `@Disabled("Docker Bug Testcontainers")`.
+- **Testcontainers in Unit Builds (`QA-006` / `QA-007`)**: `BookingPersistenceAdapterTest` requires Docker during `mvn test`. `JpaOfferingRepositoryTest` is silenced with `@Disabled("Docker Bug Testcontainers")` (`NotificationFlowIT` was deleted with RabbitMQ in HU-104).
 - **See Full Risk Register**: [docs/RISK-REGISTER.md](RISK-REGISTER.md).
 
 ---

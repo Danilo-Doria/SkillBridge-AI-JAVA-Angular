@@ -1,12 +1,16 @@
 flowchart TD
     U[Usuario] --> FE[Angular]
+    U -.-> GW[Traefik gateway - opcional]
+    GW -.-> FE
+    GW -.-> API
     FE --> NX[Nginx / Vercel Edge]
     NX --> API[Spring Boot API]
     API --> PG[(PostgreSQL)]
     API --> RD[(Redis)]
-    API --> MQ[RabbitMQ]
+    API --> K[Kafka - unico broker]
     API --> AI[Gemini API]
-    MQ --> C[Async Consumer]
+    K --> C[Consumers Kafka: pagos, notificaciones, analytics]
+    K --> AUD[audit-service]
     API --> ACT[Actuator / Micrometer]
     ACT --> PR[Prometheus]
     PR --> GF[Grafana]

@@ -37,26 +37,6 @@ services:
       retries: 15
     networks:
     - skillbridge
-  rabbitmq:
-    image: rabbitmq:4-management-alpine
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    volumes:
-    - rabbitmq_data:/var/lib/rabbitmq
-    ports:
-    - 127.0.0.1:15672:15672
-    healthcheck:
-      test:
-      - CMD
-      - rabbitmq-diagnostics
-      - -q
-      - ping
-      interval: 8s
-      timeout: 5s
-      retries: 20
-    networks:
-    - skillbridge
   backend:
     build:
       context: ./backend
@@ -66,7 +46,6 @@ services:
       DATABASE_USER: ${POSTGRES_USER:-skillbridge}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-skillbridge_dev}
       REDIS_URL: redis://redis:6379
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       # RS256. Para producción define JWT_PRIVATE_KEY (PEM PKCS#8). En local, sin claves, se generan
       # efímeras (las sesiones se pierden al reiniciar). Ver docs/contracts/mentorships/security.md
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
@@ -122,8 +101,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      rabbitmq:
         condition: service_healthy
       kafka:
         condition: service_healthy
@@ -195,6 +172,13 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # HU-104 T039: presupuesto de RAM para la VM Oracle Free (único broker tras retirar RabbitMQ).
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+      KAFKA_LOG_RETENTION_HOURS: 72
+      KAFKA_LOG_SEGMENT_BYTES: 67108864
+      KAFKA_NUM_PARTITIONS: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+    mem_limit: 768m
     volumes:
     - kafka_data:/var/lib/kafka/data
     ports:
@@ -267,13 +251,172 @@ services:
       - 127.0.0.1:8025:8025
     networks:
       - skillbridge
+  # HU-104 W3: ai-service extraído (recomendaciones, TTS, admin de proveedores). Perfil "services": el tráfico
+  # solo llega tras activar infra/traefik/dynamic-cutover/routers.cutover.yml (ver su cabecera).
+  # Local: usa el usuario de Postgres de desarrollo y crea el schema "ai". En prod: usuario propio (ver ai-service/README.md).
+  # JWT_PUBLIC_KEY debe ser la pública del par del backend (con claves efímeras del backend no valida tokens).
+  ai-service:
+    build:
+      context: ./ai-service
+    profiles:
+    - services
+    environment:
+      PORT: 8080
+      AI_DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-skillbridge}?currentSchema=ai
+      AI_DATABASE_USER: ${AI_DATABASE_USER:-${POSTGRES_USER:-skillbridge}}
+      AI_DATABASE_PASSWORD: ${AI_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:-skillbridge_dev}}
+      AI_FLYWAY_CREATE_SCHEMA: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      JWT_KEY_ID: ${JWT_KEY_ID:-skillbridge-1}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8088,http://localhost:4200}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health/readiness | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    mem_limit: 384m
+    networks:
+    - skillbridge
+  # HU-104 W3: notification-service (sin HTTP público; solo actuator interno). Perfil "services".
+  # Al activarlo, poner APP_MESSAGING_KAFKA_LOCAL_NOTIFICATION_CONSUMER=false en el backend para no enviar dos veces.
+  # Local: usuario de Postgres de desarrollo. En prod: usuario/schema propio (notification-service/db/init-notification-schema.sql).
+  notification-service:
+    build:
+      context: ./notification-service
+    profiles:
+    - services
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      NOTIFICATION_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-skillbridge}?currentSchema=notification
+      NOTIFICATION_DB_USERNAME: ${NOTIFICATION_DB_USERNAME:-${POSTGRES_USER:-skillbridge}}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:-${POSTGRES_PASSWORD:-skillbridge_dev}}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
+      NOTIFICATIONS_EMAIL_FROM: ${NOTIFICATIONS_EMAIL_FROM:-no-reply@skillbridge.local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8085/actuator/health/readiness | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    mem_limit: 256m
+    networks:
+    - skillbridge
+  # HU-104 W4: payment-service (Stripe, webhook, PaymentApproved/Rejected → payment-events). Perfil "services".
+  # Solo recibe tráfico con el cutover de pagos activo (CUTOVER_PAYMENTS, revisión humana antes). Sin claves Stripe → 503.
+  payment-service:
+    build:
+      context: ./payment-service
+    profiles:
+    - services
+    environment:
+      PORT: 8080
+      PAYMENT_DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-skillbridge}?currentSchema=payment
+      PAYMENT_DATABASE_USER: ${PAYMENT_DATABASE_USER:-${POSTGRES_USER:-skillbridge}}
+      PAYMENT_DATABASE_PASSWORD: ${PAYMENT_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:-skillbridge_dev}}
+      PAYMENT_FLYWAY_CREATE_SCHEMA: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      JWT_KEY_ID: ${JWT_KEY_ID:-skillbridge-1}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8088,http://localhost:4200}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health/readiness | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    mem_limit: 320m
+    networks:
+    - skillbridge
+  # HU-104: gateway de borde (Traefik v3) y Swagger agregado. Perfil "gateway" en local porque /docs exige
+  # el secreto docs_htpasswd: generarlo antes con `DOCS_USER=... infra/traefik/scripts/gen-docs-htpasswd.sh`.
+  # Arranque: `docker compose --profile gateway up -d`. Ver docs/guides/oracle-free-deployment.md.
+  traefik:
+    image: traefik:v3.5
+    profiles:
+    - gateway
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      AUDIT_HOST: ${AUDIT_HOST:-}
+      ACME_RESOLVER: ${ACME_RESOLVER:-}
+      PUBLIC_HTTPS_PORT: ${GATEWAY_HTTPS_PORT:-8443}
+      # Rate limits por perfil (vacío = defecto de infra/traefik/dynamic/middlewares.yml)
+      RL_PERIOD: ${RL_PERIOD:-}
+      RL_IP_DEPTH: ${RL_IP_DEPTH:-}
+      RL_AUTH_AVERAGE: ${RL_AUTH_AVERAGE:-}
+      RL_AUTH_BURST: ${RL_AUTH_BURST:-}
+      RL_AI_AVERAGE: ${RL_AI_AVERAGE:-}
+      RL_AI_BURST: ${RL_AI_BURST:-}
+      RL_DEFAULT_AVERAGE: ${RL_DEFAULT_AVERAGE:-}
+      RL_DEFAULT_BURST: ${RL_DEFAULT_BURST:-}
+      RL_WEBHOOK_AVERAGE: ${RL_WEBHOOK_AVERAGE:-}
+      RL_WEBHOOK_BURST: ${RL_WEBHOOK_BURST:-}
+    ports:
+    - ${GATEWAY_HTTP_PORT:-8000}:80
+    - ${GATEWAY_HTTPS_PORT:-8443}:443
+    volumes:
+    - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+    - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
+    - ./infra/traefik/plugins-local:/plugins-local:ro
+    - letsencrypt:/letsencrypt
+    secrets:
+    - docs_htpasswd
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--configFile=/etc/traefik/traefik.yml"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 128m
+    networks:
+    - skillbridge
+  swagger-ui:
+    image: swaggerapi/swagger-ui:v5.29.0
+    profiles:
+    - gateway
+    restart: unless-stopped
+    env_file: ./infra/swagger-ui/swagger-ui.env
+    mem_limit: 64m
+    networks:
+    - skillbridge
 networks:
   skillbridge:
     driver: bridge
 volumes:
   postgres_data: null
   redis_data: null
-  rabbitmq_data: null
   grafana_data: null
   kafka_data: null
   audit_mongo_data: null
+  letsencrypt: null
+secrets:
+  docs_htpasswd:
+    file: ./infra/traefik/secrets/docs.htpasswd

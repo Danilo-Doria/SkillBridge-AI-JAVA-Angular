@@ -1,0 +1,207 @@
+server:
+  port: ${PORT:8082}
+  forward-headers-strategy: framework
+  shutdown: graceful
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{correlationId:-N/A}] %logger{36} - %msg%n"
+spring:
+  application:
+    name: ai-service
+  threads:
+    virtual:
+      enabled: false
+  servlet:
+    multipart:
+      max-file-size: ${AI_MULTIPART_MAX_FILE_SIZE:10MB}
+      max-request-size: ${AI_MULTIPART_MAX_REQUEST_SIZE:10MB}
+  ai:
+    # Sin autoconfiguración de Spring AI: los clientes se crean en AiProviderClientsConfiguration solo si hay clave.
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:}
+        chat:
+          options:
+            model: ${GEMINI_MODEL:gemini-3.8-flash}
+            temperature: 0.2
+            max-output-tokens: ${GEMINI_MAX_OUTPUT_TOKENS:2048}
+    tts:
+      enabled: ${TTS_ENABLED:false}
+      max-chars: ${TTS_MAX_CHARS:2000}
+      elevenlabs:
+        api-key: ${ELEVENLABS_API_KEY:}
+        voice-id: ${ELEVENLABS_VOICE_ID:}
+        model-id: ${ELEVENLABS_MODEL_ID:eleven_multilingual_v2}
+  datasource:
+    url: ${AI_DATABASE_URL:jdbc:postgresql://localhost:5432/skillbridge?currentSchema=ai}
+    username: ${AI_DATABASE_USER:ai_service}
+    password: ${AI_DATABASE_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:3}
+      minimum-idle: 1
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: ai
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    schemas: ai
+    default-schema: ai
+    create-schemas: ${AI_FLYWAY_CREATE_SCHEMA:false}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:ai-service}
+      auto-offset-reset: earliest
+    admin:
+      fail-fast: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  health:
+    # Kafka no tiene indicador por defecto; la BD sí. La IA sin proveedores no marca el servicio como caído:
+    # responde 503 por petición (ADR-0007) y el admin ve la cadena en /api/admin/ai/providers.
+    db:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+app:
+  csrf:
+    cookie:
+      # HU-104: Strict en producción (constitución art. III); None solo para frontend cross-origin en desarrollo.
+      same-site: ${CSRF_COOKIE_SAME_SITE:None}
+  jwt:
+    # Solo clave pública RS256 (la privada vive en el monolito). Sin valor por defecto: sin ella no arranca.
+    public-key: ${JWT_PUBLIC_KEY:}
+    key-id: ${JWT_KEY_ID:skillbridge-1}
+    cookie:
+      name: ${JWT_COOKIE_NAME:access_token}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8088,http://localhost:4200}
+  ai:
+    provider: ${AI_PROVIDER:gemini}
+    audio-provider: ${AI_AUDIO_PROVIDER:gemini}
+    groq:
+      api-key: ${GROQ_API_KEY:}
+      audio-model: ${GROQ_AUDIO_MODEL:whisper-large-v3-turbo}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:10}
+    tts:
+      max-chars: ${TTS_MAX_CHARS:2000}
+    media:
+      max-audio-bytes: ${AI_MEDIA_MAX_AUDIO_BYTES:10485760}
+      max-image-bytes: ${AI_MEDIA_MAX_IMAGE_BYTES:5242880}
+    fallback:
+      chat:
+        chain:
+          - provider: gemini
+            model: ${GEMINI_MODEL:gemini-3.8-flash}
+            enabled: true
+            timeout-seconds: 10
+          - provider: openai
+            model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+        retry:
+          max-attempts: 3
+          initial-interval-ms: 500
+          multiplier: 1.5
+      vision:
+        chain:
+          - provider: gemini
+            model: ${GEMINI_VISION_MODEL:gemini-3.8-flash}
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+      stt:
+        chain:
+          - provider: groq
+            model: ${GROQ_AUDIO_MODEL:whisper-large-v3-turbo}
+            enabled: true
+            timeout-seconds: 10
+          - provider: gemini
+            model: gemini-audio
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+      tts:
+        chain:
+          - provider: elevenlabs
+            model: multilingual-v2
+            enabled: true
+            timeout-seconds: 10
+          - provider: noop
+            model: noop
+            enabled: true
+            timeout-seconds: 10
+        circuit-breaker:
+          failure-rate-threshold: 50.0
+          sliding-window-size: 10
+          wait-duration-in-open-state-seconds: 30
+          permitted-number-of-calls-in-half-open-state: 3
+      # rag y embedding se conservan solo para que /api/admin/ai/providers tenga la misma forma que en el monolito;
+      # ai-service no ejecuta RAG ni embeddings (permanecen en el monolito, decisión Q4).
+      rag:
+        chain:
+          - provider: gemini
+            model: ${GEMINI_MODEL:gemini-3.8-flash}
+            enabled: true
+            timeout-seconds: 10
+          - provider: openai
+            model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+            enabled: true
+            timeout-seconds: 10
+      embedding:
+        chain:
+          - provider: gemini
+            model: text-embedding-004
+            enabled: true
+            timeout-seconds: 10
+          - provider: openai
+            model: text-embedding-3-small
+            enabled: true
+            timeout-seconds: 10
+  kafka:
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:ai-service}
+    topic:
+      booking-events: ${KAFKA_TOPIC_BOOKING_EVENTS:booking-events}
+      audit-events: ${KAFKA_TOPIC_AUDIT_EVENTS:booking-events}
+      # HU-104 (R1): RecommendationGenerated también aquí, para el analytics/trending del monolito.
+      recommendation-events: ${KAFKA_TOPIC_RECOMMENDATION_EVENTS:recommendation-events}
+      booking-events-dlt: ${KAFKA_TOPIC_BOOKING_EVENTS_DLT:ai-service.booking-events.DLT}

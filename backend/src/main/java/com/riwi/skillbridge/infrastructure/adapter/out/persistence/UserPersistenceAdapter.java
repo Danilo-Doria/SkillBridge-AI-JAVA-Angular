@@ -44,6 +44,11 @@ public class UserPersistenceAdapter implements UserRepositoryPort, UserAccountPo
     }
 
     @Override
+    public java.util.List<UserAccount> findByStatus(com.riwi.skillbridge.domain.model.UserStatus status) {
+        return repository.findByStatus(status).stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public UserAccount save(UserAccount user) {
         // Conserva la fecha de creación original: antes se reiniciaba en cada guardado.
         Instant createdAt = repository.findById(user.id())

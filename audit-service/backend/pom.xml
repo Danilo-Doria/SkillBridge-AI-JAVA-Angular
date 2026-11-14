@@ -74,4 +74,21 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- HU-104 T070: imagen nativa opcional (GraalVM). El perfil 'native' del spring-boot-starter-parent
+         ya activa process-aot y gestiona la versión de native-maven-plugin; aquí solo se incorpora el plugin.
+         Uso: mvn -Pnative -DskipTests native:compile  (requiere GraalVM/native-image 21). La imagen por defecto sigue en JVM afinada. -->
+    <profiles>
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
