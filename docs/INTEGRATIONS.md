@@ -79,6 +79,7 @@ This document catalogs all verified infrastructure, broker, external API, and mi
 - **Publishers**:
   - [KafkaBookingEventPublisher.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaBookingEventPublisher.java): Publishes `BookingCreated` and `BookingCancelled`.
   - [KafkaAuditEventPublisher.java](../backend/src/main/java/com/riwi/skillbridge/infrastructure/adapter/out/messaging/KafkaAuditEventPublisher.java): Publishes security events (`UserLoggedIn`, `UserRegistered`).
+  - [outbox-publisher.service.ts](../BackendNest.js/src/mentorship/outbox/outbox-publisher.service.ts): In `BackendNest.js`, drains the PostgreSQL transactional outbox and publishes mentorship events through [kafka-event-publisher.ts](../BackendNest.js/src/mentorship/outbox/adapters/kafka-event-publisher.ts). Contract: [events.md](contracts/mentorships/events.md). Design: [ADR-0009](adr/0009-mentorship-outbox-publisher.md).
 - **Consumer**:
   - [KafkaAuditConsumer.java](../audit-service/backend/src/main/java/com/riwi/audit/consumer/KafkaAuditConsumer.java) in `audit-service/backend`:
   - Consumer Group: `audit-service-group`.

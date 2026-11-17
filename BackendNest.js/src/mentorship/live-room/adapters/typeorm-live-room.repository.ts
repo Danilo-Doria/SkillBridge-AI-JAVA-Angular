@@ -5,6 +5,8 @@ import { type DataSource, type EntityManager } from 'typeorm';
 import { LiveRoomEntity } from '../../entities/live-room.entity.js';
 import { MentorshipAssignmentEntity } from '../../entities/mentorship-assignment.entity.js';
 import { OutboxEventEntity } from '../../entities/outbox-event.entity.js';
+import { validateOutboxEvent } from '../../outbox/domain/event-catalog.js';
+import { OutboxPublishState } from '../../outbox/domain/outbox.types.js';
 import type {
   AssignmentSnapshot,
   LiveRoomRecord,
@@ -64,8 +66,19 @@ export class TypeOrmLiveRoomRepository implements LiveRoomRepository {
         return mapRoom(saved);
       },
       saveOutbox: async (event: OutboxRecord) => {
+        validateOutboxEvent(event);
         const repository = manager.getRepository(OutboxEventEntity);
-        const entity = repository.create({ id: randomUUID(), ...event, publishedAt: null });
+        const entity = repository.create({
+          id: randomUUID(),
+          ...event,
+          publishedAt: null,
+          publishState: OutboxPublishState.PENDING,
+          attempts: 0,
+          nextAttemptAt: new Date(),
+          lastError: null,
+          lockedUntil: null,
+          lockedBy: null,
+        });
         await repository.save(entity);
       },
     };

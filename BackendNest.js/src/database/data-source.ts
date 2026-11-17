@@ -3,6 +3,7 @@ import { MentorshipAssignmentEntity } from '../mentorship/entities/mentorship-as
 import { LiveRoomEntity } from '../mentorship/entities/live-room.entity.js';
 import { OutboxEventEntity } from '../mentorship/entities/outbox-event.entity.js';
 import { InitialSchema1700000000000 } from './migrations/1700000000000-InitialSchema.js';
+import { OutboxPublicationMetadata1800000000000 } from './migrations/1800000000000-OutboxPublicationMetadata.js';
 
 export const databaseEntities = [
   MentorshipAssignmentEntity,
@@ -10,7 +11,10 @@ export const databaseEntities = [
   OutboxEventEntity,
 ];
 
-export const databaseMigrations = [InitialSchema1700000000000];
+export const databaseMigrations = [
+  InitialSchema1700000000000,
+  OutboxPublicationMetadata1800000000000,
+];
 
 export function buildDataSourceOptions(
   overrides: Partial<DataSourceOptions> = {},

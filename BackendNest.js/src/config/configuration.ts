@@ -44,11 +44,27 @@ export interface LiveRoomConfig {
   transactionTimeoutMs: number;
 }
 
+export interface KafkaConfig {
+  enabled: boolean;
+  brokers: string[];
+  topic: string;
+  clientId: string;
+  pollIntervalMs: number;
+  batchSize: number;
+  maxAttempts: number;
+  backoffBaseMs: number;
+  backoffMaxMs: number;
+  lockMs: number;
+  requestTimeoutMs: number;
+  nodeEnv: string;
+}
+
 export interface AppConfiguration {
   nodeEnv: string;
   port: number;
   jwt: JwtConfig;
   liveRoom: LiveRoomConfig;
+  kafka: KafkaConfig;
   zoom: ZoomConfig;
   google: GoogleConfig;
   discord: DiscordConfig;
@@ -68,9 +84,30 @@ function numberEnv(key: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function booleanEnv(key: string, fallback: boolean): boolean {
+  const raw = process.env[key];
+  if (raw === undefined || raw === '') {
+    return fallback;
+  }
+  return raw === 'true' || raw === '1';
+}
+
+function listEnv(key: string, fallback: string[]): string[] {
+  const raw = env(key);
+  if (!raw) {
+    return fallback;
+  }
+  const values = raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return values.length > 0 ? values : fallback;
+}
+
 export function configuration(): AppConfiguration {
+  const nodeEnv = env('NODE_ENV', 'development');
   return {
-    nodeEnv: env('NODE_ENV', 'development'),
+    nodeEnv,
     port: numberEnv('PORT', 3000),
     jwt: {
       publicKey: env('JWT_PUBLIC_KEY') || undefined,
@@ -80,6 +117,26 @@ export function configuration(): AppConfiguration {
       encryptionKey: env('LIVE_ROOM_ENCRYPTION_KEY') || undefined,
       providerTimeoutMs: numberEnv('LIVE_PROVIDER_TIMEOUT_MS', 4000),
       transactionTimeoutMs: numberEnv('LIVE_ROOM_TRANSACTION_TIMEOUT_MS', 15000),
+    },
+    kafka: {
+      enabled: booleanEnv('KAFKA_ENABLED', nodeEnv === 'production'),
+      brokers: listEnv(
+        'KAFKA_BOOTSTRAP_SERVERS',
+        nodeEnv === 'production' ? [] : ['localhost:9092'],
+      ),
+      topic: env('KAFKA_TOPIC_BOOKING_EVENTS', 'booking-events'),
+      clientId: env('KAFKA_CLIENT_ID', 'skillbridge-mentorship'),
+      pollIntervalMs: numberEnv('KAFKA_OUTBOX_POLL_INTERVAL_MS', 1000),
+      batchSize: numberEnv('KAFKA_OUTBOX_BATCH_SIZE', 50),
+      maxAttempts: numberEnv('KAFKA_OUTBOX_MAX_ATTEMPTS', 10),
+      backoffBaseMs: numberEnv('KAFKA_OUTBOX_BACKOFF_BASE_MS', 500),
+      backoffMaxMs: numberEnv('KAFKA_OUTBOX_BACKOFF_MAX_MS', 60_000),
+      lockMs: numberEnv('KAFKA_OUTBOX_LOCK_MS', 30_000),
+      requestTimeoutMs: numberEnv(
+        'KAFKA_PRODUCER_REQUEST_TIMEOUT_MS',
+        10_000,
+      ),
+      nodeEnv,
     },
     zoom: {
       clientId: env('ZOOM_CLIENT_ID') || undefined,

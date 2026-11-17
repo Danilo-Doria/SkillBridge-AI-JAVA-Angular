@@ -55,6 +55,30 @@ $ npm run test:e2e
 
 # test coverage
 $ npm run test:cov
+
+# outbox persistence (Testcontainers PostgreSQL)
+$ npm run test:db
+
+# outbox Kafka publication (Testcontainers Kafka)
+$ npm run test:kafka
+```
+
+## Mentorship outbox publisher
+
+Mentorship events are written to the `outbox_events` PostgreSQL table in the same transaction as
+the business change. The `OutboxPublisherService` drains that table and publishes `BusinessEvent`
+envelopes to Kafka.
+
+- Disabled by default in development: `KAFKA_ENABLED=false`.
+- Enable with `KAFKA_ENABLED=true` and a reachable `KAFKA_BOOTSTRAP_SERVERS`.
+- Production refuses to start if Kafka is enabled without brokers.
+- Contract: [docs/contracts/mentorships/events.md](../docs/contracts/mentorships/events.md).
+- Architecture: [docs/architecture/kafka.md](../docs/architecture/kafka.md) and
+  [ADR-0009](../docs/adr/0009-mentorship-outbox-publisher.md).
+
+```bash
+npm run migration:run
+KAFKA_ENABLED=true KAFKA_BOOTSTRAP_SERVERS=localhost:9092 npm run start:dev
 ```
 
 ## Deployment

@@ -16,6 +16,7 @@ import { AppConfigModule } from './config/config.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { MentorshipModule } from './mentorship/mentorship/mentorship.module.js';
 import { MentorshipService } from './mentorship/mentorship/mentorship.service.js';
+import { OutboxModule } from './mentorship/outbox/outbox.module.js';
 import { PaymentEventsModule } from './payment-events/payment-events.module.js';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module.js';
 import { RabbitmqService } from './rabbitmq/rabbitmq/rabbitmq.service.js';
@@ -38,6 +39,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     RabbitmqModule,
     PaymentEventsModule,
     MentorshipModule,
+    OutboxModule,
     CommonModule,
   ],
   controllers: [AppController],
