@@ -28,7 +28,13 @@ function sign(
   opts: { privateKey?: string; issuer?: string; expiresIn?: number } = {},
 ) {
   return jwt.sign(
-    { sub: 'ana@test.com', uid: UID, email: 'ana@test.com', role: 'CUSTOMER', ...payload },
+    {
+      sub: 'ana@test.com',
+      uid: UID,
+      email: 'ana@test.com',
+      role: 'CUSTOMER',
+      ...payload,
+    },
     {
       privateKey: opts.privateKey ?? keys.privateKey,
       algorithm: 'RS256',
@@ -66,7 +72,11 @@ describe('JwtAuthGuard', () => {
     const { ctx, req } = context(`Bearer ${sign()}`);
 
     await expect(guardWithKey().canActivate(ctx)).resolves.toBe(true);
-    expect(req.user).toEqual({ id: UID, email: 'ana@test.com', role: 'CUSTOMER' });
+    expect(req.user).toEqual({
+      id: UID,
+      email: 'ana@test.com',
+      role: 'CUSTOMER',
+    });
   });
 
   it('acepta la clave pública en una sola línea con \\n literales', async () => {
@@ -82,9 +92,9 @@ describe('JwtAuthGuard', () => {
     ['Bearer sin token', 'Bearer '],
     ['token basura', 'Bearer no.es.jwt'],
   ])('%s → 401', async (_name, header) => {
-    await expect(guardWithKey().canActivate(context(header).ctx)).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      guardWithKey().canActivate(context(header).ctx),
+    ).rejects.toThrow(UnauthorizedException);
   });
 
   it('firmado con otra clave → 401', async () => {

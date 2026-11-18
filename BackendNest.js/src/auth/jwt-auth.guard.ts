@@ -55,7 +55,7 @@ export class JwtAuthGuard implements CanActivate {
     let claims: SkillBridgeClaims;
     try {
       claims = await this.jwt.verifyAsync<SkillBridgeClaims & object>(token, {
-        publicKey,
+        secret: publicKey,
         algorithms: ['RS256'],
         issuer: JWT_ISSUER,
       });

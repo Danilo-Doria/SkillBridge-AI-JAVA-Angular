@@ -25,6 +25,32 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Desarrollo local con Docker Compose
+
+El archivo `.env` en esta carpeta configura el backend: PostgreSQL (`DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`), autenticación (`JWT_PUBLIC_KEY`), RabbitMQ (`RABBITMQ_URL`), el puerto HTTP (`PORT`) y, opcionalmente, NestJS Observe (`OBSERVE_APP_KEY` y `OBSERVE_APP_SECRET`). `JWT_PUBLIC_KEY` debe contener la clave pública RS256 correspondiente a la clave privada que firma los tokens. No guardes claves privadas ni credenciales reales en el repositorio.
+
+El `docker-compose.yml` inicia PostgreSQL y RabbitMQ; NestJS se ejecuta en el host desde esta carpeta. Levanta los servicios con:
+
+```powershell
+docker compose up -d
+docker compose ps
+```
+
+PostgreSQL queda accesible en `localhost:5432`. RabbitMQ AMQP se publica en el puerto `5673` del host y su panel de administración en [http://localhost:15673](http://localhost:15673). Para que una aplicación ejecutada en el host use RabbitMQ, configura `RABBITMQ_URL=amqp://guest:guest@localhost:5673` en `.env`.
+
+Instala las dependencias e inicia NestJS en modo desarrollo:
+
+```powershell
+npm install
+npm run start:dev
+```
+
+Detén PostgreSQL y RabbitMQ conservando los volúmenes de datos con:
+
+```powershell
+docker compose down
+```
+
 ## Project setup
 
 ```bash

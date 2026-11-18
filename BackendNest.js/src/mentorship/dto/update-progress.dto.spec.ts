@@ -10,7 +10,9 @@ async function errorsFor(body: Record<string, unknown>) {
 
 describe('UpdateProgressDto', () => {
   it.each([0, 60, 100])('acepta %i', async (value) => {
-    await expect(errorsFor({ progressPercent: value })).resolves.toHaveLength(0);
+    await expect(errorsFor({ progressPercent: value })).resolves.toHaveLength(
+      0,
+    );
   });
 
   it.each([-1, 101, 50.5])('rechaza %d', async (value) => {

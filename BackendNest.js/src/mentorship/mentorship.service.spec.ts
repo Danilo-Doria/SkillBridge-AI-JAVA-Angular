@@ -80,7 +80,10 @@ describe('MentorshipService', () => {
       repo.findOne.mockResolvedValue(assignment());
       repo.update.mockResolvedValue({ affected: 1 });
       repo.findOneByOrFail.mockResolvedValue(
-        assignment({ status: MentorshipStatus.IN_PROGRESS, progressPercent: 60 }),
+        assignment({
+          status: MentorshipStatus.IN_PROGRESS,
+          progressPercent: 60,
+        }),
       );
 
       const result = await service.updateProgress(ID, STUDENT, 60);
@@ -98,7 +101,10 @@ describe('MentorshipService', () => {
 
     it('100 → COMPLETED con completedAt = now()', async () => {
       repo.findOne.mockResolvedValue(
-        assignment({ status: MentorshipStatus.IN_PROGRESS, progressPercent: 60 }),
+        assignment({
+          status: MentorshipStatus.IN_PROGRESS,
+          progressPercent: 60,
+        }),
       );
       repo.update.mockResolvedValue({ affected: 1 });
       repo.findOneByOrFail.mockResolvedValue(assignment());
@@ -180,7 +186,10 @@ describe('MentorshipService', () => {
 
     it('bajar el progreso → 422', async () => {
       repo.findOne.mockResolvedValue(
-        assignment({ status: MentorshipStatus.IN_PROGRESS, progressPercent: 60 }),
+        assignment({
+          status: MentorshipStatus.IN_PROGRESS,
+          progressPercent: 60,
+        }),
       );
 
       await expect(service.updateProgress(ID, STUDENT, 30)).rejects.toThrow(
