@@ -81,6 +81,50 @@ Para brindar trazabilidad detallada, los eventos ahora viajan enriquecidos con l
    - `OfferingCreated`, `OfferingUpdated`, `OfferingActivated`, `OfferingDeactivated`.
    - **Auditoría**: action acorde (CREATE/UPDATE/ACTIVATE/DEACTIVATE), resource=OFFERING, resourceId=offeringId.
 
+## Transactional Outbox de mentorías (HU-MNT-08)
+
+El servicio NestJS (`BackendNest.js`) publica los eventos de mentoría definidos en
+[`docs/contracts/mentorships/events.md`](../contracts/mentorships/events.md) usando el patrón
+**Transactional Outbox**:
+
+1. La transición de negocio y la fila de `outbox_events` se confirman en la **misma transacción**
+   de PostgreSQL. Si la transacción falla, no hay evento.
+2. Un publicador independiente reclama filas con `publishedAt IS NULL` usando
+   `FOR UPDATE SKIP LOCKED`, por lo que varias réplicas no publican la misma fila.
+3. El evento se envía a `booking-events` con el envelope `BusinessEvent`, clave `aggregateId`
+   y `acks=all`.
+4. Solo después del acknowledgement se marca `publishedAt` y `publishState = PUBLISHED`.
+5. Los fallos se reintentan con backoff exponencial. Tras `KAFKA_OUTBOX_MAX_ATTEMPTS` la fila
+   queda en `FAILED`, visible para operación, sin descartarse.
+6. La entrega es **at-least-once**: los consumidores deduplican por `eventId`.
+
+Se preserva el orden por `aggregateId` en estado normal. Un evento `FAILED` deja de bloquear a los
+siguientes eventos del mismo agregado.
+
+Los eventos de mentoría usan el envelope mínimo de [events.md](../contracts/mentorships/events.md):
+no añaden `actorUserId`, `actorUsername`, `actorRole`, `action`, `resource` ni `resourceId`, y no
+duplican esos campos dentro de `payload`.
+
+### Configuración del publicador
+
+| Variable | Default | Descripción |
+|---|---|---|
+| `KAFKA_ENABLED` | `true` en producción, `false` en desarrollo | Activa el publicador. |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` (dev) | Brokers separados por coma. |
+| `KAFKA_TOPIC_BOOKING_EVENTS` | `booking-events` | Topic destino. |
+| `KAFKA_CLIENT_ID` | `skillbridge-mentorship` | Client ID del productor. |
+| `KAFKA_OUTBOX_POLL_INTERVAL_MS` | `1000` | Intervalo de polling. |
+| `KAFKA_OUTBOX_BATCH_SIZE` | `50` | Filas reclamadas por ciclo. |
+| `KAFKA_OUTBOX_MAX_ATTEMPTS` | `10` | Intentos antes de `FAILED`. |
+| `KAFKA_OUTBOX_BACKOFF_BASE_MS` | `500` | Base del backoff exponencial. |
+| `KAFKA_OUTBOX_BACKOFF_MAX_MS` | `60000` | Tope del backoff. |
+| `KAFKA_OUTBOX_LOCK_MS` | `30000` | Vigencia del lease de reclamo. |
+| `KAFKA_PRODUCER_REQUEST_TIMEOUT_MS` | `10000` | Timeout de envío al broker. |
+
+Si el publicador está habilitado y no hay brokers configurados, el servicio falla al arrancar.
+En desarrollo, `KAFKA_ENABLED=false` deja los eventos pendientes en PostgreSQL sin simular
+publicaciones exitosas.
+
 ## Configuración y Variables de Entorno
 
 - `KAFKA_BOOTSTRAP_SERVERS`: Direcciones de los brokers de Kafka.
